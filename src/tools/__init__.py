@@ -7,6 +7,7 @@ from .dingtalk_enterprise import DingTalkEnterpriseTool, DingTalkError
 from .log_store import LogStoreTool
 from .spark_hist import SparkHistTool
 from .impact import ImpactTool
+from .yarn_log import YARNLogTool
 
 __all__ = [
     "RiskAssessTool",
@@ -15,4 +16,5 @@ __all__ = [
     "LogStoreTool",
     "SparkHistTool",
     "ImpactTool",
+    "YARNLogTool",
 ]
