@@ -133,3 +133,94 @@ class TestExecuteAction:
 
         assert result["execution_success"] is False
         assert len(result["executed_actions"]) == 0
+
+    @patch("src.workflow.nodes.execute.DSCLIClient")
+    def test_execute_config_change_action(self, mock_dsctl):
+        """测试配置变更动作"""
+        mock_instance = Mock()
+        mock_instance.workflow_instance_rerun.return_value = Mock(
+            success=True, stdout="Config changed and rerun", stderr="", returncode=0
+        )
+        mock_dsctl.return_value = mock_instance
+
+        state = create_initial_state({
+            "projectCode": "123",
+            "processDefinitionCode": "456",
+            "taskCode": "789",
+            "taskInstanceId": 1377412,
+            "processInstanceId": 833841,
+            "taskType": "SPARK",
+        })
+        state["task_code"] = "789"
+        state["suggested_actions"] = [{"action_type": "config-change", "risk_level": "LOW"}]
+        state["project_config"] = {
+            "ds_api_url": "http://ds:12345",
+            "ds_api_token": "token"
+        }
+
+        result = execute_action(state)
+
+        assert result["execution_success"] is True
+        assert len(result["executed_actions"]) == 1
+
+    def test_execute_notify_only_action(self):
+        """测试仅通知动作"""
+        state = create_initial_state({
+            "projectCode": "123",
+            "processDefinitionCode": "456",
+            "taskCode": "789",
+            "taskType": "SPARK",
+        })
+        state["suggested_actions"] = [{"action_type": "notify-only", "risk_level": "LOW"}]
+        state["project_config"] = {"ds_api_url": "http://ds:12345", "ds_api_token": "token"}
+
+        result = execute_action(state)
+
+        assert result["execution_success"] is True
+        assert len(result["executed_actions"]) == 1
+
+    @patch("src.workflow.nodes.execute.DSCLIClient")
+    def test_execute_action_failure(self, mock_dsctl):
+        """测试动作执行失败"""
+        mock_instance = Mock()
+        mock_instance.workflow_instance_rerun.return_value = Mock(
+            success=False, stdout="", stderr="Error: workflow not found", returncode=1
+        )
+        mock_dsctl.return_value = mock_instance
+
+        state = create_initial_state({
+            "projectCode": "123",
+            "processDefinitionCode": "456",
+            "taskCode": "789",
+            "taskInstanceId": 1377412,
+            "processInstanceId": 833841,
+            "taskType": "SPARK",
+        })
+        state["suggested_actions"] = [{"action_type": "rerun", "risk_level": "LOW"}]
+        state["project_config"] = {
+            "ds_api_url": "http://ds:12345",
+            "ds_api_token": "token"
+        }
+
+        result = execute_action(state)
+
+        assert result["execution_success"] is False
+        assert len(result["executed_actions"]) == 1
+        assert result["execution_results"][0]["status"] == "failed"
+
+    def test_execute_unknown_action_type(self):
+        """测试未知动作类型"""
+        state = create_initial_state({
+            "projectCode": "123",
+            "processDefinitionCode": "456",
+            "taskCode": "789",
+            "taskType": "SPARK",
+        })
+        state["suggested_actions"] = [{"action_type": "unknown-type", "risk_level": "LOW"}]
+        state["project_config"] = {"ds_api_url": "http://ds:12345", "ds_api_token": "token"}
+
+        result = execute_action(state)
+
+        assert result["execution_success"] is False
+        assert len(result["executed_actions"]) == 0
+        assert result["execution_results"][0]["status"] == "skipped"

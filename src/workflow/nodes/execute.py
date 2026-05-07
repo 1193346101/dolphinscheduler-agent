@@ -4,7 +4,7 @@ execute_action 节点
 执行修复动作 - 完整实现
 """
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 from ..state import AgentState
 from ...integrations.dsctl_wrapper import DSCLIClient, CLIResult
 
@@ -45,8 +45,9 @@ def execute_action(state: AgentState) -> AgentState:
     executed = []
     results = []
 
-    instance_id = state["alert_raw"].get("processInstanceId")
-    task_code = int(state.get("task_code", 0) or 0)
+    alert_raw = state.get("alert_raw", {})
+    instance_id = alert_raw.get("processInstanceId")
+    task_code = int(state.get("task_code") or 0)
 
     for action in actions:
         action_type = action.get("action_type", "")
@@ -63,27 +64,34 @@ def execute_action(state: AgentState) -> AgentState:
                 continue
 
         # 执行动作
-        result = _execute_single_action(
-            action_type,
-            dsctl,
-            instance_id,
-            task_code,
-            state
-        )
+        try:
+            result = _execute_single_action(
+                action_type,
+                dsctl,
+                instance_id,
+                task_code,
+                state
+            )
 
-        if result:
-            executed.append(action)
+            if result:
+                executed.append(action)
+                results.append({
+                    "action": action,
+                    "status": "success" if result.success else "failed",
+                    "output": result.stdout[:500] if result.stdout else "",
+                    "stderr": result.stderr[:200] if result.stderr else ""
+                })
+            else:
+                results.append({
+                    "action": action,
+                    "status": "skipped",
+                    "reason": "未知动作类型"
+                })
+        except Exception as e:
             results.append({
                 "action": action,
-                "status": "success" if result.success else "failed",
-                "output": result.stdout[:500] if result.stdout else "",
-                "stderr": result.stderr[:200] if result.stderr else ""
-            })
-        else:
-            results.append({
-                "action": action,
-                "status": "skipped",
-                "reason": "未知动作类型"
+                "status": "error",
+                "reason": str(e)
             })
 
     # 判断整体成功
@@ -107,7 +115,7 @@ def _execute_single_action(
     instance_id: int,
     task_code: int,
     state: Dict
-) -> CLIResult:
+) -> Optional[CLIResult]:
     """执行单个动作"""
 
     if action_type == "rerun":
