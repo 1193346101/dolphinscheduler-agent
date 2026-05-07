@@ -824,67 +824,81 @@ class LogStoreTool:
 
 **用途：** 通过钉钉企业机器人发送通知。
 
+**认证方式：** 使用 Client ID + Client Secret 获取 access_token，无需传统 webhook token。
+
 **配置：**
 
 | 字段 | 值 |
 |------|-----|
 | Client ID | `dingyyink7zqipbyrnf1` |
 | Client Secret | `uBn_9NI7eK1Bm3aGIIcnv5cac4g-Imtg_gMV6MJl8rSQ9-I4xIUXt7SQ68vPfN3E` |
-| API Endpoint | `https://api.dingtalk.com/v1.0/robot/oToMessages` |
+| Token API | `https://api.dingtalk.com/v1.0/oauth2/accessToken` |
+| Message API | `https://api.dingtalk.com/v1.0/robot/oToMessages` |
 
 **实现：**
 
 ```python
-import hmac
-import hashlib
-import base64
-import time
-import urllib.parse
+import requests
 
 class DingTalkTool:
     def __init__(self, client_id: str, client_secret: str):
         self.client_id = client_id
         self.client_secret = client_secret
-        self.api_url = "https://api.dingtalk.com/v1.0/robot/oToMessages"
+        self.token_api = "https://api.dingtalk.com/v1.0/oauth2/accessToken"
+        self.message_api = "https://api.dingtalk.com/v1.0/robot/oToMessages"
+        self.access_token = None
+        self.token_expire_time = 0
 
-    def _generate_signature(self, timestamp: int) -> str:
-        """生成钉钉 API 签名"""
-        string_to_sign = f"{timestamp}\n{self.client_secret}"
-        hmac_code = hmac.new(
-            self.client_secret.encode("utf-8"),
-            string_to_sign.encode("utf-8"),
-            digestmod=hashlib.sha256
-        ).digest()
-        sign = urllib.parse.quote_plus(base64.b64encode(hmac_code))
-        return sign
+    def _get_access_token(self) -> str:
+        """获取企业机器人 access_token"""
+        # 检查 token 是否过期，提前 5 分钟刷新
+        if self.access_token and time.time() < self.token_expire_time - 300:
+            return self.access_token
 
-    def send_notification(self, webhook_url: str, content: Dict) -> str:
+        response = requests.post(
+            self.token_api,
+            headers={"Content-Type": "application/json"},
+            json={
+                "clientId": self.client_id,
+                "clientSecret": self.client_secret
+            },
+            timeout=10
+        )
+
+        if response.status_code == 200:
+            data = response.json()
+            self.access_token = data["accessToken"]
+            self.token_expire_time = time.time() + data.get("expireIn", 7200)
+            return self.access_token
+
+        raise DingTalkError(f"获取 access_token 失败: {response.text}")
+
+    def send_notification(self, robot_code: str, user_ids: List[str], content: Dict) -> str:
         """发送通知并返回消息 ID"""
-        timestamp = int(time.time() * 1000)
-        sign = self._generate_signature(timestamp)
+        access_token = self._get_access_token()
 
         headers = {
             "Content-Type": "application/json",
-            "timestamp": str(timestamp),
-            "sign": sign
+            "x-acs-dingtalk-access-token": access_token
         }
 
         payload = {
-            "msgtype": "interactive",
-            "interactive": content
+            "robotCode": robot_code,
+            "userIds": user_ids,
+            "msgKey": "sampleActionCard",
+            "msgParam": json.dumps(content)
         }
 
-        # 企业机器人使用项目配置中的 webhook URL
         response = requests.post(
-            webhook_url,
+            self.message_api,
             headers=headers,
             json=payload,
             timeout=10
         )
 
         if response.status_code == 200:
-            return response.json().get("messageId", "")
-        raise DingTalkError(response.text)
+            return response.json().get("processQueryKeys", "")
+        raise DingTalkError(f"发送消息失败: {response.text}")
 
     def build_error_notification(self, state: AgentState) -> Dict:
         """构建错误通知的交互卡片"""
@@ -1018,10 +1032,12 @@ class ApprovalTool:
 
     def request_approval(self, state: AgentState) -> str:
         """发送审批请求并追踪"""
-        message_id = self.dingtalk.send_notification(
-            state['project_config']['dingtalk_webhook'],
-            self.dingtalk.build_approval_request(state)
-        )
+        # 从项目配置获取机器人编码和通知用户列表
+        robot_code = state['project_config']['dingtalk_robot_code']
+        user_ids = state['project_config']['dingtalk_notify_users']
+
+        content = self.dingtalk.build_approval_request(state)
+        message_id = self.dingtalk.send_notification(robot_code, user_ids, content)
 
         self.pending_approvals[message_id] = {
             "state": state,
@@ -1394,11 +1410,40 @@ def on_startup():
 
 ## 实现说明
 
+### 项目配置结构
+
+```yaml
+# config/projects.yaml
+projects:
+  ad_monitor:
+    project_code: "11598158952448"
+    ds_url: "http://ali-dolphin-test-01:12345/dolphinscheduler"
+    ds_token: "771c3c883c17618846a5deae40f89d86"
+
+    # 钉钉企业机器人配置（无需 webhook token）
+    dingtalk:
+      robot_code: "dingyyink7zqipbyrnf1"       # 机器人编码
+      client_id: "dingyyink7zqipbyrnf1"
+      client_secret: "uBn_9NI7eK1Bm3aGIIcnv5cac4g-Imtg_gMV6MJl8rSQ9-I4xIUXt7SQ68vPfN3E"
+      notify_users:                            # 通知接收人（钉钉用户 ID）
+        - "user_id_1"
+        - "user_id_2"
+
+    # Spark 日志来源配置
+    spark_mode: "yarn"                         # 当前：yarn / 后续：k8s
+    spark_history_url: "ali-odp-test-02.huan.tv:18082"
+    yarn_gateway_url: "https://ali-odp-test-01.huan.tv:8443/gateway/default/yarn/cluster"
+    yarn_auth:
+      type: "basic"
+      username: "yarn_user"
+      password: "yarn_password"
+```
+
 ### 第一阶段范围
 
 - 知识库反馈循环：**跳过**（条目直接进入 confirmed.json）
 - 审批超时：30 分钟
-- 钉钉配置：使用已提供的企业级机器人配置
+- 钉钉配置：使用企业机器人 API（Client ID + Client Secret），**弃用传统 webhook token**
 - 日志来源：dsctl CLI + Spark History + YARN Gateway/K8s Pod Logs（混合）
 
 ### DS 3.2.0 API 适配
