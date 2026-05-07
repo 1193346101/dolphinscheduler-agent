@@ -10,6 +10,7 @@ from .impact import ImpactTool
 from .yarn_log import YARNLogTool
 from .k8s_log import K8sLogTool
 from .llm_client import LLMClient
+from .approval_tool import ApprovalTool, ApprovalRequest
 
 __all__ = [
     "RiskAssessTool",
@@ -21,4 +22,6 @@ __all__ = [
     "YARNLogTool",
     "K8sLogTool",
     "LLMClient",
+    "ApprovalTool",
+    "ApprovalRequest",
 ]
