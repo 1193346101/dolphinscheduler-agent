@@ -1,0 +1,30 @@
+# 多项目配置
+projects:
+  - name: ad_monitor
+    code: 11598158952448
+    ds_api_url: http://ali-dolphin-test-01:12345/dolphinscheduler
+    ds_api_token: 771c3c883c17618846a5deae40f89d86
+    ds_version: "3.2.0"
+
+    # 钉钉企业机器人配置
+    dingtalk:
+      robot_code: dingyyink7zqipbyrnf1
+      client_id: dingyyink7zqipbyrnf1
+      client_secret: uBn_9NI7eK1Bm3aGIIcnv5cac4g-Imtg_gMV6MJl8rSQ9-I4xIUXt7SQ68vPfN3E
+      notify_users:
+        - user_id_placeholder  # 替换为实际钉钉用户 ID
+
+    # Spark 日志配置
+    spark_log:
+      mode: yarn
+      history_url: ali-odp-test-02.huan.tv:18082
+      yarn_gateway_url: https://ali-odp-test-01.huan.tv:8443/gateway/default/yarn/cluster
+      yarn_auth_type: basic
+      yarn_username: yarn_user_placeholder
+      yarn_password: yarn_password_placeholder
+
+    # 权限配置
+    allowed_users:
+      - admin_placeholder
+    admin_users:
+      - admin_placeholder
