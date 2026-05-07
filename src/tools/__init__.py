@@ -9,6 +9,7 @@ from .spark_hist import SparkHistTool
 from .impact import ImpactTool
 from .yarn_log import YARNLogTool
 from .k8s_log import K8sLogTool
+from .llm_client import LLMClient
 
 __all__ = [
     "RiskAssessTool",
@@ -19,4 +20,5 @@ __all__ = [
     "ImpactTool",
     "YARNLogTool",
     "K8sLogTool",
+    "LLMClient",
 ]
