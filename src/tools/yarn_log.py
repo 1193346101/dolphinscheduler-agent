@@ -66,7 +66,7 @@ class YARNLogTool:
             containers = app_data.get("app", {}).get("containers", [])
             for container in containers:
                 container_id = container.get("id", "")
-                log_content = self._fetch_container_log(container_id, auth)
+                log_content = self._fetch_container_log(application_id, container_id, auth)
                 if log_content:
                     logs[container_id] = log_content
 
@@ -79,10 +79,10 @@ class YARNLogTool:
         """构建应用 API URL"""
         return f"{self.gateway_url}/ws/v1/cluster/apps/{application_id}"
 
-    def _fetch_container_log(self, container_id: str, auth) -> Optional[str]:
+    def _fetch_container_log(self, application_id: str, container_id: str, auth) -> Optional[str]:
         """获取单个 container 日志"""
         try:
-            url = f"{self.gateway_url}/ws/v1/cluster/apps/{container_id.split('_')[0]}_{container_id.split('_')[1]}/containers/{container_id}/logs"
+            url = f"{self.gateway_url}/ws/v1/cluster/apps/{application_id}/containers/{container_id}/logs"
             response = requests.get(url, auth=auth, timeout=10, verify=False)
 
             if response.status_code == 200:
