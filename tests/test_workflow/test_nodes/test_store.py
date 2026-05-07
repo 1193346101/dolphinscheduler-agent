@@ -68,3 +68,25 @@ class TestStoreResults:
             result = store_results(state, base_path=tmpdir)
 
             assert result["log_stored"] is True
+
+    def test_store_logs_path_traversal_prevention(self):
+        """测试路径穿越攻击防护"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state = create_initial_state({
+                "projectCode": "123",
+                "processDefinitionCode": "456",
+                "taskCode": "789",
+                "taskType": "SPARK",
+            })
+            # 使用恶意路径穿越值
+            state["workflow_code"] = "../../../etc"
+            state["task_code"] = ".."
+            state["driver_logs"] = "driver log"
+            state["project_config"] = {}
+
+            result = store_results(state, base_path=tmpdir)
+
+            # 应该仍然存储成功（路径被清理）
+            assert result["log_stored"] is True
+            # 验证文件存储在 tmpdir 内部，不是外部
+            assert tmpdir in result["log_store_path"]
