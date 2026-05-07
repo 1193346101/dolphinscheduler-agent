@@ -291,8 +291,7 @@ data/lineage/
 │   └── 456.json
 ├── tables/              # 表血缘索引（反向查询）
 │   └── hive.db.table_a.json
-├── cache.json           # 解析状态缓存
-└── permissions.yaml     # 群组权限配置
+└── cache.json           # 解析状态缓存
 ```
 
 **单个工作流血缘文件示例**：
