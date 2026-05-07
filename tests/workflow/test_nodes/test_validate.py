@@ -3,7 +3,7 @@ validate_project 节点测试
 """
 
 import pytest
-from src.workflow.state import create_initial_state
+from src.workflow.state import create_initial_state, INITIAL_STATE
 from src.workflow.nodes.validate import validate_project
 from src.config.projects import projects_registry, ProjectConfig, DingTalkConfig
 
@@ -19,14 +19,8 @@ def test_validate_project_valid():
     )
     projects_registry.register(test_config)
 
-    state = create_initial_state(
-        alert_raw={},
-        project_code="123456",
-        workflow_code="",
-        task_code="",
-        task_type="SHELL",
-        error_time="",
-    )
+    state = create_initial_state(alert_raw={})
+    state["project_code"] = "123456"
 
     result = validate_project(state)
 
@@ -37,14 +31,8 @@ def test_validate_project_valid():
 
 def test_validate_project_invalid_code():
     """测试无效项目编码"""
-    state = create_initial_state(
-        alert_raw={},
-        project_code="999999",  # 不存在的编码
-        workflow_code="",
-        task_code="",
-        task_type="SHELL",
-        error_time="",
-    )
+    state = create_initial_state(alert_raw={})
+    state["project_code"] = "999999"  # 不存在的编码
 
     result = validate_project(state)
 
@@ -54,14 +42,8 @@ def test_validate_project_invalid_code():
 
 def test_validate_project_non_numeric_code():
     """测试非数字项目编码"""
-    state = create_initial_state(
-        alert_raw={},
-        project_code="invalid",
-        workflow_code="",
-        task_code="",
-        task_type="SHELL",
-        error_time="",
-    )
+    state = create_initial_state(alert_raw={})
+    state["project_code"] = "invalid"
 
     result = validate_project(state)
 
@@ -87,14 +69,8 @@ def test_validate_project_with_dingtalk_config():
     )
     projects_registry.register(test_config)
 
-    state = create_initial_state(
-        alert_raw={},
-        project_code="789012",
-        workflow_code="",
-        task_code="",
-        task_type="SHELL",
-        error_time="",
-    )
+    state = create_initial_state(alert_raw={})
+    state["project_code"] = "789012"
 
     result = validate_project(state)
 

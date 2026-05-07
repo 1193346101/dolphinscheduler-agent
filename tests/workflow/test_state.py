@@ -4,7 +4,7 @@ Tests for AgentState TypedDict state definition.
 
 import pytest
 from typing import get_type_hints
-from src.workflow.state import AgentState, create_initial_state
+from src.workflow.state import AgentState, create_initial_state, INITIAL_STATE
 
 
 class TestAgentStateFields:
@@ -12,14 +12,7 @@ class TestAgentStateFields:
 
     def test_initial_state_has_all_fields(self):
         """Test that initial state contains all required fields."""
-        state = create_initial_state(
-            alert_raw={"test": "data"},
-            project_code="proj_001",
-            workflow_code="wf_001",
-            task_code="task_001",
-            task_type="SPARK",
-            error_time="2024-01-01T00:00:00Z",
-        )
+        state = create_initial_state(alert_raw={"test": "data"})
 
         # Input stage fields
         assert "alert_raw" in state
@@ -74,22 +67,15 @@ class TestAgentStateFields:
 
     def test_initial_state_defaults(self):
         """Test that initial state has correct default values."""
-        state = create_initial_state(
-            alert_raw={"test": "data"},
-            project_code="proj_001",
-            workflow_code="wf_001",
-            task_code="task_001",
-            task_type="SHELL",
-            error_time="2024-01-01T00:00:00Z",
-        )
+        state = create_initial_state(alert_raw={"test": "data"})
 
         # Input stage
         assert state["alert_raw"] == {"test": "data"}
-        assert state["project_code"] == "proj_001"
-        assert state["workflow_code"] == "wf_001"
-        assert state["task_code"] == "task_001"
+        assert state["project_code"] == ""
+        assert state["workflow_code"] == ""
+        assert state["task_code"] == ""
         assert state["task_type"] == "SHELL"
-        assert state["error_time"] == "2024-01-01T00:00:00Z"
+        assert state["error_time"] == ""
 
         # Validation stage defaults
         assert state["project_valid"] is False
@@ -136,14 +122,14 @@ class TestAgentStateFields:
 
     def test_state_can_be_updated(self):
         """Test that state can be updated with new values."""
-        state = create_initial_state(
-            alert_raw={"test": "data"},
-            project_code="proj_001",
-            workflow_code="wf_001",
-            task_code="task_001",
-            task_type="SPARK",
-            error_time="2024-01-01T00:00:00Z",
-        )
+        state = create_initial_state(alert_raw={"test": "data"})
+
+        # Update input stage (after parse_alert)
+        state["project_code"] = "proj_001"
+        state["workflow_code"] = "wf_001"
+        state["task_code"] = "task_001"
+        state["task_type"] = "SPARK"
+        state["error_time"] = "2024-01-01T00:00:00Z"
 
         # Update validation stage
         state["project_valid"] = True
@@ -203,28 +189,15 @@ class TestAgentStateFields:
         valid_types = ["SHELL", "SPARK", "PYTHON", "DATAX"]
 
         for task_type in valid_types:
-            state = create_initial_state(
-                alert_raw={},
-                project_code="proj_001",
-                workflow_code="wf_001",
-                task_code="task_001",
-                task_type=task_type,
-                error_time="2024-01-01T00:00:00Z",
-            )
+            state = create_initial_state(alert_raw={})
+            state["task_type"] = task_type
             assert state["task_type"] == task_type
 
     def test_state_risk_level_literal(self):
         """Test that risk_level accepts only predefined values."""
         valid_levels = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
 
-        state = create_initial_state(
-            alert_raw={},
-            project_code="proj_001",
-            workflow_code="wf_001",
-            task_code="task_001",
-            task_type="SPARK",
-            error_time="2024-01-01T00:00:00Z",
-        )
+        state = create_initial_state(alert_raw={})
 
         for level in valid_levels:
             state["risk_level"] = level
@@ -256,12 +229,14 @@ class TestAgentStateIntegration:
         # Initial state
         state = create_initial_state(
             alert_raw={"alert_id": "123", "message": "Task failed"},
-            project_code="proj_001",
-            workflow_code="wf_001",
-            task_code="task_001",
-            task_type="SPARK",
-            error_time="2024-01-01T10:30:00Z",
         )
+
+        # Stage 0: Parse alert (sets input fields)
+        state["project_code"] = "proj_001"
+        state["workflow_code"] = "wf_001"
+        state["task_code"] = "task_001"
+        state["task_type"] = "SPARK"
+        state["error_time"] = "2024-01-01T10:30:00Z"
 
         # Stage 1: Validation
         state["project_valid"] = True
@@ -327,14 +302,7 @@ class TestAgentStateIntegration:
 
     def test_k8s_logs_field(self):
         """Test that k8s_logs field works correctly."""
-        state = create_initial_state(
-            alert_raw={},
-            project_code="proj_001",
-            workflow_code="wf_001",
-            task_code="task_001",
-            task_type="PYTHON",
-            error_time="2024-01-01T00:00:00Z",
-        )
+        state = create_initial_state(alert_raw={})
 
         # Initially None
         assert state["k8s_logs"] is None
@@ -351,14 +319,7 @@ class TestAgentStateIntegration:
 
     def test_approval_status_values(self):
         """Test all approval status values."""
-        state = create_initial_state(
-            alert_raw={},
-            project_code="proj_001",
-            workflow_code="wf_001",
-            task_code="task_001",
-            task_type="DATAX",
-            error_time="2024-01-01T00:00:00Z",
-        )
+        state = create_initial_state(alert_raw={})
 
         # Test all valid status values
         valid_statuses = ["pending", "approved", "rejected", "timeout"]

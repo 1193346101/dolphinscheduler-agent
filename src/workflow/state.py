@@ -75,6 +75,8 @@ class AgentState(TypedDict, total=False):
     risk_factors: List[str]
     # Number of affected downstream tasks
     downstream_tasks: int
+    # List of downstream task codes
+    downstream_list: List[str]
     # Summary of impact
     impact_summary: Optional[str]
 
@@ -109,80 +111,76 @@ class AgentState(TypedDict, total=False):
     log_store_path: Optional[str]
 
 
-def create_initial_state(
-    alert_raw: Dict[str, Any],
-    project_code: str,
-    workflow_code: str,
-    task_code: str,
-    task_type: Literal["SHELL", "SPARK", "PYTHON", "DATAX"],
-    error_time: str,
-) -> AgentState:
+# Initial state template with default values
+INITIAL_STATE: Dict[str, Any] = {
+    # Input stage - defaults
+    "alert_raw": {},
+    "project_code": "",
+    "workflow_code": "",
+    "task_code": "",
+    "task_type": "SHELL",
+    "error_time": "",
+
+    # Validation stage - defaults
+    "project_valid": False,
+    "project_config": None,
+
+    # Log fetch stage - defaults
+    "driver_logs": None,
+    "spark_logs": None,
+    "yarn_logs": None,
+    "k8s_logs": None,
+    "log_fetch_error": None,
+
+    # Analysis stage - defaults
+    "error_patterns": [],
+    "error_category": "",
+    "suggested_actions": [],
+    "knowledge_match": None,
+    "confidence_score": 0.0,
+
+    # Risk assessment stage - defaults
+    "risk_level": "LOW",
+    "risk_factors": [],
+    "downstream_tasks": 0,
+    "downstream_list": [],
+    "impact_summary": None,
+
+    # Approval stage - defaults
+    "approval_required": False,
+    "approval_status": None,
+    "approval_message_id": None,
+
+    # Execution stage - defaults
+    "executed_actions": [],
+    "execution_results": [],
+    "execution_success": False,
+
+    # Notification stage - defaults
+    "notification_sent": False,
+    "notification_content": None,
+
+    # Storage stage - defaults
+    "log_stored": False,
+    "result_stored": False,
+    "log_store_path": None,
+}
+
+
+def create_initial_state(alert_raw: Dict[str, Any] = None) -> AgentState:
     """
     Create an initial AgentState with default values.
 
     Args:
-        alert_raw: Raw webhook JSON data
-        project_code: Project code
-        workflow_code: Workflow code
-        task_code: Task code
-        task_type: Task type (SHELL, SPARK, PYTHON, or DATAX)
-        error_time: Alert timestamp
+        alert_raw: Raw webhook JSON data (optional)
 
     Returns:
         Initial AgentState with all fields populated
     """
-    return AgentState(
-        # Input stage
-        alert_raw=alert_raw,
-        project_code=project_code,
-        workflow_code=workflow_code,
-        task_code=task_code,
-        task_type=task_type,
-        error_time=error_time,
-
-        # Validation stage
-        project_valid=False,
-        project_config=None,
-
-        # Log fetch stage
-        driver_logs=None,
-        spark_logs=None,
-        yarn_logs=None,
-        k8s_logs=None,
-        log_fetch_error=None,
-
-        # Analysis stage
-        error_patterns=[],
-        error_category="",
-        suggested_actions=[],
-        knowledge_match=None,
-        confidence_score=0.0,
-
-        # Risk assessment stage
-        risk_level="LOW",
-        risk_factors=[],
-        downstream_tasks=0,
-        impact_summary=None,
-
-        # Approval stage
-        approval_required=False,
-        approval_status=None,
-        approval_message_id=None,
-
-        # Execution stage
-        executed_actions=[],
-        execution_results=[],
-        execution_success=False,
-
-        # Notification stage
-        notification_sent=False,
-        notification_content=None,
-
-        # Storage stage
-        log_stored=False,
-        result_stored=False,
-        log_store_path=None,
-    )
+    state = dict(INITIAL_STATE)
+    if alert_raw:
+        state["alert_raw"] = alert_raw
+    return state
 
 
-__all__ = ["AgentState", "create_initial_state"]
+__all__ = ["AgentState", "create_initial_state", "INITIAL_STATE"]

@@ -3,7 +3,7 @@ parse_alert 节点测试
 """
 
 import pytest
-from src.workflow.state import create_initial_state, AgentState
+from src.workflow.state import create_initial_state, INITIAL_STATE
 from src.workflow.nodes.parse import parse_alert
 
 
@@ -16,11 +16,6 @@ def test_parse_alert_extract_project_code():
             "taskCode": 123456789,
             "taskType": "SPARK",
         },
-        project_code="",
-        workflow_code="",
-        task_code="",
-        task_type="SHELL",
-        error_time="",
     )
 
     result = parse_alert(state)
@@ -37,11 +32,6 @@ def test_parse_alert_extract_workflow_code():
             "taskCode": 123456789,
             "taskType": "SPARK",
         },
-        project_code="",
-        workflow_code="",
-        task_code="",
-        task_type="SHELL",
-        error_time="",
     )
 
     result = parse_alert(state)
@@ -58,11 +48,6 @@ def test_parse_alert_extract_task_code():
             "taskCode": 123456789,
             "taskType": "SPARK",
         },
-        project_code="",
-        workflow_code="",
-        task_code="",
-        task_type="SHELL",
-        error_time="",
     )
 
     result = parse_alert(state)
@@ -79,11 +64,6 @@ def test_parse_alert_extract_task_type():
             "taskCode": 123456789,
             "taskType": "SPARK",
         },
-        project_code="",
-        workflow_code="",
-        task_code="",
-        task_type="SHELL",
-        error_time="",
     )
 
     result = parse_alert(state)
@@ -100,11 +80,6 @@ def test_parse_alert_normalize_task_type():
             "taskCode": 123456789,
             "taskType": "spark",  # 小写
         },
-        project_code="",
-        workflow_code="",
-        task_code="",
-        task_type="SHELL",
-        error_time="",
     )
 
     result = parse_alert(state)
@@ -121,11 +96,6 @@ def test_parse_alert_default_unknown_task_type():
             "taskCode": 123456789,
             "taskType": "SQL",  # 不在预定义类型中
         },
-        project_code="",
-        workflow_code="",
-        task_code="",
-        task_type="SHELL",
-        error_time="",
     )
 
     result = parse_alert(state)
@@ -143,11 +113,6 @@ def test_parse_alert_extract_error_time():
             "taskType": "SPARK",
             "endTime": "2025-05-07 14:30:00",
         },
-        project_code="",
-        workflow_code="",
-        task_code="",
-        task_type="SHELL",
-        error_time="",
     )
 
     result = parse_alert(state)
@@ -157,14 +122,7 @@ def test_parse_alert_extract_error_time():
 
 def test_parse_alert_missing_fields():
     """测试缺失字段使用默认值"""
-    state = create_initial_state(
-        alert_raw={},  # 空数据
-        project_code="",
-        workflow_code="",
-        task_code="",
-        task_type="SHELL",
-        error_time="",
-    )
+    state = create_initial_state(alert_raw={})  # 空数据
 
     result = parse_alert(state)
 
