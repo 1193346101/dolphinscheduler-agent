@@ -59,7 +59,7 @@ digraph alert_flow {
 | 组件 | 职责 |
 |------|------|
 | **AlertReceiver** | 接收 webhook，解析告警 JSON，验证项目 token |
-| **LogFetcher** | 协调日志获取：dsctl CLI、Spark History、YARN Gateway |
+| **LogFetcher** | 协调日志获取：dsctl CLI、Spark History、YARN Gateway/K8s API |
 | **SkillRouter** | 根据任务类型路由到对应的 Skill |
 | **KnowledgeManager** | 查询 confirmed.json，管理 pending.json 条目 |
 | **RiskAssessor** | 根据规则评估操作风险等级 |
@@ -94,8 +94,9 @@ class AgentState(TypedDict):
 
     # === 日志获取阶段 ===
     driver_logs: Optional[str]          # dsctl CLI 日志
-    spark_logs: Optional[str]           # Spark History Server 日志
-    yarn_logs: Optional[str]            # YARN Gateway 日志
+    spark_logs: Optional[str]           # Spark History Server 日志（YARN/K8s 都可用）
+    yarn_logs: Optional[str]            # YARN Gateway 日志（Spark on YARN）
+    k8s_logs: Optional[Dict[str, str]]  # K8s Pod 日志（Spark on K8s）
     log_fetch_error: Optional[str]      # 日志获取失败时的错误信息
 
     # === 分析阶段 ===
@@ -136,16 +137,16 @@ class AgentState(TypedDict):
 |------|---------|---------|
 | `parse_alert` | alert_raw | project_code, workflow_code, task_code, task_type, error_time |
 | `validate_project` | project_code | project_valid, project_config |
-| `fetch_logs` | workflow_code, task_code, project_config | driver_logs, spark_logs, yarn_logs, log_fetch_error |
+| `fetch_logs` | workflow_code, task_code, project_config | driver_logs, spark_logs, yarn_logs/k8s_logs, log_fetch_error |
 | `route_skill` | task_type | (路由决策，不改变状态) |
-| `analyze_*` | driver_logs, spark_logs, yarn_logs | error_patterns, error_category, suggested_actions, confidence_score |
+| `analyze_*` | driver_logs, spark_logs, yarn_logs/k8s_logs | error_patterns, error_category, suggested_actions, confidence_score |
 | `query_knowledge` | error_patterns, error_category | knowledge_match |
 | `assess_risk` | suggested_actions, downstream_tasks | risk_level, risk_factors, approval_required |
 | `impact_analysis` | workflow_code, task_code, risk_level | downstream_tasks, impact_summary |
 | `request_approval` | suggested_actions, impact_summary, risk_level | approval_status, approval_message_id |
 | `execute_action` | suggested_actions, approval_status | executed_actions, execution_results, execution_success |
 | `notify_dingtalk` | execution_results, risk_level, error_category | notification_sent, notification_content |
-| `store_results` | driver_logs, spark_logs, yarn_logs, execution_results | log_stored, result_stored |
+| `store_results` | driver_logs, spark_logs, yarn_logs/k8s_logs, execution_results | log_stored, result_stored |
 
 ---
 
@@ -575,6 +576,8 @@ class SparkHistTool:
 
 **用途：** 通过 Knox Gateway（Basic Auth）获取 YARN 容器日志。
 
+**适用场景：** Spark on YARN
+
 **配置：**
 
 | 字段 | 值 |
@@ -617,6 +620,117 @@ class YARNLogTool:
         return ""
 ```
 
+### K8sLogTool
+
+**用途：** 通过 Kubernetes API 获取 Pod 日志。
+
+**适用场景：** Spark on K8s（后续切换）
+
+**可获取的日志：**
+
+| 日志类型 | 来源 | 说明 |
+|---------|------|------|
+| Driver Pod 日志 | K8s API | Spark Driver 运行的 Pod stdout/stderr |
+| Executor Pod 日志 | K8s API | Spark Executor 运行的 Pod stdout/stderr |
+| Spark History | Spark History Server | **仍然可用**，应用级别的日志和 Stage 信息 |
+
+**配置：**
+
+| 字段 | 说明 |
+|------|------|
+| K8s API Server | Kubernetes API 地址（如 `https://k8s-api-server:6443`） |
+| 认证方式 | kubeconfig 文件路径 或 service account token |
+| Namespace | Spark 应用运行的 K8s namespace |
+
+**实现：**
+
+```python
+from kubernetes import client, config
+
+class K8sLogTool:
+    def __init__(self, kubeconfig_path: str = None, namespace: str = "default"):
+        # 加载 kubeconfig 或使用 in-cluster 配置
+        if kubeconfig_path:
+            config.load_kube_config(config_file=kubeconfig_path)
+        else:
+            config.load_incluster_config()
+
+        self.core_v1 = client.CoreV1Api()
+        self.namespace = namespace
+
+    def fetch_pod_logs(self, pod_name: str, tail_lines: int = 100) -> str:
+        """获取 Pod 日志"""
+        try:
+            logs = self.core_v1.read_namespaced_pod_log(
+                name=pod_name,
+                namespace=self.namespace,
+                tail_lines=tail_lines
+            )
+            return logs
+        except client.exceptions.ApiException as e:
+            return f"获取日志失败: {e}"
+
+    def find_spark_pods(self, app_id: str) -> Dict[str, str]:
+        """根据 Spark app_id 查找相关 Pod"""
+        # Spark on K8s 的 Pod 命名规则：<app-name>-driver, <app-name>-executor-*
+        pods = self.core_v1.list_namespaced_pod(
+            namespace=self.namespace,
+            label_selector=f"spark-app-id={app_id}"
+        )
+
+        result = {"driver": None, "executors": []}
+        for pod in pods.items:
+            if "driver" in pod.metadata.name:
+                result["driver"] = pod.metadata.name
+            elif "executor" in pod.metadata.name:
+                result["executors"].append(pod.metadata.name)
+
+        return result
+
+    def fetch_app_logs(self, app_id: str) -> Dict[str, str]:
+        """获取 Spark 应用所有相关 Pod 的日志"""
+        pods = self.find_spark_pods(app_id)
+        logs = {}
+
+        if pods["driver"]:
+            logs["driver"] = self.fetch_pod_logs(pods["driver"], tail_lines=200)
+
+        for executor_pod in pods["executors"][:3]:  # 只取前 3 个 Executor
+            logs[f"executor_{executor_pod}"] = self.fetch_pod_logs(executor_pod, tail_lines=50)
+
+        return logs
+```
+
+**Spark on K8s vs Spark on YARN 对比：**
+
+| 对比项 | Spark on YARN | Spark on K8s |
+|--------|---------------|--------------|
+| Driver 日志来源 | YARN Container | K8s Pod |
+| Executor 日志来源 | YARN Container | K8s Pod |
+| Spark History Server | ✅ 可用 | ✅ 可用 |
+| 日志获取方式 | YARN Gateway (Knox) | Kubernetes API |
+| 认证方式 | Basic Auth | kubeconfig / Service Account |
+| 容器标识 | YARN Container ID | K8s Pod Name |
+
+**切换方案：**
+
+系统设计支持灵活切换，通过配置指定日志获取方式：
+
+```yaml
+# 项目配置示例
+spark_log_source: "yarn"  # 当前：yarn / 后续：k8s
+
+# YARN 配置（当前）
+yarn_gateway_url: "https://ali-odp-test-01.huan.tv:8443/gateway/default/yarn/cluster"
+yarn_auth_type: "basic"
+
+# K8s 配置（后续）
+k8s_api_server: "https://k8s-api-server:6443"
+k8s_namespace: "spark-apps"
+k8s_auth_type: "kubeconfig"
+k8s_kubeconfig_path: "/path/to/kubeconfig"
+```
+
 ### LogStoreTool
 
 **用途：** 存储日志，保留 7 天，自动清理。
@@ -631,7 +745,9 @@ class LogStoreTool:
 
     def store_logs(self, workflow_code: str, task_code: str,
                    driver_logs: str, spark_logs: str,
-                   yarn_logs: str) -> str:
+                   yarn_logs: str = None,
+                   k8s_logs: Dict[str, str] = None,
+                   spark_mode: str = "yarn") -> str:
         """存储日志并返回存储路径"""
         date_path = datetime.now().strftime("%Y-%m-%d")
         store_path = os.path.join(
@@ -641,20 +757,40 @@ class LogStoreTool:
 
         timestamp = datetime.now().strftime("%H%M%S")
 
+        # 基础日志文件
         files = {
             "driver.log": driver_logs,
             "spark.log": spark_logs,
-            "yarn.log": yarn_logs,
-            "metadata.yaml": yaml.dump({
-                "workflow_code": workflow_code,
-                "task_code": task_code,
-                "timestamp": timestamp,
-                "sources": ["dsctl", "spark-history", "yarn"]
-            })
         }
 
+        # 根据 Spark 模式存储不同来源日志
+        if spark_mode == "yarn" and yarn_logs:
+            files["yarn.log"] = yarn_logs
+        elif spark_mode == "k8s" and k8s_logs:
+            k8s_dir = os.path.join(store_path, "k8s")
+            os.makedirs(k8s_dir, exist_ok=True)
+            for pod_name, logs in k8s_logs.items():
+                files[f"k8s/{pod_name}.log"] = logs
+
+        # 元数据
+        sources = ["dsctl", "spark-history"]
+        if spark_mode == "yarn":
+            sources.append("yarn-gateway")
+        else:
+            sources.append("k8s-api")
+
+        files["metadata.yaml"] = yaml.dump({
+            "workflow_code": workflow_code,
+            "task_code": task_code,
+            "timestamp": timestamp,
+            "spark_mode": spark_mode,
+            "sources": sources
+        })
+
         for filename, content in files.items():
-            with open(os.path.join(store_path, filename), "w") as f:
+            file_path = os.path.join(store_path, filename)
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            with open(file_path, "w") as f:
                 f.write(content)
 
         return store_path
@@ -875,9 +1011,9 @@ class KnowledgeTool:
 
 ```python
 class ApprovalTool:
-    def __init__(self, dingtalk: DingTalkTool, approval_timeout: int = 3600):
+    def __init__(self, dingtalk: DingTalkTool, approval_timeout: int = 1800):
         self.dingtalk = dingtalk
-        self.approval_timeout = approval_timeout  # 1小时超时
+        self.approval_timeout = approval_timeout  # 30分钟超时
         self.pending_approvals = {}  # 内存追踪
 
     def request_approval(self, state: AgentState) -> str:
@@ -1133,7 +1269,7 @@ digraph risk_flow {
 5. ApprovalTool 接收响应回调
 6. 如果批准：ExecuteAction 节点继续执行
 7. 如果拒绝：通知钉钉拒绝结果，不执行动作
-8. 如果超时（1小时）：标记为过期，通知超时
+8. 如果超时（30分钟）：标记为过期，通知超时
 
 **钉钉交互卡片示例：**
 
@@ -1176,8 +1312,12 @@ logs/
 │   │   ├── workflow_code_1/
 │   │   │   ├── task_code_1/
 │   │   │   │   ├── driver.log        # dsctl CLI 日志
-│   │   │   │   ├── spark.log         # Spark History 日志
-│   │   │   │   ├── yarn.log          # YARN Gateway 日志
+│   │   │   │   ├── spark.log         # Spark History 日志（YARN/K8s 都可用）
+│   │   │   │   ├── yarn.log          # YARN Gateway 日志（Spark on YARN）
+│   │   │   │   ├── k8s/              # K8s Pod 日志（Spark on K8s）
+│   │   │   │   │   ├── driver.log
+│   │   │   │   │   ├── executor_1.log
+│   │   │   │   │   └── executor_2.log
 │   │   │   │   └── metadata.yaml     # 元数据
 │   │   │   └── task_code_2/
 │   │   │       └── ...
@@ -1195,10 +1335,12 @@ logs/
 workflow_code: "21451302002208"
 task_code: "12345678901234"
 timestamp: "143052"                        # HHMMSS
+spark_mode: "yarn"                         # yarn 或 k8s
 sources:
   - dsctl
   - spark-history
-  - yarn
+  - yarn-gateway                           # Spark on YARN
+  # 或 k8s-api                              # Spark on K8s
 error_category: "RESOURCE"
 risk_level: "HIGH"
 actions_executed:
@@ -1255,9 +1397,9 @@ def on_startup():
 ### 第一阶段范围
 
 - 知识库反馈循环：**跳过**（条目直接进入 confirmed.json）
-- 审批超时：1 小时
-- 钉钉 outgoing 消息：**已弃用**（仅发送通知）
-- 日志来源：dsctl CLI + Spark History + YARN Gateway（混合）
+- 审批超时：30 分钟
+- 钉钉配置：使用已提供的企业级机器人配置
+- 日志来源：dsctl CLI + Spark History + YARN Gateway/K8s Pod Logs（混合）
 
 ### DS 3.2.0 API 适配
 
