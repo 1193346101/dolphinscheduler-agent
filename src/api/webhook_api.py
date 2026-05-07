@@ -15,6 +15,7 @@ from ..workflow.state import AgentState
 from ..config.projects import projects_registry
 from ..knowledge.manager import knowledge_manager
 from ..security.approval import ApprovalWorkflow
+from ..tools.approval_tool import ApprovalTool
 
 
 # 创建 FastAPI 应用
@@ -22,6 +23,7 @@ app = FastAPI(title="DolphinScheduler Agent API")
 
 # 初始化组件
 approval_workflow = ApprovalWorkflow()
+approval_tool = ApprovalTool()
 
 # 创建工作流实例
 workflow = AlertWorkflowGraph()
@@ -211,28 +213,46 @@ async def get_approval(request_id: str, action: Optional[str] = None):
     try:
         if not action:
             # 返回审批详情
-            from ..security.approval import ApprovalWorkflow
-            wf = ApprovalWorkflow()
-            req = wf._load_request(request_id)
-            if req:
-                return JSONResponse(content={"status": "success", "request": req.__dict__})
+            request = approval_tool.get_request(request_id)
+            if request:
+                return JSONResponse(content={
+                    "status": "success",
+                    "request": {
+                        "request_id": request.request_id,
+                        "status": request.status,
+                        "created_at": request.created_at,
+                        "expires_at": request.expires_at,
+                        "workflow_state": request.workflow_state,
+                    }
+                })
             else:
                 raise HTTPException(status_code=404, detail="审批请求不存在")
 
         if action not in ["approve", "reject"]:
             raise HTTPException(status_code=400, detail="Invalid action. Must be 'approve' or 'reject'")
 
-        # 审批状态
+        # 更新审批状态
         approval_status = "approved" if action == "approve" else "rejected"
+        success = approval_tool.update_status(request_id, approval_status)
 
-        # TODO: 从 ApprovalTool 获取 pending state 并继续工作流
-        # pending_state = approval_workflow.get_pending_state(request_id)
-        # result = workflow.continue_from_approval(pending_state, approval_status)
+        if not success:
+            raise HTTPException(status_code=400, detail="审批请求已处理或不存在")
 
-        if action == "approve":
-            result = approval_workflow.approve(request_id, "user")
-        elif action == "reject":
-            result = approval_workflow.reject(request_id, "用户拒绝")
+        # 获取 pending state 并继续工作流
+        request = approval_tool.get_request(request_id)
+        if request and request.workflow_state:
+            # 继续执行工作流
+            pending_state = request.workflow_state
+            pending_state["approval_status"] = approval_status
+            result = workflow.continue_from_approval(pending_state, approval_status)
+
+            return JSONResponse(content={
+                "status": "processed",
+                "request_id": request_id,
+                "action": action,
+                "approval_status": approval_status,
+                "execution_success": result.get("execution_success"),
+            })
 
         return JSONResponse(content={
             "status": "acknowledged",
@@ -248,18 +268,29 @@ async def get_approval(request_id: str, action: Optional[str] = None):
 async def process_approval(request_id: str, body: ApprovalActionRequest):
     """处理审批请求（POST）"""
     try:
-        if body.action == "approve":
-            result = approval_workflow.approve(request_id, body.approver or "user")
-            approval_status = "approved"
-        elif body.action == "reject":
-            result = approval_workflow.reject(request_id, body.reject_reason or "无")
-            approval_status = "rejected"
-        else:
+        if body.action not in ["approve", "reject"]:
             raise HTTPException(status_code=400, detail="无效的 action")
 
-        # TODO: 从 ApprovalTool 获取 pending state 并继续工作流
-        # pending_state = approval_workflow.get_pending_state(request_id)
-        # result = workflow.continue_from_approval(pending_state, approval_status)
+        approval_status = "approved" if body.action == "approve" else "rejected"
+        success = approval_tool.update_status(request_id, approval_status)
+
+        if not success:
+            raise HTTPException(status_code=400, detail="审批请求已处理或不存在")
+
+        # 获取 pending state 并继续工作流
+        request = approval_tool.get_request(request_id)
+        if request and request.workflow_state:
+            pending_state = request.workflow_state
+            pending_state["approval_status"] = approval_status
+            result = workflow.continue_from_approval(pending_state, approval_status)
+
+            return JSONResponse(content={
+                "status": "processed",
+                "request_id": request_id,
+                "action": body.action,
+                "approval_status": approval_status,
+                "execution_success": result.get("execution_success"),
+            })
 
         return JSONResponse(content={
             "status": "acknowledged",
