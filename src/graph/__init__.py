@@ -9,6 +9,7 @@ Provides:
 - Querier: Graph query service
 - CodeSearcher: Code file search by class name
 - NetworkXAnalyzer: Graph path analysis using NetworkX
+- MermaidGenerator: Mermaid diagram visualization
 """
 
 from .models import (
@@ -27,6 +28,7 @@ from .scanner import GraphScanner
 from .indexer import GraphIndexer
 from .querier import GraphQuerier
 from .networkx_analyzer import NetworkXAnalyzer
+from .mermaid_generator import MermaidGenerator
 
 __all__ = [
     "Graph",
@@ -43,4 +45,5 @@ __all__ = [
     "GraphIndexer",
     "GraphQuerier",
     "NetworkXAnalyzer",
+    "MermaidGenerator",
 ]
