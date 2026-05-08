@@ -147,5 +147,37 @@ class DSCLIClient:
             "--project", str(project_code)
         ])
 
+    def list_workflows(self, project_code: int) -> CLIResult:
+        """
+        列出项目中的所有工作流
+
+        Args:
+            project_code: 项目编码
+
+        Returns:
+            CLIResult (JSON array of workflows)
+        """
+        return self._run_command([
+            "workflow", "list",
+            "--project", str(project_code)
+        ])
+
+    def describe_workflow(self, project_code: int, workflow_code: int) -> CLIResult:
+        """
+        获取工作流详细定义（包含任务和依赖关系）
+
+        Args:
+            project_code: 项目编码
+            workflow_code: 工作流编码
+
+        Returns:
+            CLIResult (JSON with workflow, tasks, relations)
+        """
+        return self._run_command([
+            "workflow", "describe",
+            str(workflow_code),
+            "--project", str(project_code)
+        ])
+
 
 __all__ = ["DSCLIClient", "CLIResult"]

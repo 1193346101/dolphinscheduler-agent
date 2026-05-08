@@ -22,6 +22,7 @@ from .models import (
 from .storage import GraphStorage
 from .sql_parser import SQLParser
 from .code_searcher import CodeSearcher
+from .scanner import GraphScanner
 
 __all__ = [
     "Graph",
@@ -34,4 +35,5 @@ __all__ = [
     "GraphStorage",
     "SQLParser",
     "CodeSearcher",
+    "GraphScanner",
 ]
