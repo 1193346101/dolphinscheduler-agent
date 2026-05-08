@@ -19,6 +19,7 @@ from .models import (
     GraphEdges,
 )
 from .storage import GraphStorage
+from .sql_parser import SQLParser
 
 __all__ = [
     "Graph",
@@ -29,4 +30,5 @@ __all__ = [
     "GraphNodes",
     "GraphEdges",
     "GraphStorage",
+    "SQLParser",
 ]
