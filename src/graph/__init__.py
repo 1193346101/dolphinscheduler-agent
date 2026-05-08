@@ -8,6 +8,7 @@ Provides:
 - Indexer: Query index generation
 - Querier: Graph query service
 - CodeSearcher: Code file search by class name
+- NetworkXAnalyzer: Graph path analysis using NetworkX
 """
 
 from .models import (
@@ -25,6 +26,7 @@ from .code_searcher import CodeSearcher
 from .scanner import GraphScanner
 from .indexer import GraphIndexer
 from .querier import GraphQuerier
+from .networkx_analyzer import NetworkXAnalyzer
 
 __all__ = [
     "Graph",
@@ -40,4 +42,5 @@ __all__ = [
     "GraphScanner",
     "GraphIndexer",
     "GraphQuerier",
+    "NetworkXAnalyzer",
 ]
