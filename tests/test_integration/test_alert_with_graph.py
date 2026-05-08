@@ -67,33 +67,43 @@ class TestRiskNodeWithGraph:
 
         state = {
             "project_code": 11598158952448,
-            "process_definition_code": 21451302002208,
+            "workflow_code": 21451302002208,
             "task_code": 123456,
             "task_relations": None,
         }
 
-        with patch("src.workflow.nodes.risk.GraphImpactTool") as mock_graph_tool:
-            mock_instance = Mock()
-            mock_instance.analyze_workflow_downstream.return_value = {
-                "graph_available": True,
-                "downstream_count": 5,
-                "downstream_workflows": ["wf_2", "wf_3", "wf_4", "wf_5", "wf_6"],
-                "workflow_names": {
-                    "wf_2": "数据同步",
-                    "wf_3": "数据加工",
-                    "wf_4": "数据导出",
-                    "wf_5": "数据校验",
-                    "wf_6": "数据归档",
-                },
-                "impact_level": "medium",
-            }
-            mock_instance.build_impact_summary.return_value = "影响摘要"
-            mock_graph_tool.return_value = mock_instance
+        with patch("src.workflow.nodes.risk.GraphStorage") as mock_storage_class:
+            mock_storage = Mock()
+            mock_storage.graph_exists.return_value = True
+            mock_storage_class.return_value = mock_storage
 
-            result = impact_analysis(state)
+            with patch("src.workflow.nodes.risk.GraphImpactTool") as mock_graph_tool:
+                mock_instance = Mock()
+                mock_instance.analyze_workflow_downstream.return_value = {
+                    "graph_available": True,
+                    "downstream_count": 5,
+                    "downstream_workflows": ["wf_2", "wf_3", "wf_4", "wf_5", "wf_6"],
+                    "workflow_names": {
+                        "wf_2": "数据同步",
+                        "wf_3": "数据加工",
+                        "wf_4": "数据导出",
+                        "wf_5": "数据校验",
+                        "wf_6": "数据归档",
+                    },
+                    "impact_level": "medium",
+                }
+                mock_instance.analyze_task_downstream.return_value = {
+                    "graph_available": True,
+                    "downstream_count": 0,
+                    "downstream_tasks": [],
+                }
+                mock_instance.build_impact_summary.return_value = "影响摘要"
+                mock_graph_tool.return_value = mock_instance
 
-            assert result["downstream_tasks"] == 5
-            assert result["impact_source"] == "graph"
+                result = impact_analysis(state)
+
+                assert result["downstream_tasks"] == 5
+                assert result["impact_source"] == "graph"
 
     def test_impact_analysis_without_graph_fallback(self):
         """测试图谱不可用时的降级"""
@@ -101,7 +111,7 @@ class TestRiskNodeWithGraph:
 
         state = {
             "project_code": 11598158952448,
-            "process_definition_code": 21451302002208,
+            "workflow_code": 21451302002208,
             "task_code": 123456,
             "task_relations": [
                 {"preTaskCode": 123456, "postTaskCode": 789012},
@@ -109,16 +119,10 @@ class TestRiskNodeWithGraph:
             ],
         }
 
-        with patch("src.workflow.nodes.risk.GraphImpactTool") as mock_graph_tool:
-            mock_instance = Mock()
-            mock_instance.analyze_workflow_downstream.return_value = {
-                "graph_available": False,
-                "downstream_count": 0,
-                "downstream_workflows": [],
-                "workflow_names": {},
-                "impact_level": "low",
-            }
-            mock_graph_tool.return_value = mock_instance
+        with patch("src.workflow.nodes.risk.GraphStorage") as mock_storage_class:
+            mock_storage = Mock()
+            mock_storage.graph_exists.return_value = False
+            mock_storage_class.return_value = mock_storage
 
             result = impact_analysis(state)
 
@@ -132,21 +136,15 @@ class TestRiskNodeWithGraph:
 
         state = {
             "project_code": 11598158952448,
-            "process_definition_code": 21451302002208,
+            "workflow_code": 21451302002208,
             "task_code": 123456,
             "task_relations": None,
         }
 
-        with patch("src.workflow.nodes.risk.GraphImpactTool") as mock_graph_tool:
-            mock_instance = Mock()
-            mock_instance.analyze_workflow_downstream.return_value = {
-                "graph_available": False,
-                "downstream_count": 0,
-                "downstream_workflows": [],
-                "workflow_names": {},
-                "impact_level": "low",
-            }
-            mock_graph_tool.return_value = mock_instance
+        with patch("src.workflow.nodes.risk.GraphStorage") as mock_storage_class:
+            mock_storage = Mock()
+            mock_storage.graph_exists.return_value = False
+            mock_storage_class.return_value = mock_storage
 
             result = impact_analysis(state)
 
@@ -159,21 +157,15 @@ class TestRiskNodeWithGraph:
 
         state = {
             "project_code": 11598158952448,
-            "process_definition_code": 21451302002208,
+            "workflow_code": 21451302002208,
             "task_code": 123456,
             "task_relations": [],
         }
 
-        with patch("src.workflow.nodes.risk.GraphImpactTool") as mock_graph_tool:
-            mock_instance = Mock()
-            mock_instance.analyze_workflow_downstream.return_value = {
-                "graph_available": False,
-                "downstream_count": 0,
-                "downstream_workflows": [],
-                "workflow_names": {},
-                "impact_level": "low",
-            }
-            mock_graph_tool.return_value = mock_instance
+        with patch("src.workflow.nodes.risk.GraphStorage") as mock_storage_class:
+            mock_storage = Mock()
+            mock_storage.graph_exists.return_value = False
+            mock_storage_class.return_value = mock_storage
 
             result = impact_analysis(state)
 

@@ -588,3 +588,315 @@ class GraphQuerier:
                 project_codes.append(project_code)
 
         return project_codes
+
+    def query_workflow_info_with_subworkflow(self, project_code: str, workflow_code: str) -> Dict:
+        """
+        查询工作流信息，包含子工作流相关信息
+
+        Args:
+            project_code: 项目代码
+            workflow_code: 工作流代码
+
+        Returns:
+            {
+                "found": bool,
+                "code": str,
+                "name": str,
+                "is_sub_workflow": bool,
+                "parent_workflow": str or None,
+                "sub_workflows": ["子工作流列表"],
+                "message": str
+            }
+        """
+        graph_data = self.storage.load_graph(project_code)
+        if graph_data is None:
+            return {
+                "found": False,
+                "message": f"Graph not found for project: {project_code}"
+            }
+
+        graph = Graph.from_dict(graph_data)
+
+        # 查找工作流节点
+        workflow_info = None
+        for workflow in graph.nodes.workflows:
+            if workflow.code == workflow_code:
+                workflow_info = workflow
+                break
+
+        if workflow_info is None:
+            return {
+                "found": False,
+                "message": f"Workflow not found: {workflow_code}"
+            }
+
+        # 查找子工作流
+        sub_workflows = []
+        for edge in graph.edges.workflow_calls_subworkflow:
+            source = edge.get("source") or edge.get("parent")
+            if source == workflow_code:
+                child = edge.get("target") or edge.get("child")
+                if child:
+                    sub_workflows.append(child)
+
+        return {
+            "found": True,
+            "code": workflow_info.code,
+            "name": workflow_info.name,
+            "is_sub_workflow": workflow_info.is_sub_workflow,
+            "parent_workflow": workflow_info.parent_workflow,
+            "sub_workflows": sub_workflows,
+            "message": f"Found workflow: {workflow_info.name}"
+        }
+
+    def query_parent_workflow_downstream(self, project_code: str, workflow_code: str) -> Dict:
+        """
+        查询父工作流的下游（用于子工作流失败时的影响分析）
+
+        如果当前工作流是子工作流，返回父工作流中该子工作流之后的下游任务
+
+        Args:
+            project_code: 项目代码
+            workflow_code: 子工作流代码
+
+        Returns:
+            {
+                "found": bool,
+                "parent_workflow_code": str,
+                "parent_workflow_name": str,
+                "downstream_in_parent": ["父工作流中的下游任务"],
+                "parent_downstream_workflows": ["父工作流的下游工作流"],
+                "message": str
+            }
+        """
+        graph_data = self.storage.load_graph(project_code)
+        if graph_data is None:
+            return {
+                "found": False,
+                "parent_workflow_code": None,
+                "parent_workflow_name": "",
+                "downstream_in_parent": [],
+                "parent_downstream_workflows": [],
+                "message": f"Graph not found for project: {project_code}"
+            }
+
+        graph = Graph.from_dict(graph_data)
+
+        # 查找工作流信息
+        workflow_info = None
+        for workflow in graph.nodes.workflows:
+            if workflow.code == workflow_code:
+                workflow_info = workflow
+                break
+
+        if workflow_info is None:
+            return {
+                "found": False,
+                "parent_workflow_code": None,
+                "parent_workflow_name": "",
+                "downstream_in_parent": [],
+                "parent_downstream_workflows": [],
+                "message": f"Workflow not found: {workflow_code}"
+            }
+
+        # 如果不是子工作流，返回空
+        if not workflow_info.is_sub_workflow and not workflow_info.parent_workflow:
+            return {
+                "found": True,
+                "parent_workflow_code": None,
+                "parent_workflow_name": "",
+                "downstream_in_parent": [],
+                "parent_downstream_workflows": [],
+                "message": "Not a sub-workflow"
+            }
+
+        parent_workflow_code = workflow_info.parent_workflow
+
+        # 查找父工作流信息
+        parent_workflow_info = None
+        for workflow in graph.nodes.workflows:
+            if workflow.code == parent_workflow_code:
+                parent_workflow_info = workflow
+                break
+
+        if parent_workflow_info is None:
+            return {
+                "found": True,
+                "parent_workflow_code": parent_workflow_code,
+                "parent_workflow_name": "",
+                "downstream_in_parent": [],
+                "parent_downstream_workflows": [],
+                "message": f"Parent workflow not found: {parent_workflow_code}"
+            }
+
+        # 查找父工作流中子工作流之后的下游任务
+        # 子工作流在父工作流中作为一个任务节点存在
+        downstream_in_parent = []
+        for edge in graph.edges.task_depends_task:
+            source = edge.get("source") or edge.get("from")
+            # 子工作流的 task_code 通常与 workflow_code 相同或有关联
+            if source == workflow_code or source == parent_workflow_code:
+                target = edge.get("target") or edge.get("to")
+                downstream_in_parent.append(target)
+
+        # 查找父工作流的下游工作流
+        parent_downstream_workflows = []
+        downstream_index = self.storage.load_index(project_code, "downstream")
+        if downstream_index:
+            workflow_downstream = downstream_index.get("workflow_downstream", {})
+            parent_downstream = workflow_downstream.get(parent_workflow_code, {})
+            parent_downstream_workflows = parent_downstream.get("all", [])
+
+        return {
+            "found": True,
+            "parent_workflow_code": parent_workflow_code,
+            "parent_workflow_name": parent_workflow_info.name,
+            "downstream_in_parent": downstream_in_parent,
+            "parent_downstream_workflows": parent_downstream_workflows,
+            "message": f"Found parent workflow: {parent_workflow_info.name}"
+        }
+
+    def query_subworkflow_impact(
+        self,
+        project_code: str,
+        sub_workflow_code: str,
+        failed_task_code: str
+    ) -> Dict:
+        """
+        查询子工作流失败的完整影响范围
+
+        分析三个维度的影响：
+        1. 子工作流内失败任务的下游任务
+        2. 父工作流中子工作流之后的下游任务
+        3. 父工作流的下游工作流
+
+        Args:
+            project_code: 项目代码
+            sub_workflow_code: 子工作流代码
+            failed_task_code: 失败任务代码
+
+        Returns:
+            {
+                "found": bool,
+                "sub_workflow": {...},
+                "task_downstream_in_subworkflow": ["子工作流内的下游任务"],
+                "parent_workflow": {...},
+                "downstream_in_parent": ["父工作流中的下游"],
+                "parent_downstream_workflows": ["父工作流的下游工作流"],
+                "total_impact_count": int,
+                "impact_summary": str,
+                "message": str
+            }
+        """
+        result = {
+            "found": False,
+            "sub_workflow": {},
+            "task_downstream_in_subworkflow": [],
+            "parent_workflow": {},
+            "downstream_in_parent": [],
+            "parent_downstream_workflows": [],
+            "total_impact_count": 0,
+            "impact_summary": "",
+            "message": ""
+        }
+
+        graph_data = self.storage.load_graph(project_code)
+        if graph_data is None:
+            result["message"] = f"Graph not found for project: {project_code}"
+            return result
+
+        graph = Graph.from_dict(graph_data)
+
+        # 1. 查询子工作流信息
+        sub_workflow_info = self.query_workflow_info_with_subworkflow(project_code, sub_workflow_code)
+        if sub_workflow_info["found"]:
+            result["sub_workflow"] = {
+                "code": sub_workflow_info["code"],
+                "name": sub_workflow_info["name"],
+                "is_sub_workflow": sub_workflow_info["is_sub_workflow"],
+                "parent_workflow": sub_workflow_info["parent_workflow"],
+            }
+
+        # 2. 查询子工作流内失败任务的下游
+        task_downstream = self._find_task_downstream_in_workflow(
+            graph, sub_workflow_code, failed_task_code
+        )
+        result["task_downstream_in_subworkflow"] = task_downstream
+
+        # 3. 查询父工作流的影响
+        parent_result = self.query_parent_workflow_downstream(project_code, sub_workflow_code)
+        if parent_result["found"] and parent_result["parent_workflow_code"]:
+            result["parent_workflow"] = {
+                "code": parent_result["parent_workflow_code"],
+                "name": parent_result["parent_workflow_name"],
+            }
+            result["downstream_in_parent"] = parent_result["downstream_in_parent"]
+            result["parent_downstream_workflows"] = parent_result["parent_downstream_workflows"]
+
+        # 4. 计算总影响
+        total = (
+            len(task_downstream) +
+            len(result["downstream_in_parent"]) +
+            len(result["parent_downstream_workflows"])
+        )
+        result["total_impact_count"] = total
+
+        # 5. 构建影响摘要
+        summary_parts = []
+        if task_downstream:
+            summary_parts.append(f"子工作流内 {len(task_downstream)} 个下游任务受影响")
+        if result["downstream_in_parent"]:
+            summary_parts.append(f"父工作流内 {len(result['downstream_in_parent'])} 个下游任务受影响")
+        if result["parent_downstream_workflows"]:
+            summary_parts.append(f"{len(result['parent_downstream_workflows'])} 个下游工作流可能受影响")
+
+        result["impact_summary"] = "; ".join(summary_parts) if summary_parts else "无下游影响"
+        result["found"] = True
+        result["message"] = f"Total impact: {total}"
+
+        return result
+
+    def _find_task_downstream_in_workflow(
+        self,
+        graph: Graph,
+        workflow_code: str,
+        task_code: str
+    ) -> List[str]:
+        """
+        查找工作流内任务的下游任务
+
+        Args:
+            graph: 图谱对象
+            workflow_code: 工作流代码
+            task_code: 任务代码
+
+        Returns:
+            下游任务代码列表
+        """
+        # 获取工作流内的任务
+        workflow_tasks = set()
+        for edge in graph.edges.workflow_contains_task:
+            source = edge.get("source") or edge.get("workflow")
+            if source == workflow_code:
+                target = edge.get("target") or edge.get("task")
+                if target:
+                    workflow_tasks.add(target)
+
+        # 使用 NetworkX 查找下游
+        import networkx as nx
+        G = nx.DiGraph()
+
+        for edge in graph.edges.task_depends_task:
+            source = edge.get("source") or edge.get("from")
+            target = edge.get("target") or edge.get("to")
+            if source in workflow_tasks and target in workflow_tasks:
+                G.add_edge(source, target)
+
+        downstream = []
+        if task_code in G:
+            downstream = list(nx.descendants(G, task_code))
+
+        return downstream
+
+
+__all__ = ["GraphQuerier"]

@@ -31,12 +31,18 @@ class AgentState(TypedDict, total=False):
     project_code: str
     # Workflow code
     workflow_code: str
+    # Workflow name
+    workflow_name: str
     # Task code
     task_code: str
     # Task type (limited to specific values)
     task_type: Literal["SHELL", "SPARK", "PYTHON", "DATAX"]
     # Alert timestamp
     error_time: str
+    # Whether this is a sub-workflow
+    is_sub_workflow: bool
+    # Parent workflow code (if this is a sub-workflow)
+    parent_workflow_code: Optional[str]
 
     # ==================== Validation Stage ====================
     # Whether the project is valid
@@ -117,9 +123,12 @@ INITIAL_STATE: Dict[str, Any] = {
     "alert_raw": {},
     "project_code": "",
     "workflow_code": "",
+    "workflow_name": "",
     "task_code": "",
     "task_type": "SHELL",
     "error_time": "",
+    "is_sub_workflow": False,
+    "parent_workflow_code": None,
 
     # Validation stage - defaults
     "project_valid": False,
