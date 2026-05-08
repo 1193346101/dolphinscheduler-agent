@@ -24,7 +24,7 @@ def analyze_error(state: AgentState) -> AgentState:
         state: 当前状态
 
     Returns:
-        更新后的状态 (error_patterns, error_category, suggested_actions, confidence_score)
+        更新后的状态 (error_patterns, error_category, suggested_actions, confidence_score, error_analysis)
     """
     task_type = state.get("task_type", "SPARK")
     driver_logs = state.get("driver_logs", "") or ""
@@ -41,6 +41,11 @@ def analyze_error(state: AgentState) -> AgentState:
             "suggested_actions": [],
             "knowledge_match": None,
             "confidence_score": 0.0,
+            "error_analysis": {
+                "error_type": "unknown",
+                "error_message": "",
+                "can_auto_fix": False,
+            },
         }
 
     # 构建 AlertContext
@@ -73,6 +78,13 @@ def analyze_error(state: AgentState) -> AgentState:
         error_category = _map_error_category(skill_result.error_type)
         suggested_actions = _build_actions_from_skill(skill, skill_result)
         confidence_score = skill_result.confidence
+
+        # 构建 error_analysis 字段
+        error_analysis = {
+            "error_type": skill_result.error_type,
+            "error_message": skill_result.error_message[:500] if skill_result.error_message else "",
+            "can_auto_fix": skill_result.can_auto_fix,
+        }
     else:
         # 低置信度调用 LLM 辅助
         llm_client = LLMClient()
@@ -87,11 +99,23 @@ def analyze_error(state: AgentState) -> AgentState:
             error_category = llm_result.get("error_category", "")
             suggested_actions = llm_result.get("suggested_actions", [])
             confidence_score = llm_result.get("confidence", 0.5)
+
+            error_analysis = {
+                "error_type": error_category,
+                "error_message": logs[:200] if logs else "",
+                "can_auto_fix": False,
+            }
         else:
             error_patterns = []
             error_category = ""
             suggested_actions = []
             confidence_score = 0.0
+
+            error_analysis = {
+                "error_type": "unknown",
+                "error_message": "",
+                "can_auto_fix": False,
+            }
 
     return {
         **state,
@@ -100,6 +124,7 @@ def analyze_error(state: AgentState) -> AgentState:
         "suggested_actions": suggested_actions,
         "knowledge_match": None,
         "confidence_score": confidence_score,
+        "error_analysis": error_analysis,
     }
 
 

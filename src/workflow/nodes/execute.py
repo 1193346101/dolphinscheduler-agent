@@ -1,7 +1,7 @@
 """
 execute_action 节点
 
-执行修复动作 - 完整实现
+执行修复动作 - 使用 dsctl CLI
 """
 
 from typing import Dict, List, Optional
@@ -14,9 +14,10 @@ def execute_action(state: AgentState) -> AgentState:
     执行动作
 
     支持动作:
-    - rerun: 重跑工作流
-    - recover-failed: 从失败恢复
-    - config-change: 修改配置
+    - recover-failed: 从失败恢复（保持 process_instance_id）
+    - script-fix: 修改实例中的任务脚本并恢复
+    - config-change: 修改工作流定义配置
+    - rerun: 重跑工作流（新实例）
     - notify-only: 仅通知
 
     Args:
@@ -27,9 +28,9 @@ def execute_action(state: AgentState) -> AgentState:
     """
     actions = state.get("suggested_actions", [])
     approval_status = state.get("approval_status")
-    project_config = state.get("project_config")
+    knowledge_match = state.get("knowledge_match")
 
-    if not actions or not project_config:
+    if not actions:
         return {
             **state,
             "executed_actions": [],
@@ -37,17 +38,19 @@ def execute_action(state: AgentState) -> AgentState:
             "execution_success": False,
         }
 
-    dsctl = DSCLIClient(
-        api_url=project_config.get("ds_api_url", ""),
-        api_token=project_config.get("ds_api_token", "")
-    )
+    # 使用 dsctl CLI
+    dsctl = DSCLIClient()
 
     executed = []
     results = []
 
+    # 从 alert_raw 获取必要信息
     alert_raw = state.get("alert_raw", {})
-    instance_id = alert_raw.get("processInstanceId")
-    task_code = int(state.get("task_code") or 0)
+    project_code = int(state.get("project_code", 0) or 0)
+    workflow_code = int(state.get("workflow_code", 0) or 0)
+    process_instance_id = alert_raw.get("processId") or alert_raw.get("processInstanceId") or 0
+    task_code = int(state.get("task_code", 0) or 0)
+    task_instance_id = alert_raw.get("taskInstanceId", 0)
 
     for action in actions:
         action_type = action.get("action_type", "")
@@ -68,8 +71,12 @@ def execute_action(state: AgentState) -> AgentState:
             result = _execute_single_action(
                 action_type,
                 dsctl,
-                instance_id,
+                project_code,
+                workflow_code,
+                process_instance_id,
                 task_code,
+                task_instance_id,
+                knowledge_match,
                 state
             )
 
@@ -79,7 +86,7 @@ def execute_action(state: AgentState) -> AgentState:
                     "action": action,
                     "status": "success" if result.success else "failed",
                     "output": result.stdout[:500] if result.stdout else "",
-                    "stderr": result.stderr[:200] if result.stderr else ""
+                    "error": result.stderr[:200] if result.stderr else "",
                 })
             else:
                 results.append({
@@ -112,26 +119,55 @@ def execute_action(state: AgentState) -> AgentState:
 def _execute_single_action(
     action_type: str,
     dsctl: DSCLIClient,
-    instance_id: int,
+    project_code: int,
+    workflow_code: int,
+    process_instance_id: int,
     task_code: int,
+    task_instance_id: int,
+    knowledge_match: Optional[Dict],
     state: Dict
 ) -> Optional[CLIResult]:
     """执行单个动作"""
 
-    if action_type == "rerun":
-        return dsctl.workflow_instance_rerun(instance_id)
+    if action_type == "recover-failed":
+        # 恢复失败任务（保持 process_instance_id）
+        return dsctl.workflow_instance_recover(process_instance_id, task_code)
 
-    elif action_type == "recover-failed":
-        return dsctl.workflow_instance_recover(instance_id, task_code)
+    elif action_type == "script-fix":
+        # 修改实例中的任务脚本并恢复
+        script_changes = knowledge_match.get("script_fix", {}) if knowledge_match else {}
+        if script_changes:
+            return dsctl.workflow_instance_edit_and_recover(
+                process_instance_id,
+                task_code,
+                script_changes
+            )
+        return CLIResult(success=False, stdout="", stderr="无脚本修改方案", returncode=1)
 
     elif action_type == "config-change":
-        # config-change 需要: 1) 更新参数 2) 重跑
-        # 当前简化实现，直接重跑
-        return dsctl.workflow_instance_rerun(instance_id)
+        # 修改工作流定义配置后启动新实例
+        config_changes = knowledge_match.get("config_fix", {}) if knowledge_match else {}
+        if config_changes:
+            # 先更新工作流定义
+            update_result = dsctl.workflow_update_config(
+                project_code,
+                workflow_code,
+                task_code,
+                config_changes
+            )
+            if update_result.success:
+                # 启动新实例
+                return dsctl.workflow_run(project_code, workflow_code)
+            return update_result
+        return CLIResult(success=False, stdout="", stderr="无配置修改方案", returncode=1)
+
+    elif action_type == "rerun":
+        # 重跑工作流实例
+        return dsctl.workflow_instance_rerun(process_instance_id)
 
     elif action_type == "notify-only":
         # 仅通知，不执行
-        return CLIResult(success=True, stdout="仅通知", stderr="", returncode=0)
+        return CLIResult(success=True, stdout="仅通知，未执行操作", stderr="", returncode=0)
 
     return None
 

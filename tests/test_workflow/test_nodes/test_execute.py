@@ -138,8 +138,11 @@ class TestExecuteAction:
     def test_execute_config_change_action(self, mock_dsctl):
         """测试配置变更动作"""
         mock_instance = Mock()
-        mock_instance.workflow_instance_rerun.return_value = Mock(
-            success=True, stdout="Config changed and rerun", stderr="", returncode=0
+        mock_instance.workflow_update_config.return_value = Mock(
+            success=True, stdout="Config updated", stderr="", returncode=0
+        )
+        mock_instance.workflow_run.return_value = Mock(
+            success=True, stdout="Workflow started", stderr="", returncode=0
         )
         mock_dsctl.return_value = mock_instance
 
@@ -151,11 +154,12 @@ class TestExecuteAction:
             "processInstanceId": 833841,
             "taskType": "SPARK",
         })
+        state["project_code"] = "123"
+        state["workflow_code"] = "456"
         state["task_code"] = "789"
         state["suggested_actions"] = [{"action_type": "config-change", "risk_level": "LOW"}]
-        state["project_config"] = {
-            "ds_api_url": "http://ds:12345",
-            "ds_api_token": "token"
+        state["knowledge_match"] = {
+            "config_fix": {"spark.executor.memory": "4g"}
         }
 
         result = execute_action(state)

@@ -1,7 +1,7 @@
 """
 fetch_logs 节点
 
-获取 Spark 任务日志 - 完整实现
+获取 Spark 任务日志 - 使用 dsctl CLI
 """
 
 from typing import Dict
@@ -42,15 +42,12 @@ def fetch_logs(state: AgentState) -> AgentState:
     spark_mode = project_config.get("spark_mode", "yarn")
     spark_history_url = project_config.get("spark_history_url", "")
 
-    # 1. 获取 dsctl driver 日志
+    # 1. 使用 dsctl CLI 获取 driver 日志
     driver_logs = None
     log_fetch_error = None
 
     try:
-        dsctl = DSCLIClient(
-            api_url=project_config.get("ds_api_url", ""),
-            api_token=project_config.get("ds_api_token", "")
-        )
+        dsctl = DSCLIClient()
 
         task_instance_id = state["alert_raw"].get("taskInstanceId")
         if task_instance_id:

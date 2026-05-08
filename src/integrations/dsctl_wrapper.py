@@ -179,5 +179,125 @@ class DSCLIClient:
             "--project", str(project_code)
         ])
 
+    def workflow_instance_edit_and_recover(
+        self,
+        instance_id: int,
+        task_code: int,
+        script_changes: dict
+    ) -> CLIResult:
+        """
+        编辑工作流实例中的任务脚本并恢复失败
+
+        使用 dsctl workflow-instance edit 修改实例中的任务定义，
+        然后使用 recover-failed 恢复。
+
+        Args:
+            instance_id: 工作流实例 ID
+            task_code: 任务编码
+            script_changes: 脚本修改映射 {"wrong": "correct"}
+
+        Returns:
+            CLIResult
+        """
+        # 1. 先编辑实例中的任务脚本
+        # 构造 edit 参数（需要 JSON 格式的修改内容）
+        import json
+
+        # dsctl workflow-instance edit 支持修改 taskParams
+        # 格式: --task <task_code> --params '{"rawScript": "..."}'
+        edit_changes = {}
+        for wrong, correct in script_changes.items():
+            # 这里简化处理，实际需要获取当前脚本然后替换
+            edit_changes["script_fix"] = {"replace": {wrong: correct}}
+
+        edit_result = self._run_command([
+            "workflow-instance", "edit",
+            str(instance_id),
+            "--task", str(task_code),
+            "--changes", json.dumps(edit_changes)
+        ], timeout=60)
+
+        if not edit_result.success:
+            return edit_result
+
+        # 2. 恢复失败任务
+        return self.workflow_instance_recover(instance_id, task_code)
+
+    def workflow_update_config(
+        self,
+        project_code: int,
+        workflow_code: int,
+        task_code: int,
+        config_changes: dict
+    ) -> CLIResult:
+        """
+        更新工作流定义中的任务配置
+
+        使用 dsctl workflow update 修改工作流定义中的任务参数，
+        然后重新上线。
+
+        Args:
+            project_code: 项目编码
+            workflow_code: 工作流编码
+            task_code: 任务编码
+            config_changes: 配置修改 {"spark.executor.memory": "4g"}
+
+        Returns:
+            CLIResult
+        """
+        import json
+
+        # dsctl workflow update 支持修改任务配置
+        update_result = self._run_command([
+            "workflow", "update",
+            str(workflow_code),
+            "--project", str(project_code),
+            "--task", str(task_code),
+            "--config", json.dumps(config_changes)
+        ], timeout=60)
+
+        if not update_result.success:
+            return update_result
+
+        # 重新上线工作流
+        return self._run_command([
+            "workflow", "release",
+            str(workflow_code),
+            "--project", str(project_code),
+            "--state", "online"
+        ])
+
+    def workflow_run(
+        self,
+        project_code: int,
+        workflow_code: int,
+        params: dict = None
+    ) -> CLIResult:
+        """
+        启动新的工作流实例
+
+        使用 dsctl workflow run 启动工作流。
+
+        Args:
+            project_code: 项目编码
+            workflow_code: 工作流编码
+            params: 启动参数（可选）
+
+        Returns:
+            CLIResult
+        """
+        import json
+
+        args = [
+            "workflow", "run",
+            str(workflow_code),
+            "--project", str(project_code)
+        ]
+
+        if params:
+            args.extend(["--params", json.dumps(params)])
+
+        return self._run_command(args, timeout=60)
+
 
 __all__ = ["DSCLIClient", "CLIResult"]
