@@ -1,0 +1,52 @@
+[
+  {
+    "id": "spark-001",
+    "task_type": "SPARK",
+    "error_type": "oom_executor",
+    "pattern": "java.lang.OutOfMemoryError: Java heap space",
+    "analysis": "Executor 内存不足导致任务失败",
+    "suggestion": "增加 Executor 内存配置 spark.executor.memory=4g",
+    "config_fix": {
+      "spark.executor.memory": "4g",
+      "spark.executor.memoryOverhead": "1g"
+    },
+    "status": "confirmed",
+    "confirmed_at": "2026-05-01T10:00:00Z"
+  },
+  {
+    "id": "spark-002",
+    "task_type": "SPARK",
+    "error_type": "oom_driver",
+    "pattern": "OutOfMemoryError: unable to create new native thread",
+    "analysis": "Driver 内存不足或线程数过多",
+    "suggestion": "增加 Driver 内存配置 spark.driver.memory=2g",
+    "config_fix": {
+      "spark.driver.memory": "2g",
+      "spark.driver.maxResultSize": "2g"
+    },
+    "status": "confirmed",
+    "confirmed_at": "2026-05-01T10:00:00Z"
+  },
+  {
+    "id": "spark-003",
+    "task_type": "SPARK",
+    "error_type": "class_not_found",
+    "pattern": "ClassNotFoundException",
+    "analysis": "缺少依赖包",
+    "suggestion": "检查依赖包是否已上传到 DS 资源中心",
+    "config_fix": null,
+    "status": "confirmed",
+    "confirmed_at": "2026-05-01T10:00:00Z"
+  },
+  {
+    "id": "spark-004",
+    "task_type": "SPARK",
+    "error_type": "shuffle_failed",
+    "pattern": "FetchFailedException",
+    "analysis": "Shuffle 数据获取失败，可能是网络问题",
+    "suggestion": "检查网络连接或增加 shuffle service 配置",
+    "config_fix": null,
+    "status": "confirmed",
+    "confirmed_at": "2026-05-01T10:00:00Z"
+  }
+]

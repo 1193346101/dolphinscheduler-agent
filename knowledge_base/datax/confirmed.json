@@ -1,0 +1,32 @@
+[
+  {
+    "id": "datax-001",
+    "task_type": "DATAX",
+    "error_type": "config_error",
+    "pattern": "Configuration error",
+    "analysis": "DataX job 配置错误",
+    "suggestion": "检查 DataX job 配置文件格式",
+    "status": "confirmed",
+    "confirmed_at": "2026-05-01T10:00:00Z"
+  },
+  {
+    "id": "datax-002",
+    "task_type": "DATAX",
+    "error_type": "source_connection",
+    "pattern": "source connection failed",
+    "analysis": "源端数据库连接失败",
+    "suggestion": "检查源端数据库连接配置（地址、用户名、密码）",
+    "status": "confirmed",
+    "confirmed_at": "2026-05-01T10:00:00Z"
+  },
+  {
+    "id": "datax-003",
+    "task_type": "DATAX",
+    "error_type": "sink_connection",
+    "pattern": "sink connection failed",
+    "analysis": "目标端数据库连接失败",
+    "suggestion": "检查目标端数据库连接配置",
+    "status": "confirmed",
+    "confirmed_at": "2026-05-01T10:00:00Z"
+  }
+]

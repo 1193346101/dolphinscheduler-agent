@@ -1,0 +1,32 @@
+[
+  {
+    "id": "python-001",
+    "task_type": "PYTHON",
+    "error_type": "syntax_error",
+    "pattern": "SyntaxError:",
+    "analysis": "Python 语法错误",
+    "suggestion": "检查 Python 语法，特别是缩进、括号和引号",
+    "status": "confirmed",
+    "confirmed_at": "2026-05-01T10:00:00Z"
+  },
+  {
+    "id": "python-002",
+    "task_type": "PYTHON",
+    "error_type": "module_not_found",
+    "pattern": "ModuleNotFoundError:",
+    "analysis": "模块不存在",
+    "suggestion": "检查模块是否安装: pip install <module>",
+    "status": "confirmed",
+    "confirmed_at": "2026-05-01T10:00:00Z"
+  },
+  {
+    "id": "python-003",
+    "task_type": "PYTHON",
+    "error_type": "import_error",
+    "pattern": "ImportError:",
+    "analysis": "导入错误",
+    "suggestion": "检查导入路径是否正确",
+    "status": "confirmed",
+    "confirmed_at": "2026-05-01T10:00:00Z"
+  }
+]

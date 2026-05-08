@@ -97,23 +97,35 @@ class DSCLIClient:
     def workflow_instance_recover(
         self,
         instance_id: int,
-        task_code: int
+        task_code: int = None,
+        from_node: int = None
     ) -> CLIResult:
         """
-        从失败任务恢复
+        从失败任务恢复工作流实例
+
+        支持两种模式：
+        1. 恢复指定失败任务：--task <task_code>
+        2. 从指定节点开始恢复：--from-node <node_code>
 
         Args:
             instance_id: 工作流实例 ID
-            task_code: 失败任务编码
+            task_code: 失败任务编码（可选，用于恢复失败任务）
+            from_node: 从此节点开始恢复（可选，用于从指定节点继续）
 
         Returns:
             CLIResult
         """
-        return self._run_command([
+        args = [
             "workflow-instance", "recover",
-            str(instance_id),
-            "--task", str(task_code)
-        ])
+            str(instance_id)
+        ]
+
+        if task_code:
+            args.extend(["--task", str(task_code)])
+        elif from_node:
+            args.extend(["--from-node", str(from_node)])
+
+        return self._run_command(args)
 
     def get_task_logs(self, task_instance_id: int) -> CLIResult:
         """
@@ -298,6 +310,32 @@ class DSCLIClient:
             args.extend(["--params", json.dumps(params)])
 
         return self._run_command(args, timeout=60)
+
+    def workflow_instance_recover_from_subworkflow(
+        self,
+        parent_instance_id: int,
+        subworkflow_node_code: int
+    ) -> CLIResult:
+        """
+        从父工作流实例的子工作流节点恢复
+
+        用于子工作流需要修改定义后重新执行的场景：
+        1. 修改子工作流定义并上线
+        2. 从父工作流的子工作流节点开始恢复
+        3. 会创建新的子工作流实例，但属于父工作流实例
+
+        Args:
+            parent_instance_id: 父工作流实例 ID
+            subworkflow_node_code: 子工作流节点编码（在父工作流中的任务编码）
+
+        Returns:
+            CLIResult
+        """
+        return self._run_command([
+            "workflow-instance", "recover",
+            str(parent_instance_id),
+            "--from-node", str(subworkflow_node_code)
+        ])
 
 
 __all__ = ["DSCLIClient", "CLIResult"]

@@ -24,6 +24,8 @@ def parse_alert(state: AgentState) -> AgentState:
     - error_time
     - is_sub_workflow (是否为子工作流)
     - parent_workflow_code (父工作流编码，如果是子工作流)
+    - process_instance_id (工作流实例ID)
+    - parent_process_instance_id (父工作流实例ID，如果是子工作流)
 
     Args:
         state: 当前状态
@@ -51,10 +53,18 @@ def parse_alert(state: AgentState) -> AgentState:
     # 提取错误时间
     error_time = alert_raw.get("endTime") or alert_raw.get("taskEndTime") or ""
 
+    # 提取工作流实例ID
+    process_instance_id = alert_raw.get("processId") or alert_raw.get("processInstanceId") or 0
+
+    # 提取父工作流实例ID（如果是子工作流）
+    # DS 3.2.0 可能使用 rootProcessInstanceId 或需要查询
+    parent_process_instance_id = alert_raw.get("rootProcessInstanceId") or alert_raw.get("parentProcessInstanceId") or None
+
     # 检查是否为子工作流并查询父工作流
     is_sub_workflow = False
     parent_workflow_code: Optional[str] = None
     workflow_name = ""
+    sub_workflow_node_code: Optional[str] = None  # 子工作流节点在父工作流中的任务编码
 
     # 尝试从图谱查询工作流信息
     graph_storage = GraphStorage(data_dir=settings.GRAPH_STORAGE_PATH)
@@ -77,7 +87,20 @@ def parse_alert(state: AgentState) -> AgentState:
                 if edge.get("target") == workflow_code or edge.get("child") == workflow_code:
                     is_sub_workflow = True
                     parent_workflow_code = edge.get("source") or edge.get("parent")
+                    sub_workflow_node_code = edge.get("node_code") or edge.get("task_code")
                     break
+        else:
+            # 已经识别为子工作流，查找边关系获取节点编码
+            for edge in graph.edges.workflow_calls_subworkflow:
+                if edge.get("target") == workflow_code or edge.get("child") == workflow_code:
+                    sub_workflow_node_code = edge.get("node_code") or edge.get("task_code")
+                    break
+
+    # 如果是子工作流但没有从 webhook 获取到父实例ID，尝试从 API 查询
+    if is_sub_workflow and parent_process_instance_id is None and process_instance_id:
+        # 通过子工作流实例查询父工作流实例
+        # 这里可以调用 dsctl 或 API 查询
+        pass  # 暂时保持 None，后续节点可以查询
 
     # 更新状态
     return {
@@ -90,6 +113,9 @@ def parse_alert(state: AgentState) -> AgentState:
         "error_time": error_time,
         "is_sub_workflow": is_sub_workflow,
         "parent_workflow_code": parent_workflow_code,
+        "process_instance_id": process_instance_id,
+        "parent_process_instance_id": parent_process_instance_id,
+        "sub_workflow_node_code": sub_workflow_node_code,
     }
 
 

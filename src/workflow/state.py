@@ -33,7 +33,7 @@ class AgentState(TypedDict, total=False):
     workflow_code: str
     # Workflow name
     workflow_name: str
-    # Task code
+    # Task code (failed task code in current workflow)
     task_code: str
     # Task type (limited to specific values)
     task_type: Literal["SHELL", "SPARK", "PYTHON", "DATAX"]
@@ -43,6 +43,11 @@ class AgentState(TypedDict, total=False):
     is_sub_workflow: bool
     # Parent workflow code (if this is a sub-workflow)
     parent_workflow_code: Optional[str]
+    # Parent workflow instance ID (if this is a sub-workflow)
+    parent_process_instance_id: Optional[int]
+    # Sub-workflow node code in parent workflow (if this is a sub-workflow)
+    # This is the task code of the SUB_PROCESS task in the parent workflow
+    sub_workflow_node_code: Optional[str]
 
     # ==================== Validation Stage ====================
     # Whether the project is valid
@@ -129,6 +134,8 @@ INITIAL_STATE: Dict[str, Any] = {
     "error_time": "",
     "is_sub_workflow": False,
     "parent_workflow_code": None,
+    "parent_process_instance_id": None,
+    "sub_workflow_node_code": None,
 
     # Validation stage - defaults
     "project_valid": False,

@@ -1,0 +1,59 @@
+{
+  "workflow_code": "21451302002208",
+  "task_code": "123456",
+  "task_type": "SPARK",
+  "error_category": "RESOURCE",
+  "risk_level": "LOW",
+  "error_patterns": [
+    "oom_executor"
+  ],
+  "suggested_actions": [
+    {
+      "action_type": "modify_config",
+      "description": "{'spark.executor.memory': '4g', 'spark.executor.memoryOverhead': '1g'}",
+      "risk_level": "LOW"
+    },
+    {
+      "action_type": "suggested",
+      "description": "增加 Executor 内存: spark.executor.memory=4g, spark.executor.memoryOverhead=1g",
+      "risk_level": "MEDIUM"
+    },
+    {
+      "action_type": "suggested",
+      "description": "可尝试自动修复",
+      "risk_level": "MEDIUM"
+    }
+  ],
+  "execution_results": [
+    {
+      "action": {
+        "action_type": "modify_config",
+        "description": "{'spark.executor.memory': '4g', 'spark.executor.memoryOverhead': '1g'}",
+        "risk_level": "LOW"
+      },
+      "status": "skipped",
+      "reason": "未知动作类型"
+    },
+    {
+      "action": {
+        "action_type": "suggested",
+        "description": "增加 Executor 内存: spark.executor.memory=4g, spark.executor.memoryOverhead=1g",
+        "risk_level": "MEDIUM"
+      },
+      "status": "skipped",
+      "reason": "未知动作类型"
+    },
+    {
+      "action": {
+        "action_type": "suggested",
+        "description": "可尝试自动修复",
+        "risk_level": "MEDIUM"
+      },
+      "status": "skipped",
+      "reason": "未知动作类型"
+    }
+  ],
+  "confidence_score": 0.9,
+  "stored_at": "2026-05-08T14:30:38.521839",
+  "driver_logs": "java.lang.OutOfMemoryError: Java heap space"
+}

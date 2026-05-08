@@ -1,0 +1,40 @@
+[
+  {
+    "id": "shell-001",
+    "task_type": "SHELL",
+    "error_type": "syntax_error",
+    "pattern": "syntax error:",
+    "analysis": "Shell 脚本语法错误",
+    "suggestion": "检查 Shell 脚本语法，特别是引号、括号和分号",
+    "script_fix": null,
+    "status": "confirmed",
+    "confirmed_at": "2026-05-01T10:00:00Z"
+  },
+  {
+    "id": "shell-002",
+    "task_type": "SHELL",
+    "error_type": "command_not_found",
+    "pattern": "command not found:",
+    "analysis": "命令不存在，可能是拼写错误或未安装",
+    "suggestion": "检查命令是否安装，或是否是拼写错误",
+    "script_fix": {
+      "giit": "git",
+      "gti": "git",
+      "pyton": "python",
+      "pyhton": "python"
+    },
+    "status": "confirmed",
+    "confirmed_at": "2026-05-01T10:00:00Z"
+  },
+  {
+    "id": "shell-003",
+    "task_type": "SHELL",
+    "error_type": "permission_denied",
+    "pattern": "Permission denied",
+    "analysis": "权限不足",
+    "suggestion": "使用 chmod +x 赋予执行权限",
+    "script_fix": null,
+    "status": "confirmed",
+    "confirmed_at": "2026-05-01T10:00:00Z"
+  }
+]
