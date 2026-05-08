@@ -414,5 +414,177 @@ class GraphQuerier:
             "message": f"Task not found: {task_code}"
         }
 
+    def query_cross_project_table_lineage(self, table_name: str, project_codes: List[str] = None) -> Dict:
+        """
+        查询表跨项目的完整血缘链路
 
-__all__ = ["GraphQuerier"]
+        Args:
+            table_name: 表名(full_name)
+            project_codes: 项目代码列表(可选，不提供则搜索所有已扫描图谱)
+
+        Returns:
+            {
+                "found": bool,
+                "producers": [{"project_code": str, "workflow": str, "task": str}],
+                "consumers": [{"project_code": str, "workflow": str, "task": str}],
+                "cross_project_references": [{"class": str, "source_project": str, "target_project": str}],
+                "message": str
+            }
+        """
+        result = {
+            "found": False,
+            "producers": [],
+            "consumers": [],
+            "cross_project_references": [],
+            "message": ""
+        }
+
+        # 获取所有项目代码
+        if project_codes is None:
+            project_codes = self._list_all_projects()
+
+        if not project_codes:
+            result["message"] = "No scanned graphs found"
+            return result
+
+        # 遍历每个项目查询
+        for project_code in project_codes:
+            # 查询生产者
+            producer_result = self.query_table_producers(project_code, table_name)
+            if producer_result["found"]:
+                for workflow in producer_result["workflows"]:
+                    result["producers"].append({
+                        "project_code": project_code,
+                        "workflow": workflow,
+                    })
+                for task in producer_result["tasks"]:
+                    result["producers"].append({
+                        "project_code": project_code,
+                        "workflow": "",  # 需要从图谱查找
+                        "task": task,
+                    })
+
+            # 查询消费者
+            consumer_result = self.query_table_consumers(project_code, table_name)
+            if consumer_result["found"]:
+                for workflow in consumer_result["workflows"]:
+                    result["consumers"].append({
+                        "project_code": project_code,
+                        "workflow": workflow,
+                    })
+                for task in consumer_result["tasks"]:
+                    result["consumers"].append({
+                        "project_code": project_code,
+                        "workflow": "",
+                        "task": task,
+                    })
+
+            # 查询跨项目类引用
+            graph_data = self.storage.load_graph(project_code)
+            if graph_data:
+                graph = Graph.from_dict(graph_data)
+                for cls in graph.nodes.classes:
+                    if cls.cross_project and table_name in (cls.tables_input or []):
+                        result["cross_project_references"].append({
+                            "class": cls.name,
+                            "source_project": cls.source_project or "unknown",
+                            "target_project": project_code,
+                        })
+
+        # 设置结果
+        if result["producers"] or result["consumers"]:
+            result["found"] = True
+            result["message"] = f"Found lineage for table {table_name} across {len(project_codes)} projects"
+
+        return result
+
+    def query_cross_project_workflow_downstream(self, project_code: str, workflow_code: str) -> Dict:
+        """
+        查询工作流跨项目的下游依赖
+
+        通过识别跨项目类引用，追溯下游工作流
+
+        Args:
+            project_code: 项目代码
+            workflow_code: 工作流代码
+
+        Returns:
+            {
+                "found": bool,
+                "local_downstream": ["本项目下游工作流"],
+                "cross_project_downstream": [{"project_code": str, "workflow": str, "via_class": str}],
+                "message": str
+            }
+        """
+        result = {
+            "found": False,
+            "local_downstream": [],
+            "cross_project_downstream": [],
+            "message": ""
+        }
+
+        # 查询本项目下游
+        local_result = self.query_workflow_downstream(project_code, workflow_code)
+        if local_result["found"]:
+            result["local_downstream"] = local_result["all"]
+
+        # 加载主图谱查找跨项目引用
+        graph_data = self.storage.load_graph(project_code)
+        if graph_data is None:
+            result["message"] = f"Graph not found for project: {project_code}"
+            return result
+
+        graph = Graph.from_dict(graph_data)
+
+        # 查找工作流产出的表
+        workflow_outputs = []
+        for task in graph.nodes.tasks:
+            if task.workflow_code == workflow_code:
+                # 查找任务产出的表
+                for edge in graph.edges.task_produces_table:
+                    if edge.get("source") == task.code or edge.get("task") == task.code:
+                        table_name = edge.get("target") or edge.get("table")
+                        workflow_outputs.append(table_name)
+
+        # 在其他项目中查找消费这些表的工作流
+        other_projects = self._list_all_projects()
+        other_projects = [p for p in other_projects if p != project_code]
+
+        for other_project in other_projects:
+            for table_name in workflow_outputs:
+                consumer_result = self.query_table_consumers(other_project, table_name)
+                if consumer_result["found"]:
+                    for workflow in consumer_result["workflows"]:
+                        result["cross_project_downstream"].append({
+                            "project_code": other_project,
+                            "workflow": workflow,
+                            "via_table": table_name,
+                        })
+
+        # 设置结果
+        if result["local_downstream"] or result["cross_project_downstream"]:
+            result["found"] = True
+            result["message"] = f"Found downstream for workflow {workflow_code}"
+
+        return result
+
+    def _list_all_projects(self) -> List[str]:
+        """
+        列出所有已扫描的项目
+
+        Returns:
+            项目代码列表
+        """
+        import os
+
+        graph_dir = self.storage.data_dir
+        if not os.path.exists(graph_dir):
+            return []
+
+        project_codes = []
+        for filename in os.listdir(graph_dir):
+            if filename.endswith("_graph.json"):
+                project_code = filename.replace("_graph.json", "")
+                project_codes.append(project_code)
+
+        return project_codes

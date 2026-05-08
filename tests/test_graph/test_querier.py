@@ -381,3 +381,175 @@ class TestGraphQuerier:
 
         assert result["found"] is False
         assert "not found" in result["message"]
+
+    def test_query_cross_project_table_lineage(self):
+        """测试跨项目表血缘查询"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            storage = GraphStorage(data_dir=tmpdir)
+
+            # 创建项目 A 的图谱
+            graph_a = Graph(
+                project_code="project_a",
+                project_name="Project A",
+                scanned_at="2026-05-08T10:00:00",
+                version=1,
+                nodes=GraphNodes(
+                    workflows=[WorkflowNode(code="wf_a1", name="Workflow A1", schedule_type="CRON", schedule_cron="0 0 * * *", is_sub_workflow=False, parent_workflow=None)],
+                    tasks=[TaskNode(code="task_a1", name="Task A1", workflow_code="wf_a1", task_type="SPARK", spark_main_class="com.a.Process", params={})],
+                    tables=[TableNode(full_name="hive.db.shared_table", table_type="HIVE")],
+                    classes=[ClassNode(name="com.a.Process", file_path="/a/Process.scala", cross_project=False, source_project=None, tables_input=["hive.db.shared_table"], tables_output=["hive.db.output_a"])]
+                ),
+                edges=GraphEdges(
+                    workflow_depends_workflow=[],
+                    workflow_calls_subworkflow=[],
+                    workflow_contains_task=[{"source": "wf_a1", "target": "task_a1"}],
+                    task_depends_task=[],
+                    task_produces_table=[{"source": "task_a1", "target": "hive.db.output_a"}],
+                    task_consumes_table=[{"source": "task_a1", "target": "hive.db.shared_table"}],
+                    class_maps_to_task=[{"source": "com.a.Process", "target": "task_a1"}]
+                )
+            )
+            storage.save_graph("project_a", graph_a.to_dict())
+            indexer_a = GraphIndexer(storage)
+            indexer_a.generate_all_indexes("project_a")
+
+            # 创建项目 B 的图谱（消费 shared_table）
+            graph_b = Graph(
+                project_code="project_b",
+                project_name="Project B",
+                scanned_at="2026-05-08T10:00:00",
+                version=1,
+                nodes=GraphNodes(
+                    workflows=[WorkflowNode(code="wf_b1", name="Workflow B1", schedule_type="CRON", schedule_cron="0 1 * * *", is_sub_workflow=False, parent_workflow=None)],
+                    tasks=[TaskNode(code="task_b1", name="Task B1", workflow_code="wf_b1", task_type="SPARK", spark_main_class="com.b.Consume", params={})],
+                    tables=[TableNode(full_name="hive.db.shared_table", table_type="HIVE")],
+                    classes=[ClassNode(name="com.b.Consume", file_path="/b/Consume.scala", cross_project=True, source_project="project_a", tables_input=["hive.db.shared_table"], tables_output=["hive.db.output_b"])]
+                ),
+                edges=GraphEdges(
+                    workflow_depends_workflow=[],
+                    workflow_calls_subworkflow=[],
+                    workflow_contains_task=[{"source": "wf_b1", "target": "task_b1"}],
+                    task_depends_task=[],
+                    task_produces_table=[{"source": "task_b1", "target": "hive.db.output_b"}],
+                    task_consumes_table=[{"source": "task_b1", "target": "hive.db.shared_table"}],
+                    class_maps_to_task=[{"source": "com.b.Consume", "target": "task_b1"}]
+                )
+            )
+            storage.save_graph("project_b", graph_b.to_dict())
+            indexer_b = GraphIndexer(storage)
+            indexer_b.generate_all_indexes("project_b")
+
+            querier = GraphQuerier(storage)
+
+            # 查询跨项目血缘
+            result = querier.query_cross_project_table_lineage("hive.db.shared_table")
+
+            assert result["found"] is True
+            # 项目 A 消费 shared_table
+            assert any(p["project_code"] == "project_a" for p in result["consumers"])
+            # 项目 B 也消费 shared_table
+            assert any(p["project_code"] == "project_b" for p in result["consumers"])
+            # 跨项目引用
+            assert len(result["cross_project_references"]) > 0
+
+    def test_query_cross_project_workflow_downstream(self):
+        """测试跨项目工作流下游查询"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            storage = GraphStorage(data_dir=tmpdir)
+
+            # 创建项目 A 的图谱（产出表）
+            graph_a = Graph(
+                project_code="project_a",
+                project_name="Project A",
+                scanned_at="2026-05-08T10:00:00",
+                version=1,
+                nodes=GraphNodes(
+                    workflows=[WorkflowNode(code="wf_a1", name="Workflow A1", schedule_type="CRON", schedule_cron="0 0 * * *", is_sub_workflow=False, parent_workflow=None)],
+                    tasks=[TaskNode(code="task_a1", name="Task A1", workflow_code="wf_a1", task_type="SPARK", spark_main_class="com.a.Producer", params={})],
+                    tables=[TableNode(full_name="hive.db.output_table", table_type="HIVE")],
+                    classes=[ClassNode(name="com.a.Producer", file_path="/a/Producer.scala", cross_project=False, source_project=None, tables_input=[], tables_output=["hive.db.output_table"])]
+                ),
+                edges=GraphEdges(
+                    workflow_depends_workflow=[],
+                    workflow_calls_subworkflow=[],
+                    workflow_contains_task=[{"source": "wf_a1", "target": "task_a1"}],
+                    task_depends_task=[],
+                    task_produces_table=[{"source": "task_a1", "target": "hive.db.output_table"}],
+                    task_consumes_table=[],
+                    class_maps_to_task=[{"source": "com.a.Producer", "target": "task_a1"}]
+                )
+            )
+            storage.save_graph("project_a", graph_a.to_dict())
+            indexer_a = GraphIndexer(storage)
+            indexer_a.generate_all_indexes("project_a")
+
+            # 创建项目 B 的图谱（消费项目 A 的表）
+            graph_b = Graph(
+                project_code="project_b",
+                project_name="Project B",
+                scanned_at="2026-05-08T10:00:00",
+                version=1,
+                nodes=GraphNodes(
+                    workflows=[WorkflowNode(code="wf_b1", name="Workflow B1", schedule_type="CRON", schedule_cron="0 1 * * *", is_sub_workflow=False, parent_workflow=None)],
+                    tasks=[TaskNode(code="task_b1", name="Task B1", workflow_code="wf_b1", task_type="SPARK", spark_main_class="com.b.Consumer", params={})],
+                    tables=[TableNode(full_name="hive.db.output_table", table_type="HIVE")],
+                    classes=[ClassNode(name="com.b.Consumer", file_path="/b/Consumer.scala", cross_project=True, source_project="project_a", tables_input=["hive.db.output_table"], tables_output=[])]
+                ),
+                edges=GraphEdges(
+                    workflow_depends_workflow=[],
+                    workflow_calls_subworkflow=[],
+                    workflow_contains_task=[{"source": "wf_b1", "target": "task_b1"}],
+                    task_depends_task=[],
+                    task_produces_table=[],
+                    task_consumes_table=[{"source": "task_b1", "target": "hive.db.output_table"}],
+                    class_maps_to_task=[{"source": "com.b.Consumer", "target": "task_b1"}]
+                )
+            )
+            storage.save_graph("project_b", graph_b.to_dict())
+            indexer_b = GraphIndexer(storage)
+            indexer_b.generate_all_indexes("project_b")
+
+            querier = GraphQuerier(storage)
+
+            # 查询项目 A 工作流的跨项目下游
+            result = querier.query_cross_project_workflow_downstream("project_a", "wf_a1")
+
+            assert result["found"] is True
+            # 本项目下游为空
+            assert result["local_downstream"] == []
+            # 跨项目下游包含项目 B 的工作流
+            assert len(result["cross_project_downstream"]) > 0
+            assert any(d["project_code"] == "project_b" for d in result["cross_project_downstream"])
+
+    def test_list_all_projects(self):
+        """测试列出所有项目"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            storage = GraphStorage(data_dir=tmpdir)
+
+            # 创建多个项目图谱
+            for project_code in ["proj1", "proj2", "proj3"]:
+                graph = Graph(
+                    project_code=project_code,
+                    project_name=f"Project {project_code}",
+                    scanned_at="2026-05-08T10:00:00",
+                    version=1,
+                    nodes=GraphNodes(workflows=[], tasks=[], tables=[], classes=[]),
+                    edges=GraphEdges(
+                        workflow_depends_workflow=[],
+                        workflow_calls_subworkflow=[],
+                        workflow_contains_task=[],
+                        task_depends_task=[],
+                        task_produces_table=[],
+                        task_consumes_table=[],
+                        class_maps_to_task=[]
+                    )
+                )
+                storage.save_graph(project_code, graph.to_dict())
+
+            querier = GraphQuerier(storage)
+            projects = querier._list_all_projects()
+
+            assert len(projects) == 3
+            assert "proj1" in projects
+            assert "proj2" in projects
+            assert "proj3" in projects
