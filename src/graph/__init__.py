@@ -23,6 +23,7 @@ from .storage import GraphStorage
 from .sql_parser import SQLParser
 from .code_searcher import CodeSearcher
 from .scanner import GraphScanner
+from .indexer import GraphIndexer
 
 __all__ = [
     "Graph",
@@ -36,4 +37,5 @@ __all__ = [
     "SQLParser",
     "CodeSearcher",
     "GraphScanner",
+    "GraphIndexer",
 ]
