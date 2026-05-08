@@ -275,3 +275,124 @@ class TestGraphImpactTool:
             assert names["wf_1"] == "工作流A"
             assert names["wf_2"] == "工作流B"
             assert names["wf_3"] == "wf_3"  # 未找到时返回 code
+
+    def test_find_task_downstream_direct(self):
+        """测试直接下游任务"""
+        tool = GraphImpactTool()
+
+        task_depends = [
+            {"source": "task_1", "target": "task_2"},
+            {"source": "task_2", "target": "task_3"},
+        ]
+        workflow_tasks = {"task_1", "task_2", "task_3"}
+
+        downstream = tool._find_task_downstream("task_1", task_depends, workflow_tasks)
+
+        assert "task_2" in downstream
+        assert "task_3" in downstream
+
+    def test_find_task_downstream_multiple_paths(self):
+        """测试多路径下游"""
+        tool = GraphImpactTool()
+
+        task_depends = [
+            {"source": "task_1", "target": "task_2"},
+            {"source": "task_1", "target": "task_3"},
+            {"source": "task_2", "target": "task_4"},
+            {"source": "task_3", "target": "task_4"},
+        ]
+        workflow_tasks = {"task_1", "task_2", "task_3", "task_4"}
+
+        downstream = tool._find_task_downstream("task_1", task_depends, workflow_tasks)
+
+        assert len(downstream) == 3
+        assert "task_2" in downstream
+        assert "task_3" in downstream
+        assert "task_4" in downstream
+
+    def test_find_task_downstream_no_downstream(self):
+        """测试无下游任务"""
+        tool = GraphImpactTool()
+
+        task_depends = [
+            {"source": "task_1", "target": "task_2"},
+        ]
+        workflow_tasks = {"task_1", "task_2", "task_3"}
+
+        downstream = tool._find_task_downstream("task_3", task_depends, workflow_tasks)
+
+        assert downstream == []
+
+    def test_find_task_downstream_filter_out_of_workflow(self):
+        """测试过滤工作流外的任务"""
+        tool = GraphImpactTool()
+
+        task_depends = [
+            {"source": "task_1", "target": "task_2"},
+            {"source": "task_2", "target": "task_external"},  # 工作流外
+        ]
+        workflow_tasks = {"task_1", "task_2"}
+
+        downstream = tool._find_task_downstream("task_1", task_depends, workflow_tasks)
+
+        assert "task_2" in downstream
+        assert "task_external" not in downstream
+
+    def test_analyze_task_downstream_with_real_downstream(self):
+        """测试有真实下游的任务分析"""
+        import tempfile
+        from src.graph.storage import GraphStorage
+        from src.graph.models import Graph, GraphNodes, GraphEdges, TaskNode, WorkflowNode
+        from src.graph.indexer import GraphIndexer
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            storage = GraphStorage(data_dir=tmpdir)
+
+            # 创建测试图谱
+            graph = Graph(
+                project_code="test_proj",
+                project_name="Test",
+                scanned_at="2026-05-08T10:00:00",
+                version=1,
+                nodes=GraphNodes(
+                    workflows=[WorkflowNode(code="wf_1", name="WF1", schedule_type="CRON", schedule_cron="0 0 * * *", is_sub_workflow=False, parent_workflow=None)],
+                    tasks=[
+                        TaskNode(code="task_1", name="Task 1", workflow_code="wf_1", task_type="SPARK", spark_main_class=None, params={}),
+                        TaskNode(code="task_2", name="Task 2", workflow_code="wf_1", task_type="SPARK", spark_main_class=None, params={}),
+                        TaskNode(code="task_3", name="Task 3", workflow_code="wf_1", task_type="SPARK", spark_main_class=None, params={}),
+                    ],
+                    tables=[],
+                    classes=[]
+                ),
+                edges=GraphEdges(
+                    workflow_depends_workflow=[],
+                    workflow_calls_subworkflow=[],
+                    workflow_contains_task=[
+                        {"source": "wf_1", "target": "task_1"},
+                        {"source": "wf_1", "target": "task_2"},
+                        {"source": "wf_1", "target": "task_3"},
+                    ],
+                    task_depends_task=[
+                        {"source": "task_1", "target": "task_2"},
+                        {"source": "task_2", "target": "task_3"},
+                    ],
+                    task_produces_table=[],
+                    task_consumes_table=[],
+                    class_maps_to_task=[]
+                )
+            )
+
+            storage.save_graph("test_proj", graph.to_dict())
+            indexer = GraphIndexer(storage)
+            indexer.generate_all_indexes("test_proj")
+
+            tool = GraphImpactTool(storage)
+
+            # 分析 task_1 的下游
+            result = tool.analyze_task_downstream("test_proj", "wf_1", "task_1")
+
+            assert result["graph_available"] is True
+            assert result["downstream_count"] == 2
+            assert "task_2" in result["downstream_tasks"]
+            assert "task_3" in result["downstream_tasks"]
+            assert result["task_names"]["task_1"] == "Task 1"

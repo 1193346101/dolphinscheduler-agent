@@ -168,6 +168,8 @@ def extract_project_code(payload: Dict[str, Any]) -> Optional[str]:
     Returns:
         项目代码或 None
     """
+    from ...config import settings
+
     conversation_title = payload.get("conversationTitle", "")
 
     # 从会话标题解析项目代码
@@ -180,8 +182,12 @@ def extract_project_code(payload: Dict[str, Any]) -> Optional[str]:
         if match:
             return match.group(1)
 
-    # 返回默认项目代码 (可从配置中获取)
-    # TODO: 从配置中获取默认项目
+    # 从配置中获取默认项目
+    default_project = settings.DEFAULT_PROJECT_CODE
+    if default_project:
+        return default_project
+
+    # 无默认配置时返回通用标识
     return "default_project"
 
 
