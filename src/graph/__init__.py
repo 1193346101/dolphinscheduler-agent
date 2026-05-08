@@ -7,6 +7,7 @@ Provides:
 - Scanner: Graph building from DS + code repo
 - Indexer: Query index generation
 - Querier: Graph query service
+- CodeSearcher: Code file search by class name
 """
 
 from .models import (
@@ -20,6 +21,7 @@ from .models import (
 )
 from .storage import GraphStorage
 from .sql_parser import SQLParser
+from .code_searcher import CodeSearcher
 
 __all__ = [
     "Graph",
@@ -31,4 +33,5 @@ __all__ = [
     "GraphEdges",
     "GraphStorage",
     "SQLParser",
+    "CodeSearcher",
 ]
