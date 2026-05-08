@@ -498,3 +498,150 @@ class TestGraphIndexer:
             assert set(result_a) == {"B", "C", "D"}
             # 确保没有重复
             assert len(result_a) == len(set(result_a))
+
+    def test_scanner_indexer_pipeline_integration(self):
+        """Integration test: scanner output should work with indexer"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            storage = GraphStorage(data_dir=tmpdir)
+            indexer = GraphIndexer(storage)
+
+            # Simulate scanner output with source/target keys
+            # This is what scanner produces after the fix
+            graph = Graph(
+                project_code="integration_test",
+                project_name="Integration Test Project",
+                scanned_at="2026-05-08T10:00:00",
+                version=1,
+                nodes=GraphNodes(
+                    workflows=[
+                        WorkflowNode(
+                            code="wf_main",
+                            name="Main Workflow",
+                            schedule_type="CRON",
+                            schedule_cron="0 0 * * *",
+                            is_sub_workflow=False,
+                            parent_workflow=None
+                        ),
+                        WorkflowNode(
+                            code="wf_dep",
+                            name="Dependency Workflow",
+                            schedule_type="CRON",
+                            schedule_cron="0 1 * * *",
+                            is_sub_workflow=False,
+                            parent_workflow=None
+                        ),
+                    ],
+                    tasks=[
+                        TaskNode(
+                            code="task1",
+                            name="Extract Task",
+                            workflow_code="wf_main",
+                            task_type="SPARK",
+                            spark_main_class="com.example.ExtractData",
+                            params={}
+                        ),
+                        TaskNode(
+                            code="task2",
+                            name="Process Task",
+                            workflow_code="wf_main",
+                            task_type="SPARK",
+                            spark_main_class="com.example.ProcessData",
+                            params={}
+                        ),
+                        TaskNode(
+                            code="task3",
+                            name="Load Task",
+                            workflow_code="wf_main",
+                            task_type="SPARK",
+                            spark_main_class="com.example.LoadData",
+                            params={}
+                        ),
+                    ],
+                    tables=[
+                        TableNode(full_name="hive.db.source_table", table_type="HIVE"),
+                        TableNode(full_name="hive.db.intermediate_table", table_type="HIVE"),
+                        TableNode(full_name="hive.db.target_table", table_type="HIVE"),
+                    ],
+                    classes=[
+                        ClassNode(
+                            name="com.example.ExtractData",
+                            file_path="/src/ExtractData.scala",
+                            cross_project=False,
+                            source_project=None,
+                            tables_input=["hive.db.source_table"],
+                            tables_output=["hive.db.intermediate_table"]
+                        ),
+                        ClassNode(
+                            name="com.example.ProcessData",
+                            file_path="/src/ProcessData.scala",
+                            cross_project=False,
+                            source_project=None,
+                            tables_input=["hive.db.intermediate_table"],
+                            tables_output=["hive.db.target_table"]
+                        ),
+                    ]
+                ),
+                edges=GraphEdges(
+                    # Workflow dependencies with source/target
+                    workflow_depends_workflow=[
+                        {"source": "wf_main", "target": "wf_dep"},
+                    ],
+                    workflow_calls_subworkflow=[],
+                    # Workflow contains task with source/target
+                    workflow_contains_task=[
+                        {"source": "wf_main", "target": "task1"},
+                        {"source": "wf_main", "target": "task2"},
+                        {"source": "wf_main", "target": "task3"},
+                    ],
+                    # Task dependencies with source/target
+                    task_depends_task=[
+                        {"source": "task1", "target": "task2"},
+                        {"source": "task2", "target": "task3"},
+                    ],
+                    # Task-table relationships with source/target
+                    task_produces_table=[
+                        {"source": "task1", "target": "hive.db.intermediate_table"},
+                        {"source": "task2", "target": "hive.db.target_table"},
+                    ],
+                    task_consumes_table=[
+                        {"source": "task1", "target": "hive.db.source_table"},
+                        {"source": "task2", "target": "hive.db.intermediate_table"},
+                        {"source": "task3", "target": "hive.db.target_table"},
+                    ],
+                    # Class-task mapping with source/target
+                    class_maps_to_task=[
+                        {"source": "com.example.ExtractData", "target": "task1"},
+                        {"source": "com.example.ProcessData", "target": "task2"},
+                    ]
+                )
+            )
+
+            # Save graph
+            storage.save_graph("integration_test", graph.to_dict())
+
+            # Generate all indexes - this should NOT throw errors
+            indexes = indexer.generate_all_indexes("integration_test")
+
+            # Verify downstream index works correctly
+            assert "workflow_downstream" in indexes["downstream"]
+            wf_downstream = indexes["downstream"]["workflow_downstream"]
+            assert wf_downstream["wf_main"]["direct"] == ["wf_dep"]
+
+            assert "task_downstream" in indexes["downstream"]
+            task_downstream = indexes["downstream"]["task_downstream"]
+            assert task_downstream["task1"]["direct"] == ["task2"]
+            assert set(task_downstream["task1"]["all"]) == {"task2", "task3"}
+
+            # Verify table consumer index works correctly
+            assert "table_consumers" in indexes["table_consumer"]
+            consumers = indexes["table_consumer"]["table_consumers"]
+            assert "hive.db.source_table" in consumers
+            assert "task1" in consumers["hive.db.source_table"]["tasks"]
+            assert "wf_main" in consumers["hive.db.source_table"]["workflows"]
+            assert "com.example.ExtractData" in consumers["hive.db.source_table"]["classes"]
+
+            # Verify workflow nodes index works correctly
+            assert "workflow_tasks" in indexes["workflow_nodes"]
+            wf_tasks = indexes["workflow_nodes"]["workflow_tasks"]
+            assert set(wf_tasks["wf_main"]["tasks"]) == {"task1", "task2", "task3"}
+            assert wf_tasks["wf_main"]["task_types"]["task1"] == "SPARK"

@@ -20,6 +20,10 @@ class Settings:
     DS_API_URL: str = os.getenv("DS_API_URL", "http://localhost:12345/dolphinscheduler")
     DS_TOKEN: str = os.getenv("DS_TOKEN", "")
 
+    # Graph Configuration
+    CODE_ROOT_PATH: str = os.getenv("CODE_ROOT_PATH", "")
+    GRAPH_STORAGE_PATH: str = os.getenv("GRAPH_STORAGE_PATH", "data/graph")
+
     def __post_init__(self):
         if not self.ANTHROPIC_API_KEY:
             raise ValueError("ANTHROPIC_API_KEY environment variable is required")

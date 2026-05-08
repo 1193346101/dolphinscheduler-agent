@@ -191,8 +191,8 @@ class GraphScanner:
             task_code = str(task.get("code", ""))
             if task_code:
                 graph.edges.workflow_contains_task.append({
-                    "workflow_code": workflow_code,
-                    "task_code": task_code,
+                    "source": workflow_code,
+                    "target": task_code,
                 })
 
         # 解析任务
@@ -351,8 +351,8 @@ class GraphScanner:
 
             # 添加 task_consumes_table 边
             graph.edges.task_consumes_table.append({
-                "task_code": task_code,
-                "table_name": table_name,
+                "source": task_code,
+                "target": table_name,
             })
 
         for table_name in tables_output:
@@ -372,8 +372,8 @@ class GraphScanner:
 
             # 添加 task_produces_table 边
             graph.edges.task_produces_table.append({
-                "task_code": task_code,
-                "table_name": table_name,
+                "source": task_code,
+                "target": table_name,
             })
 
         # 创建 ClassNode
@@ -389,8 +389,8 @@ class GraphScanner:
 
         # 添加 class_maps_to_task 边
         graph.edges.class_maps_to_task.append({
-            "class_name": class_name,
-            "task_code": task_code,
+            "source": class_name,
+            "target": task_code,
         })
 
     def _parse_task_dependencies(
@@ -414,9 +414,8 @@ class GraphScanner:
             # preTaskCode 为 0 表示起始任务，无前置依赖
             if pre_task_code and post_task_code and pre_task_code != 0:
                 graph.edges.task_depends_task.append({
-                    "workflow_code": workflow_code,
-                    "pre_task_code": str(pre_task_code),
-                    "post_task_code": str(post_task_code),
+                    "source": str(pre_task_code),
+                    "target": str(post_task_code),
                 })
 
     def _parse_workflow_dependencies(
@@ -478,8 +477,8 @@ class GraphScanner:
 
         if dep_workflow_code:
             graph.edges.workflow_depends_workflow.append({
-                "workflow_code": workflow_code,
-                "depends_workflow_code": str(dep_workflow_code),
+                "source": workflow_code,
+                "target": str(dep_workflow_code),
             })
 
 

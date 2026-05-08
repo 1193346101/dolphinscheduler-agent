@@ -234,8 +234,8 @@ class TestParseWorkflowDependencies(unittest.TestCase):
 
         assert len(self.graph.edges.workflow_depends_workflow) == 1
         edge = self.graph.edges.workflow_depends_workflow[0]
-        assert edge["workflow_code"] == "1001"
-        assert edge["depends_workflow_code"] == "2001"
+        assert edge["source"] == "1001"
+        assert edge["target"] == "2001"
 
     def test_parse_workflow_dependencies_no_dependent(self):
         """Test parsing workflow without DEPENDENT task"""
@@ -292,10 +292,10 @@ class TestParseTaskDependencies(unittest.TestCase):
 
         # Check edges
         edges = self.graph.edges.task_depends_task
-        assert edges[0]["pre_task_code"] == "1001"
-        assert edges[0]["post_task_code"] == "1002"
-        assert edges[1]["pre_task_code"] == "1002"
-        assert edges[1]["post_task_code"] == "1003"
+        assert edges[0]["source"] == "1001"
+        assert edges[0]["target"] == "1002"
+        assert edges[1]["source"] == "1002"
+        assert edges[1]["target"] == "1003"
 
     def test_parse_task_dependencies_empty(self):
         """Test parsing empty task dependencies"""
