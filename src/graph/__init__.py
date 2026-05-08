@@ -24,6 +24,7 @@ from .sql_parser import SQLParser
 from .code_searcher import CodeSearcher
 from .scanner import GraphScanner
 from .indexer import GraphIndexer
+from .querier import GraphQuerier
 
 __all__ = [
     "Graph",
@@ -38,4 +39,5 @@ __all__ = [
     "CodeSearcher",
     "GraphScanner",
     "GraphIndexer",
+    "GraphQuerier",
 ]
