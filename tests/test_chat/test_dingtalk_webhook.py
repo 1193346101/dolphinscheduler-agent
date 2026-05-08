@@ -143,12 +143,11 @@ class TestDingTalkWebhookAPI:
             "response_content": "### 工作流 wf_001 下游依赖\n...",
         }
 
-        with patch('src.chat.api.dingtalk_webhook.parse_intent_node',
-                   return_value=mock_state_result) as mock_parse, \
-             patch('src.chat.api.dingtalk_webhook.query_lineage_node',
-                   return_value=mock_state_result) as mock_query, \
-             patch('src.chat.api.dingtalk_webhook.format_response_node',
-                   return_value=mock_state_result) as mock_format:
+        mock_graph = Mock()
+        mock_graph.invoke.return_value = mock_state_result
+
+        with patch('src.chat.api.dingtalk_webhook.get_chat_graph',
+                   return_value=mock_graph):
 
             response = client.post("/dingtalk/message", json={
                 "msgtype": "text",
@@ -172,10 +171,11 @@ class TestDingTalkWebhookAPI:
             "response_content": "### 帮助\n...",
         }
 
-        with patch('src.chat.api.dingtalk_webhook.parse_intent_node',
-                   return_value=mock_state_result), \
-             patch('src.chat.api.dingtalk_webhook.format_response_node',
-                   return_value=mock_state_result):
+        mock_graph = Mock()
+        mock_graph.invoke.return_value = mock_state_result
+
+        with patch('src.chat.api.dingtalk_webhook.get_chat_graph',
+                   return_value=mock_graph):
 
             response = client.post("/dingtalk/message", json={
                 "msgtype": "text",
@@ -211,10 +211,11 @@ class TestDingTalkWebhookAPI:
             "response_content": "抱歉，我不理解您的消息...",
         }
 
-        with patch('src.chat.api.dingtalk_webhook.parse_intent_node',
-                   return_value=mock_state_result), \
-             patch('src.chat.api.dingtalk_webhook.format_response_node',
-                   return_value=mock_state_result):
+        mock_graph = Mock()
+        mock_graph.invoke.return_value = mock_state_result
+
+        with patch('src.chat.api.dingtalk_webhook.get_chat_graph',
+                   return_value=mock_graph):
 
             response = client.post("/dingtalk/message", json={
                 "msgtype": "text",
@@ -238,10 +239,11 @@ class TestDingTalkWebhookAPI:
             "response_content": "### 扫描图谱\n...",
         }
 
-        with patch('src.chat.api.dingtalk_webhook.parse_intent_node',
-                   return_value=mock_state_result), \
-             patch('src.chat.api.dingtalk_webhook.format_response_node',
-                   return_value=mock_state_result):
+        mock_graph = Mock()
+        mock_graph.invoke.return_value = mock_state_result
+
+        with patch('src.chat.api.dingtalk_webhook.get_chat_graph',
+                   return_value=mock_graph):
 
             response = client.post("/dingtalk/message", json={
                 "msgtype": "text",
@@ -265,12 +267,11 @@ class TestDingTalkWebhookAPI:
             "response_content": "### 工作流 wf_001 下游依赖\n...",
         }
 
-        with patch('src.chat.api.dingtalk_webhook.parse_intent_node',
-                   return_value=mock_state_result), \
-             patch('src.chat.api.dingtalk_webhook.query_lineage_node',
-                   return_value=mock_state_result) as mock_query, \
-             patch('src.chat.api.dingtalk_webhook.format_response_node',
-                   return_value=mock_state_result):
+        mock_graph = Mock()
+        mock_graph.invoke.return_value = mock_state_result
+
+        with patch('src.chat.api.dingtalk_webhook.get_chat_graph',
+                   return_value=mock_graph):
 
             response = client.post("/dingtalk/message", json={
                 "msgtype": "text",
@@ -281,6 +282,10 @@ class TestDingTalkWebhookAPI:
             })
 
             assert response.status_code == 200
+            # Verify graph.invoke was called with state containing project_code
+            mock_graph.invoke.assert_called_once()
+            invoke_arg = mock_graph.invoke.call_args[0][0]
+            assert invoke_arg["project_code"] == "proj_from_title"
 
 
 class TestDingTalkMessageModels:
@@ -322,63 +327,28 @@ class TestDingTalkWebhookIntegration:
         client = TestClient(app)
 
         # 完整的模拟状态流转
-        states = [
-            # Initial
-            {
-                "message": "工作流 wf_123 的下游",
-                "user_id": "user_001",
-                "conversation_id": "conv_001",
+        final_state = {
+            "message": "工作流 wf_123 的下游",
+            "user_id": "user_001",
+            "conversation_id": "conv_001",
+            "intent_type": "lineage_query",
+            "query_type": "downstream",
+            "workflow_code": "wf_123",
+            "project_code": "proj_001",
+            "result_data": {
+                "found": True,
+                "direct": ["wf_456", "wf_789"],
+                "all": ["wf_456", "wf_789", "wf_abc"],
+                "count": 3,
             },
-            # After parse_intent
-            {
-                "message": "工作流 wf_123 的下游",
-                "user_id": "user_001",
-                "conversation_id": "conv_001",
-                "intent_type": "lineage_query",
-                "query_type": "downstream",
-                "workflow_code": "wf_123",
-            },
-            # After query_lineage
-            {
-                "message": "工作流 wf_123 的下游",
-                "user_id": "user_001",
-                "conversation_id": "conv_001",
-                "intent_type": "lineage_query",
-                "query_type": "downstream",
-                "workflow_code": "wf_123",
-                "project_code": "proj_001",
-                "result_data": {
-                    "found": True,
-                    "direct": ["wf_456", "wf_789"],
-                    "all": ["wf_456", "wf_789", "wf_abc"],
-                    "count": 3,
-                },
-            },
-            # After format_response
-            {
-                "message": "工作流 wf_123 的下游",
-                "user_id": "user_001",
-                "conversation_id": "conv_001",
-                "intent_type": "lineage_query",
-                "query_type": "downstream",
-                "workflow_code": "wf_123",
-                "project_code": "proj_001",
-                "result_data": {
-                    "found": True,
-                    "direct": ["wf_456", "wf_789"],
-                    "all": ["wf_456", "wf_789", "wf_abc"],
-                    "count": 3,
-                },
-                "response_content": "### 工作流 wf_123 下游依赖\n...",
-            },
-        ]
+            "response_content": "### 工作流 wf_123 下游依赖\n...",
+        }
 
-        with patch('src.chat.api.dingtalk_webhook.parse_intent_node',
-                   side_effect=[states[1]]), \
-             patch('src.chat.api.dingtalk_webhook.query_lineage_node',
-                   side_effect=[states[2]]), \
-             patch('src.chat.api.dingtalk_webhook.format_response_node',
-                   side_effect=[states[3]]):
+        mock_graph = Mock()
+        mock_graph.invoke.return_value = final_state
+
+        with patch('src.chat.api.dingtalk_webhook.get_chat_graph',
+                   return_value=mock_graph):
 
             response = client.post("/dingtalk/message", json={
                 "msgtype": "text",

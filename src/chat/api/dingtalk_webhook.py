@@ -1,7 +1,7 @@
 """
 DingTalk Webhook API - 接收钉钉对话消息
 
-处理钉钉机器人发送的消息，解析意图并执行查询
+处理钉钉机器人发送的消息，通过 LangGraph 流程执行查询
 """
 
 from typing import Optional, Any, Dict
@@ -10,9 +10,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from ..state import ChatState, create_chat_state
-from ..nodes.parse_intent import parse_intent_node
-from ..nodes.query_lineage import query_lineage_node
-from ..nodes.format_response import format_response_node
+from ..graph import get_chat_graph
 
 
 # 创建路由
@@ -68,10 +66,13 @@ async def handle_dingtalk_message(request: Request):
 
     流程:
     1. 解析钉钉消息格式，提取用户消息
-    2. 使用 parse_intent_node 解析意图
-    3. 使用 query_lineage_node 执行查询（如需要）
-    4. 使用 format_response_node 格式化响应
-    5. 返回钉钉格式的响应
+    2. 创建初始状态
+    3. 通过 LangGraph 流程图执行完整流程:
+       - parse_intent: 解析意图
+       - route: 根据意图路由到对应节点
+       - scan_graph/query_lineage/visualize: 执行对应操作
+       - format_response: 格式化响应
+    4. 返回钉钉格式的响应
 
     钉钉消息格式示例:
     {
@@ -105,20 +106,13 @@ async def handle_dingtalk_message(request: Request):
             conversation_id=conversation_id,
         )
 
-        # 解析意图
-        state = parse_intent_node(state)
+        # 设置 project_code (从会话标题或配置中获取)
+        project_code = extract_project_code(payload)
+        state["project_code"] = project_code
 
-        # 如果是血缘查询，需要设置 project_code
-        # 从会话标题或配置中获取项目代码
-        if state.get("intent_type") == "lineage_query":
-            project_code = extract_project_code(payload)
-            state["project_code"] = project_code
-
-            # 执行查询
-            state = query_lineage_node(state)
-
-        # 格式化响应
-        state = format_response_node(state)
+        # 通过 LangGraph 流程图执行
+        graph = get_chat_graph()
+        state = graph.invoke(state)
 
         # 构建钉钉响应
         response_content = state.get("response_content", "处理完成")
