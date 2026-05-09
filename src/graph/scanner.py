@@ -108,13 +108,52 @@ class GraphScanner:
         """
         result = dsctl.list_workflows(int(project_code))
 
+        print(f"[DEBUG] list_workflows success: {result.success}")
+        print(f"[DEBUG] list_workflows stdout length: {len(result.stdout)}")
+
+        if not result.success:
+            print(f"[DEBUG] list_workflows stderr: {result.stderr}")
+            return []
+
+        try:
+            response = json.loads(result.stdout)
+            # dsctl 返回 {"action": "workflow.list", "data": [...]}
+            if isinstance(response, dict) and "data" in response:
+                workflows = response["data"]
+                print(f"[DEBUG] Fetched {len(workflows)} workflows from data field")
+                return workflows
+            # 兼容直接返回列表的情况
+            if isinstance(response, list):
+                print(f"[DEBUG] Fetched {len(response)} workflows directly")
+                return response
+            print(f"[DEBUG] Unexpected response format: {type(response)}")
+            return []
+        except (json.JSONDecodeError, TypeError) as e:
+            print(f"[DEBUG] JSON parse error: {e}")
+            return []
+
+    def _fetch_schedules(self, dsctl: DSCLIClient, project_code: str) -> List[Dict]:
+        """
+        获取项目中的所有调度
+
+        Args:
+            dsctl: DSCLI 客户端
+            project_code: 项目编码
+
+        Returns:
+            调度列表
+        """
+        result = dsctl.list_schedules(int(project_code))
+
         if not result.success:
             return []
 
         try:
-            workflows = json.loads(result.stdout)
-            if isinstance(workflows, list):
-                return workflows
+            response = json.loads(result.stdout)
+            if isinstance(response, dict) and "data" in response:
+                return response["data"]
+            if isinstance(response, list):
+                return response
             return []
         except (json.JSONDecodeError, TypeError):
             return []
@@ -154,7 +193,7 @@ class GraphScanner:
             workflow_node = WorkflowNode(
                 code=workflow_code,
                 name=workflow_name or "",
-                schedule_type="UNKNOWN",
+                schedule_type="MANUAL",
                 schedule_cron="",
                 is_sub_workflow=False,
                 parent_workflow=None,
@@ -163,17 +202,26 @@ class GraphScanner:
             return
 
         try:
-            detail = json.loads(detail_result.stdout)
+            response = json.loads(detail_result.stdout)
+            # dsctl 返回 {"action": "workflow.describe", "data": {...}}
+            if isinstance(response, dict) and "data" in response:
+                detail = response["data"]
+            else:
+                detail = response
         except (json.JSONDecodeError, TypeError):
             detail = {}
 
-        workflow_data = detail.get("workflow", {})
-        tasks_data = detail.get("tasks", [])
-        relations_data = detail.get("relations", [])
+        # DS 3.2.0 返回的字段名可能不同
+        workflow_data = detail.get("workflow") or detail.get("workflowDefinition") or {}
+        tasks_data = detail.get("tasks") or detail.get("taskDefinitionList") or []
+        relations_data = detail.get("relations") or detail.get("workflowTaskRelationList") or []
 
         # 创建 WorkflowNode
         schedule = workflow_data.get("schedule", {})
         schedule_cron = schedule.get("crontab", "") if schedule else ""
+        schedule_start = schedule.get("startTime", "") if schedule else ""
+        schedule_end = schedule.get("endTime", "") if schedule else ""
+        schedule_timezone = schedule.get("timezoneId", "Asia/Shanghai") if schedule else ""
         schedule_type = "CRON" if schedule_cron else "MANUAL"
 
         workflow_node = WorkflowNode(
@@ -183,6 +231,9 @@ class GraphScanner:
             schedule_cron=schedule_cron,
             is_sub_workflow=False,
             parent_workflow=None,
+            schedule_start_time=schedule_start,
+            schedule_end_time=schedule_end,
+            schedule_timezone=schedule_timezone,
         )
         graph.nodes.workflows.append(workflow_node)
 
@@ -263,6 +314,24 @@ class GraphScanner:
                 all_tables
             )
 
+        # 如果是 SUB_PROCESS，提取子工作流关系
+        if task_type == "SUB_PROCESS":
+            sub_workflow_code = task_params.get("processDefinitionCode")
+            if sub_workflow_code:
+                graph.edges.workflow_calls_subworkflow.append({
+                    "source": workflow_code,
+                    "target": str(sub_workflow_code),
+                    "task_code": task_code,
+                })
+
+        # 如果是 DATAX，解析 Hive 同步 Doris 的表血缘（单独功能）
+        if task_type == "DATAX":
+            tables = self._parse_datax_tables(task_params)
+            for input_table in tables.get("inputs", []):
+                self._add_table_edge(graph, task_code, input_table, "consumes", all_tables)
+            for output_table in tables.get("outputs", []):
+                self._add_table_edge(graph, task_code, output_table, "produces", all_tables)
+
     def _extract_spark_main_class(self, params: Dict) -> Optional[str]:
         """
         从 Spark 任务参数中提取主类名
@@ -273,16 +342,18 @@ class GraphScanner:
         Returns:
             主类名或 None
         """
-        # 从 mainArgs 中提取 --class 参数
-        main_args = params.get("mainArgs", "")
-        if not main_args:
-            return None
+        # 直接从 mainClass 字段获取
+        main_class = params.get("mainClass")
+        if main_class:
+            return main_class
 
-        # 正则匹配 --class xxx
-        pattern = r'--class\s+(\S+)'
-        match = re.search(pattern, main_args)
-        if match:
-            return match.group(1)
+        # 兼容从 mainArgs 中提取 --class 参数
+        main_args = params.get("mainArgs", "")
+        if main_args:
+            pattern = r'--class\s+(\S+)'
+            match = re.search(pattern, main_args)
+            if match:
+                return match.group(1)
 
         return None
 
@@ -479,6 +550,151 @@ class GraphScanner:
             graph.edges.workflow_depends_workflow.append({
                 "source": workflow_code,
                 "target": str(dep_workflow_code),
+            })
+
+    def _parse_datax_tables(self, params: Dict) -> Dict:
+        """
+        从 DATAX 任务参数中提取表信息（Hive 同步 Doris）
+
+        Args:
+            params: 任务参数
+
+        Returns:
+            {"inputs": [...], "outputs": [...]}
+        """
+        result = {"inputs": [], "outputs": []}
+
+        json_str = params.get("json", "")
+        if not json_str:
+            return result
+
+        try:
+            job_config = json.loads(json_str)
+            content_list = job_config.get("job", {}).get("content", [])
+
+            for content in content_list:
+                # 解析 reader（输入表）
+                reader = content.get("reader", {})
+                reader_name = reader.get("name", "")
+                reader_param = reader.get("parameter", {})
+
+                input_table = self._extract_datax_table(reader_name, reader_param)
+                if input_table:
+                    result["inputs"].append(input_table)
+
+                # 解析 writer（输出表）
+                writer = content.get("writer", {})
+                writer_name = writer.get("name", "")
+                writer_param = writer.get("parameter", {})
+
+                output_table = self._extract_datax_table(writer_name, writer_param)
+                if output_table:
+                    result["outputs"].append(output_table)
+
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+        return result
+
+    def _extract_datax_table(self, plugin_name: str, params: Dict) -> Optional[str]:
+        """
+        从 DATAX 插件参数中提取表名
+
+        Args:
+            plugin_name: 插件名称 (hdfsreader, hdfswriter, mysqlreader, etc.)
+            params: 插件参数
+
+        Returns:
+            表名或路径
+        """
+        if not plugin_name:
+            return None
+
+        plugin_lower = plugin_name.lower()
+
+        # HDFS
+        if "hdfs" in plugin_lower:
+            path = params.get("path", "")
+            if path:
+                # 提取表路径（去除分区变量）
+                clean_path = re.sub(r'/dt=\$\{[^}]+\}', '', path)
+                clean_path = re.sub(r'/dt=[^/]+', '', clean_path)
+                return f"hdfs:{clean_path}"
+
+        # Hive
+        if "hive" in plugin_lower:
+            table = params.get("table", "")
+            database = params.get("database", "")
+            if database and table:
+                return f"{database}.{table}"
+
+        # MySQL/Doris
+        if "mysql" in plugin_lower:
+            table_list = params.get("table", [])
+            database = params.get("database", "")
+            if table_list:
+                table = table_list[0] if isinstance(table_list, list) else table_list
+                if database:
+                    return f"mysql:{database}.{table}"
+                return f"mysql:{table}"
+
+        return None
+
+    def _add_table_edge(
+        self,
+        graph: Graph,
+        task_code: str,
+        table_name: str,
+        edge_type: str,
+        all_tables: set,
+    ) -> None:
+        """
+        添加表血缘边
+
+        Args:
+            graph: 图谱对象
+            task_code: 任务编码
+            table_name: 表名
+            edge_type: "consumes" 或 "produces"
+            all_tables: 表名集合
+        """
+        if not table_name:
+            return
+
+        all_tables.add(table_name)
+
+        # 创建 TableNode（如果不存在）
+        existing = None
+        for t in graph.nodes.tables:
+            if t.full_name == table_name:
+                existing = t
+                break
+
+        if not existing:
+            table_type = "HIVE"
+            if table_name.startswith("hdfs:"):
+                table_type = "HDFS"
+            elif table_name.startswith("mysql:"):
+                table_type = "MYSQL"
+            elif "." in table_name:
+                table_type = "HIVE"
+
+            table_node = TableNode(
+                full_name=table_name,
+                table_type=table_type,
+            )
+            graph.nodes.tables.append(table_node)
+
+        # 添加边
+        if edge_type == "consumes":
+            graph.edges.task_consumes_table.append({
+                "source": task_code,
+                "target": table_name,
+            })
+        elif edge_type == "produces":
+            graph.edges.task_produces_table.append({
+                "source": task_code,
+                "target": table_name,
             })
 
 

@@ -1,12 +1,13 @@
 """
-approval 节点
+approval node
 
-request_approval 和 check_approval - 完整实现
+request_approval and check_approval - full implementation
 """
 
 from typing import Dict, Any, Optional
 from ..state import AgentState
 from ...tools.approval_tool import ApprovalTool
+from ...tools.dingtalk_progress import get_notifier_from_settings
 
 
 approval_tool = ApprovalTool()
@@ -14,27 +15,49 @@ approval_tool = ApprovalTool()
 
 def request_approval(state: AgentState) -> AgentState:
     """
-    请求审批
+    Request approval
 
-    使用 ApprovalTool 创建审批请求:
-    - 保存状态快照
-    - 设置 30 分钟超时
-    - 记录钉钉消息 ID
+    Use ApprovalTool to create approval request:
+    - Save state snapshot
+    - Set 30 minute timeout
+    - Send DingTalk approval button message
 
     Args:
-        state: 当前状态
+        state: Current state
 
     Returns:
-        更新后的状态 (approval_status, approval_request_id, approval_message_id)
+        Updated state (approval_status, approval_request_id, approval_message_id)
     """
     dingtalk_message_id = state.get("approval_message_id")
 
-    # 创建审批请求
+    # Create approval request
     request_id = approval_tool.create_request(
         state=state,
         timeout_minutes=30,
         dingtalk_message_id=dingtalk_message_id
     )
+
+    # Send DingTalk approval button message
+    suggested_actions = state.get("suggested_actions", [])
+    if suggested_actions:
+        # Get first action as approval content
+        action = suggested_actions[0]
+        tool_name = action.get("action_type", "unknown")
+        risk_level = action.get("risk_level", "MEDIUM")
+
+        # Build command description
+        command_desc = f"Execute {tool_name} action"
+        if action.get("changes"):
+            command_desc = str(action.get("changes"))
+
+        # Send approval request message
+        notifier = get_notifier_from_settings()
+        notifier.send_approval_request(
+            approval_id=request_id,
+            tool_name=tool_name,
+            command=command_desc,
+            risk_level=risk_level
+        )
 
     return {
         **state,
@@ -46,19 +69,19 @@ def request_approval(state: AgentState) -> AgentState:
 
 def check_approval(state: AgentState) -> AgentState:
     """
-    检查审批状态
+    Check approval status
 
-    检查审批请求状态:
-    - approved: 继续执行
-    - rejected: 结束流程
-    - timeout: 标记超时
-    - pending: 等待中
+    Check approval request status:
+    - approved: Continue execution
+    - rejected: End process
+    - timeout: Mark timeout
+    - pending: Waiting
 
     Args:
-        state: 当前状态
+        state: Current state
 
     Returns:
-        更新后的状态 (approval_status)
+        Updated state (approval_status)
     """
     request_id = state.get("approval_request_id")
 
@@ -73,7 +96,7 @@ def check_approval(state: AgentState) -> AgentState:
             "approval_status": "not_found",
         }
 
-    # 返回当前审批状态
+    # Return current approval status
     return {
         **state,
         "approval_status": request.status,

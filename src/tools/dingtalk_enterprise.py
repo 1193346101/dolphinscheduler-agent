@@ -119,32 +119,74 @@ class DingTalkEnterpriseTool:
     def build_error_notification(
         self,
         task_type: str,
+        workflow_name: str,
         workflow_code: str,
+        task_name: str,
         task_code: str,
+        project_name: str,
         risk_level: str,
         error_category: str,
         error_patterns: List[str],
+        error_description: str,
         suggested_actions: List[Dict],
+        execution_results: List[Dict],
+        execution_success: bool,
         ds_url: str,
     ) -> Dict:
-        """构建错误通知内容"""
-        title = f"告警分析: {task_type}"
+        """构建错误通知内容（增强版）"""
+        title = f"DolphinScheduler Agent 执行结果"
 
-        content = f"""## 错误分析结果
+        # 执行状态图标
+        status_icon = "✅ 成功" if execution_success else "❌ 失败"
 
-**工作流:** {workflow_code}
-**任务:** {task_code}
-**类型:** {task_type}
-**风险等级:** {risk_level}
+        # 构建执行结果部分
+        exec_result_text = ""
+        if execution_results:
+            for r in execution_results:
+                action_type = r.get("action", {}).get("action_type", "unknown")
+                status = r.get("status", "unknown")
+                output = r.get("output", "")[:100] if r.get("output") else ""
+                exec_result_text += f"- **{action_type}**: {status}\n"
+                if output:
+                    exec_result_text += f"  输出: {output}\n"
 
-### 错误分类
-{error_category}
+        # 构建修复动作部分
+        actions_text = ""
+        for a in suggested_actions:
+            action_type = a.get("action_type", "unknown")
+            config_changes = a.get("config_changes", {})
+            if config_changes:
+                actions_text += f"- **{action_type}**: {json.dumps(config_changes)}\n"
+            else:
+                actions_text += f"- **{action_type}**: {a.get('description', '')}\n"
 
-### 匹配的错误模式
-{chr(10).join(f'- {p}' for p in error_patterns[:5])}
+        content = f"""## {status_icon}
 
-### 建议的动作
-{chr(10).join(f'- {a.get("description", a.get("action_type", "unknown"))}' for a in suggested_actions[:3])}
+**项目:** {project_name} ({workflow_code[:8]}...)
+**工作流:** {workflow_name}
+**任务:** {task_name}
+
+---
+
+### 错误分析
+- **类型:** {task_type}
+- **分类:** {error_category}
+- **风险等级:** {risk_level}
+- **错误模式:** {', '.join(error_patterns[:3]) or '未识别'}
+
+### 错误描述
+{error_description[:200] or '无详细信息'}
+
+---
+
+### 修复动作
+{actions_text or '无建议动作'}
+
+### 执行结果
+{exec_result_text or '未执行'}
+
+---
+[查看工作流]({ds_url}/#/workflow/{workflow_code})
 """
 
         return {

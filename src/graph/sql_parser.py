@@ -185,6 +185,14 @@ class SQLParser:
         table = table.rstrip(';,)')
         # 移除前部的括号
         table = table.lstrip('(')
+        # 移除特殊字符
+        table = table.strip()
+        # 过滤无效表名（空字符串、特殊符号等）
+        if not table or table in ('|', '(', ')', ',', ';'):
+            return ''
+        # 过滤 SQL 关键字别名
+        if table.upper() in ('SELECT', 'FROM', 'WHERE', 'JOIN', 'ON', 'AND', 'OR', 'AS', 'T', 'A', 'B', 'C', 'DUAL'):
+            return ''
         return table
 
     def _merge_results(self, target: Dict[str, List[str]], source: Dict[str, List[str]]) -> None:

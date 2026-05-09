@@ -1,0 +1,28 @@
+# DolphinScheduler 项目配置示例
+# 复制为 projects.yaml 并填入实际值
+
+projects:
+  - name: your_project_name
+    code: 123456789  # 项目 code
+    ds_api_url: http://your-dolphin-server:12345/dolphinscheduler
+    ds_api_token: YOUR_DS_API_TOKEN
+    ds_version: "3.2.0"
+    allowed_users: []
+    admin_users: []
+
+    # Spark 日志配置
+    spark_log:
+      mode: yarn
+      # Spark History Server (直接访问，无需认证)
+      history_url: http://your-spark-history-server:18082
+      # YARN via Knox Gateway (LDAP 认证)
+      yarn_gateway_url: https://your-knox-gateway:8443/gateway/default/yarn
+      yarn_username: YOUR_LDAP_USERNAME
+      yarn_password: YOUR_LDAP_PASSWORD
+
+    # 钉钉通知配置
+    dingtalk:
+      robot_code: YOUR_ROBOT_CODE
+      client_id: YOUR_CLIENT_ID
+      client_secret: YOUR_CLIENT_SECRET
+      notify_users: []

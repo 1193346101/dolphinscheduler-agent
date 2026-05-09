@@ -1,52 +1,54 @@
 """
-execute_action 节点
+execute_action node
 
-执行修复动作 - 使用 dsctl CLI
-
-关键设计：
-- 子工作流任务失败时，优先在子工作流实例内恢复（不重复执行成功任务）
-- 恢复子工作流后，主工作流的子工作流节点会自动变为成功
-- 然后需要从主工作流继续执行后续节点
-
-恢复策略（最优方案）：
-| 场景 | 操作步骤 | 是否重复执行 |
-|-----|---------|-------------|
-| 临时故障 | 1. 子工作流recover-failed | ❌ 不重复 |
-| 脚本错误 | 1. 子工作流script-fix+recover | ❌ 不重复 |
-| 配置问题 | 1. 修改定义 2. 主工作流从子节点恢复 | ⚠️ 重新执行整个子工作流 |
-
-注意：recover-failed 和 script-fix 只恢复子工作流实例
-      主工作流需要额外步骤继续执行后续节点
+Execute fix actions - using dsctl CLI
 """
 
 from typing import Dict, List, Optional
 from ..state import AgentState
 from ...integrations.dsctl_wrapper import DSCLIClient, CLIResult
+from ...config import settings
+from ...tools.dingtalk_progress import get_notifier_from_settings
 
 
 def execute_action(state: AgentState) -> AgentState:
     """
-    执行动作
+    Execute actions
 
-    支持动作:
-    - recover-failed: 从失败恢复（保持 process_instance_id）
-    - script-fix: 修改实例中的任务脚本并恢复
-    - config-change: 修改工作流定义配置
-    - rerun: 重跑工作流（新实例）- 不建议用于子工作流
-    - notify-only: 仅通知
-
-    Args:
-        state: 当前状态
-
-    Returns:
-        更新后的状态 (executed_actions, execution_results, execution_success)
+    Sub-workflow scenario:
+    - Alert points to sub-workflow B instance and failed task c
+    - process_instance_id is B instance ID
+    - Execute recover-failed on B, B recovers from c
+    - After B succeeds, parent workflow A auto detects and continues
+    - No need to manually handle parent workflow
     """
+    print("\n" + "="*50)
+    print("[7/10] execute_action - Execute fix")
+    print("="*50)
+
     actions = state.get("suggested_actions", [])
     approval_status = state.get("approval_status")
     knowledge_match = state.get("knowledge_match")
     is_sub_workflow = state.get("is_sub_workflow", False)
 
+    # Show sub-workflow info
+    if is_sub_workflow:
+        print("  >> [Sub-workflow scenario] Directly recover sub-workflow instance, parent workflow will auto continue")
+
     if not actions:
+        print("[WARN] No suggested actions, skip execution")
+        # Send result notification even without actions
+        notifier = get_notifier_from_settings()
+        project_name = state.get("project_name", state.get("project_code", "N/A"))
+        workflow_name = state.get("workflow_name", state.get("workflow_code", "N/A"))
+        task_name = state.get("task_name", "N/A")
+        notifier.send_execution_result(
+            project_name=str(project_name),
+            workflow_name=str(workflow_name),
+            task_name=str(task_name),
+            success=False,
+            message="No suggested actions, not executed"
+        )
         return {
             **state,
             "executed_actions": [],
@@ -54,36 +56,40 @@ def execute_action(state: AgentState) -> AgentState:
             "execution_success": False,
         }
 
-    # 使用 dsctl CLI
+    print(f"  >> Action count: {len(actions)}")
+    for i, action in enumerate(actions):
+        print(f"  >> Action{i+1}: {action.get('action_type', 'unknown')} (risk: {action.get('risk_level', 'N/A')})")
+
+    # Use dsctl CLI
     dsctl = DSCLIClient()
 
     executed = []
     results = []
 
-    # 从 state 获取必要信息
+    # Get necessary info from state
     project_code = int(state.get("project_code", 0) or 0)
     workflow_code = int(state.get("workflow_code", 0) or 0)
     process_instance_id = state.get("process_instance_id", 0)
-    task_code = int(state.get("task_code", 0) or 0)  # 子工作流B中失败的task_code
+    task_code = int(state.get("task_code", 0) or 0)  # Failed task_code in sub-workflow B
     parent_workflow_code = int(state.get("parent_workflow_code", 0) or 0)
     parent_process_instance_id = state.get("parent_process_instance_id", 0)
-    sub_workflow_node_code = int(state.get("sub_workflow_node_code", 0) or 0)  # 子工作流节点在A中的task_code
+    sub_workflow_node_code = int(state.get("sub_workflow_node_code", 0) or 0)  # Sub-workflow node task_code in A
 
     for action in actions:
         action_type = action.get("action_type", "")
         risk_level = action.get("risk_level", "LOW")
 
-        # 检查审批
+        # Check approval
         if risk_level in ["HIGH", "CRITICAL"]:
             if approval_status != "approved":
                 results.append({
                     "action": action,
                     "status": "skipped",
-                    "reason": f"需要审批，当前状态: {approval_status}"
+                    "reason": f"Needs approval, current status: {approval_status}"
                 })
                 continue
 
-        # 执行动作
+        # Execute action
         try:
             result = _execute_single_action(
                 action_type,
@@ -112,7 +118,7 @@ def execute_action(state: AgentState) -> AgentState:
                 results.append({
                     "action": action,
                     "status": "skipped",
-                    "reason": "未知动作类型"
+                    "reason": "Unknown action type"
                 })
         except Exception as e:
             results.append({
@@ -121,12 +127,80 @@ def execute_action(state: AgentState) -> AgentState:
                 "reason": str(e)
             })
 
-    # 判断整体成功
+    # Determine overall success
     success = any(
         r.get("status") == "success"
         for r in results
         if r.get("status") != "skipped"
     ) if executed else False
+
+    # Send execution result notification
+    notifier = get_notifier_from_settings()
+    project_name = state.get("project_name", state.get("project_code", "N/A"))
+    workflow_name = state.get("workflow_name", state.get("workflow_code", "N/A"))
+    task_name = state.get("task_name", "N/A")
+
+    # Get additional info for enhanced notification
+    error_type = state.get("error_type") or state.get("skill_result", {}).get("error_type")
+    confidence = state.get("confidence_score") or state.get("skill_result", {}).get("confidence")
+
+    # Get script_changes from executed actions
+    script_changes = None
+    action_type = None
+    knowledge_entry_id = None
+
+    if executed:
+        first_action = executed[0]
+        action_type = first_action.get("action_type")
+        if action_type in ["modify_script", "script-fix"]:
+            script_changes = first_action.get("script_changes")
+
+        # Create knowledge entry for successful fix
+        if success and script_changes and error_type:
+            try:
+                from ...knowledge.manager import knowledge_manager
+
+                # Build analysis summary
+                analysis = f"Error: {error_type}"
+                suggestion = f"Script fix: {script_changes}"
+
+                # Add to pending knowledge base
+                entry = knowledge_manager.add_pending(
+                    task_type=state.get("task_type", "SHELL").lower(),
+                    error_type=error_type,
+                    pattern=error_type,  # Use error_type as pattern for now
+                    analysis=analysis,
+                    suggestion=suggestion,
+                )
+                knowledge_entry_id = entry.id
+                print(f"  >> Created knowledge entry: {knowledge_entry_id}")
+            except Exception as e:
+                print(f"  [WARN] Failed to create knowledge entry: {e}")
+
+    # Build result message
+    result_msg = ""
+    for r in results:
+        action_type_msg = r.get("action", {}).get("action_type", "unknown")
+        status = r.get("status", "unknown")
+        result_msg += f"- {action_type_msg}: {status}\n"
+
+    notifier.send_execution_result(
+        project_name=str(project_name),
+        workflow_name=str(workflow_name),
+        task_name=str(task_name),
+        success=success,
+        message=result_msg or "No executed actions",
+        error_type=error_type,
+        script_changes=script_changes,
+        confidence=confidence,
+        action_type=action_type,
+        knowledge_entry_id=knowledge_entry_id
+    )
+
+    if success:
+        print("[OK] Execution success")
+    else:
+        print("[FAIL] Execution failed or skipped")
 
     return {
         **state,
@@ -151,86 +225,191 @@ def _execute_single_action(
     sub_workflow_node_code: int
 ) -> Optional[CLIResult]:
     """
-    执行单个动作
+    Execute single action
 
-    子工作流场景处理：
-    - recover-failed: 在子工作流实例中恢复（保持同一实例）
-    - script-fix: 在子工作流实例中修改脚本并恢复（保持同一实例）
-    - config-change: 修改子工作流定义后，从父工作流恢复子工作流节点
+    Supported actions:
+    - recover-failed: Recover failed workflow instance
+    - modify_script: Modify script content and recover instance
+    - script-fix: Same as modify_script
+    - rerun: Rerun workflow instance
+    - notify-only: Only notify
     """
 
+    # Get task name
+    task_name = state.get("task_name", "")
+
     if action_type == "recover-failed":
-        # 恢复失败任务
-        # 子工作流场景：先恢复子工作流实例，不重复执行成功任务
-        result = dsctl.workflow_instance_recover(process_instance_id, task_code)
+        # Recover failed workflow instance
+        print(f"  >> Execute: workflow-instance recover-failed {process_instance_id}")
+        return dsctl.workflow_instance_recover_failed(process_instance_id)
 
-        # 如果是子工作流且恢复成功，需要通知用户手动恢复主工作流后续节点
-        # 或者添加一个后续动作
-        if is_sub_workflow and result.success and parent_process_instance_id:
-            # 子工作流恢复成功后，建议从主工作流继续
-            # 可以在这里添加自动恢复主工作流的逻辑
-            # 或者将信息返回给用户
-            result.stdout += f"\n子工作流恢复成功。请从主工作流实例 {parent_process_instance_id} 继续执行后续节点。"
+    elif action_type in ["modify_script", "script-fix"]:
+        # Modify script and recover instance
+        # Get script_changes from action
+        action = None
+        for a in state.get("suggested_actions", []):
+            if a.get("action_type") in ["modify_script", "script-fix"]:
+                action = a
+                break
 
-        return result
+        script_changes = action.get("script_changes", {}) if action else {}
 
-    elif action_type == "script-fix":
-        # 修改实例中的任务脚本并恢复（保持同一实例）
-        script_changes = knowledge_match.get("script_fix", {}) if knowledge_match else {}
-        if script_changes:
-            return dsctl.workflow_instance_edit_and_recover(
-                process_instance_id,
-                task_code,
-                script_changes
-            )
-        return CLIResult(success=False, stdout="", stderr="无脚本修改方案", returncode=1)
+        if not script_changes:
+            return CLIResult(success=False, stdout="", stderr="No script modification content", returncode=1)
 
-    elif action_type == "config-change":
-        # 修改工作流定义配置
-        config_changes = knowledge_match.get("config_fix", {}) if knowledge_match else {}
-        if config_changes:
-            # 1. 先更新工作流定义
-            update_result = dsctl.workflow_update_config(
-                project_code,
-                workflow_code,
-                task_code,
-                config_changes
-            )
-            if not update_result.success:
-                return update_result
+        print(f"  >> Script modification: {script_changes}")
 
-            # 2. 根据是否为子工作流，决定恢复策略
-            if is_sub_workflow and parent_process_instance_id and sub_workflow_node_code:
-                # 子工作流配置修改后的恢复策略：
-                # 从父工作流的子工作流节点恢复
-                # - 保持父工作流实例ID不变
-                # - 使用更新后的子工作流定义创建新子实例
-                # - 新子实例属于父实例
-                return dsctl.workflow_instance_recover_from_subworkflow(
-                    parent_process_instance_id,
-                    sub_workflow_node_code
-                )
-            else:
-                # 非子工作流：启动新实例
-                return dsctl.workflow_run(project_code, workflow_code)
-        return CLIResult(success=False, stdout="", stderr="无配置修改方案", returncode=1)
-
-    elif action_type == "rerun":
-        # 重跑工作流实例
-        # 注意：对于子工作流，这会生成新实例，与父工作流断开
-        # 通常不建议对子工作流使用此操作
-        if is_sub_workflow:
+        # 1. Export workflow instance
+        export_result = dsctl.workflow_instance_export(process_instance_id)
+        if not export_result.success:
             return CLIResult(
                 success=False,
                 stdout="",
-                stderr="子工作流不支持 rerun，请使用 recover-failed 保持同一实例，或使用 config-change 从父工作流恢复",
+                stderr=f"Export instance failed: {export_result.stderr}",
                 returncode=1
             )
+
+        # 2. Parse YAML, find script, apply modifications
+        import yaml
+        try:
+            data = yaml.safe_load(export_result.stdout)
+            for task in data.get('tasks', []):
+                if task.get('name') == task_name:
+                    original_script = task.get('task_params', {}).get('rawScript', '')
+                    # Apply modifications
+                    modified_script = original_script
+                    for wrong_cmd, correct_cmd in script_changes.items():
+                        modified_script = modified_script.replace(wrong_cmd, correct_cmd)
+                    print(f"  >> Modified script: {modified_script[:100]}...")
+
+                    # 3. Use patch to edit instance (sync to definition)
+                    edit_result = dsctl.workflow_instance_edit_task_script(
+                        process_instance_id,
+                        task_name,
+                        modified_script,
+                        sync_definition=True
+                    )
+
+                    if not edit_result.success:
+                        return edit_result
+
+                    # 4. Recover instance
+                    recover_result = dsctl.workflow_instance_recover_failed(process_instance_id)
+                    recover_result.stdout = f"Script fixed ({script_changes})\n" + recover_result.stdout
+                    return recover_result
+
+            return CLIResult(success=False, stdout="", stderr="Task definition not found", returncode=1)
+
+        except Exception as e:
+            return CLIResult(success=False, stdout="", stderr=f"YAML parse failed: {e}", returncode=1)
+
+    elif action_type == "modify_config":
+        # Modify Spark config and recover instance
+        action = None
+        for a in state.get("suggested_actions", []):
+            if a.get("action_type") == "modify_config":
+                action = a
+                break
+
+        config_changes = action.get("config_changes", {}) if action else {}
+
+        if not config_changes:
+            return CLIResult(success=False, stdout="", stderr="No config modification content", returncode=1)
+
+        print(f"  >> Config modification: {config_changes}")
+
+        # 1. Export workflow instance
+        export_result = dsctl.workflow_instance_export(process_instance_id)
+        if not export_result.success:
+            return CLIResult(
+                success=False,
+                stdout="",
+                stderr=f"Export instance failed: {export_result.stderr}",
+                returncode=1
+            )
+
+        # 2. Parse YAML, find task, apply config modifications
+        import yaml
+        try:
+            data = yaml.safe_load(export_result.stdout)
+            for task in data.get('tasks', []):
+                if task.get('name') == task_name:
+                    task_params = task.get('task_params', {})
+                    # Apply config modifications
+                    for config_key, config_value in config_changes.items():
+                        # Map Spark config names to DS parameter names
+                        if config_key == "spark.driver.memory":
+                            task_params['driverMemory'] = config_value
+                        elif config_key == "spark.driver.memoryOverhead":
+                            # DS 3.2.0 has no separate memoryOverhead parameter, need to adjust driverMemory
+                            pass
+                        elif config_key == "spark.executor.memory":
+                            task_params['executorMemory'] = config_value
+                        elif config_key == "spark.executor.memoryOverhead":
+                            task_params['executorMemoryOverhead'] = config_value
+                        elif config_key == "spark.executor.instances":
+                            task_params['numExecutors'] = config_value
+
+                    print(f"  >> Modified config: driverMemory={task_params.get('driverMemory')}")
+
+                    # 3. Use full file method to modify instance (preserve execution params)
+                    import tempfile
+                    import subprocess
+                    import os
+
+                    # Use allow_unicode=True to ensure Chinese encoding correct
+                    full_yaml = yaml.dump(data, default_flow_style=False, allow_unicode=True)
+
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False, encoding='utf-8') as f:
+                        f.write(full_yaml)
+                        file_path = f.name
+
+                    # Call dsctl workflow-instance edit --file --sync-definition
+                    # This modifies instance and syncs to workflow definition
+                    env = os.environ.copy()
+                    env['DS_API_URL'] = dsctl.api_url
+                    env['DS_API_TOKEN'] = dsctl.api_token
+                    env['DS_VERSION'] = dsctl.version
+
+                    result = subprocess.run(
+                        ['python', '-m', 'dsctl', 'workflow-instance', 'edit',
+                         str(process_instance_id), '--file', file_path, '--sync-definition'],
+                        capture_output=True, text=True, env=env
+                    )
+
+                    os.unlink(file_path)
+
+                    if result.returncode != 0:
+                        return CLIResult(
+                            success=False,
+                            stdout=result.stdout,
+                            stderr=result.stderr,
+                            returncode=result.returncode
+                        )
+
+                    print("  >> Instance config modified, synced to workflow definition")
+
+                    # 4. Recover instance from failed task (preserve execution params: worker_group, tenant etc)
+                    # recover-failed only executes failed tasks, not rerun successful tasks
+                    print(f"  >> Recover instance from failed task: {process_instance_id}")
+                    recover_result = dsctl.workflow_instance_recover_failed(process_instance_id)
+                    recover_result.stdout = f"Config fixed and synced ({config_changes})\n" + recover_result.stdout
+                    return recover_result
+
+            return CLIResult(success=False, stdout="", stderr="Task definition not found", returncode=1)
+
+        except Exception as e:
+            return CLIResult(success=False, stdout="", stderr=f"YAML parse failed: {e}", returncode=1)
+
+    elif action_type == "rerun":
+        # Rerun workflow instance
+        print(f"  >> Execute: workflow-instance rerun {process_instance_id}")
         return dsctl.workflow_instance_rerun(process_instance_id)
 
     elif action_type == "notify-only":
-        # 仅通知，不执行
-        return CLIResult(success=True, stdout="仅通知，未执行操作", stderr="", returncode=0)
+        # Only notify, no execution
+        print(f"  >> Only notify, no execution")
+        return CLIResult(success=True, stdout="Only notify, not executed", stderr="", returncode=0)
 
     return None
 

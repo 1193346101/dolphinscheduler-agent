@@ -4,6 +4,10 @@ Webhook API - 接收 DolphinScheduler 告警
 使用 LangGraph 状态机处理告警流程
 """
 
+# 加载 .env 文件的环境变量
+from dotenv import load_dotenv
+load_dotenv()
+
 from datetime import datetime
 from typing import Any, Optional
 from fastapi import FastAPI, HTTPException, Request
@@ -89,6 +93,15 @@ async def webhook_alert(request: Request):
         # 打印原始 payload 用于调试
         print(f"[webhook] Received payload: {payload}")
 
+        # 立即发送原始告警到钉钉
+        from ..tools.dingtalk_progress import get_notifier_from_settings
+        notifier = get_notifier_from_settings()
+
+        # 发送原始JSON
+        import json as json_module
+        raw_json_str = json_module.dumps(payload, indent=2, ensure_ascii=False)
+        notifier.send_text(f"[原始告警]\n{raw_json_str}")
+
         # 解析 DolphinScheduler 的 alerts 字段
         if "alerts" in payload:
             alerts_str = payload.get("alerts", "")
@@ -103,7 +116,7 @@ async def webhook_alert(request: Request):
                     "processDefinitionCode": alert.get("processDefinitionCode", 0),
                     "processInstanceId": alert.get("processId", 0),
                     "taskCode": alert.get("taskCode", 0),
-                    "taskInstanceId": 0,  # DS webhook 不包含此字段
+                    "taskInstanceId": alert.get("taskInstanceId", 0),  # 修复：使用真实值
                     "taskType": alert.get("taskType", "UNKNOWN"),
                     "state": alert.get("taskState", "FAILURE"),
                     "host": alert.get("taskHost"),
@@ -114,7 +127,9 @@ async def webhook_alert(request: Request):
                     "logPath": alert.get("logPath"),
                     "taskEndTime": alert.get("taskEndTime"),  # 任务结束时间
                 }
-                # 执行 LangGraph 工作流
+                print(f"[webhook] Normalized alert: {normalized}")
+
+                # Execute LangGraph workflow
                 result = workflow.run(normalized)
                 results.append({
                     "project_valid": result.get("project_valid"),
@@ -195,6 +210,74 @@ async def submit_feedback(request: FeedbackRequest):
             raise HTTPException(status_code=404, detail="知识条目不存在")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/approval")
+async def approval_callback(request: Request):
+    """
+    处理审批回调（钉钉按钮点击）
+
+    URL 参数:
+    - id: 审批请求 ID
+    - action: allow / deny / allow_all
+
+    返回 HTML 页面显示结果
+    """
+    from fastapi.responses import HTMLResponse
+
+    try:
+        approval_id = request.query_params.get("id", "")
+        action = request.query_params.get("action", "")
+
+        if not approval_id or not action:
+            return HTMLResponse(content="<h1>错误：缺少参数</h1><p>需要 id 和 action 参数</p>", status_code=400)
+
+        if action not in ["allow", "deny"]:
+            return HTMLResponse(content=f"<h1>错误：无效操作</h1><p>action 必须是 allow 或 deny</p>", status_code=400)
+
+        # 更新审批状态
+        if action == "allow":
+            approval_status = "approved"
+        elif action == "deny":
+            approval_status = "rejected"
+
+        success = approval_tool.update_status(approval_id, approval_status)
+
+        # 返回 HTML 结果页面
+        if action == "allow":
+            html = """
+            <html>
+            <head><title>审批结果</title></head>
+            <body style="font-family: Arial; padding: 20px;">
+                <h1 style="color: green;">✅ 已允许</h1>
+                <p>Agent 将执行此操作。</p>
+                <p>你可以关闭此页面。</p>
+            </body>
+            </html>
+            """
+        elif action == "deny":
+            html = """
+            <html>
+            <head><title>审批结果</title></head>
+            <body style="font-family: Arial; padding: 20px;">
+                <h1 style="color: red;">❌ 已拒绝</h1>
+                <p>Agent 将不会执行此操作。</p>
+                <p>你可以关闭此页面。</p>
+            </body>
+            </html>
+            """
+
+        # 尝试继续工作流
+        approval_request = approval_tool.get_request(approval_id)
+        if approval_request and approval_request.workflow_state:
+            pending_state = approval_request.workflow_state
+            pending_state["approval_status"] = approval_status
+            workflow.continue_from_approval(pending_state, approval_status)
+
+        return HTMLResponse(content=html)
+
+    except Exception as e:
+        return HTMLResponse(content=f"<h1>错误</h1><p>{str(e)}</p>", status_code=500)
 
 
 @app.get("/approval/{request_id}")

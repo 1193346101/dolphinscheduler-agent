@@ -1,7 +1,7 @@
 """
-store_results 节点
+store_results node
 
-存储结果 - 完整实现
+Store results - full implementation
 """
 
 import os
@@ -13,12 +13,12 @@ from ..state import AgentState
 
 
 def _sanitize_path_component(value: str) -> str:
-    """清理路径组件，防止路径穿越攻击"""
+    """Sanitize path component, prevent path traversal attack"""
     if not value:
         return "unknown"
-    # 只保留字母、数字、下划线、连字符
+    # Only keep letters, numbers, underscores, hyphens
     sanitized = re.sub(r'[^\w\-]', '_', str(value))
-    # 防止路径穿越
+    # Prevent path traversal
     if sanitized in ('.', '..', '') or sanitized.startswith('..'):
         return "unknown"
     return sanitized
@@ -26,24 +26,24 @@ def _sanitize_path_component(value: str) -> str:
 
 def store_results(state: AgentState, base_path: str = "data/logs") -> AgentState:
     """
-    存储结果
+    Store results
 
-    存储内容:
+    Store content:
     - driver_logs, spark_logs, yarn_logs, k8s_logs
     - error_category, risk_level, error_patterns
     - suggested_actions, execution_results
 
     Args:
-        state: 当前状态
-        base_path: 存储目录根路径
+        state: Current state
+        base_path: Storage directory root path
 
     Returns:
-        更新后的状态 (log_stored, result_stored, log_store_path)
+        Updated state (log_stored, result_stored, log_store_path)
     """
     workflow_code = state.get("workflow_code", "")
     task_code = state.get("task_code", "")
 
-    # 检查是否有日志需要存储
+    # Check if there are logs to store
     has_logs = any([
         state.get("driver_logs"),
         state.get("spark_logs"),
@@ -59,11 +59,11 @@ def store_results(state: AgentState, base_path: str = "data/logs") -> AgentState
             "log_store_path": None,
         }
 
-    # 清理路径组件
+    # Sanitize path components
     workflow_code_safe = _sanitize_path_component(str(workflow_code))
     task_code_safe = _sanitize_path_component(str(task_code))
 
-    # 创建存储目录
+    # Create storage directory
     date_str = datetime.now().strftime("%Y%m%d")
     log_dir = os.path.join(base_path, date_str, workflow_code_safe)
 
@@ -75,10 +75,10 @@ def store_results(state: AgentState, base_path: str = "data/logs") -> AgentState
             "log_stored": False,
             "result_stored": False,
             "log_store_path": None,
-            "log_store_error": f"创建目录失败: {str(e)}",
+            "log_store_error": f"Create directory failed: {str(e)}",
         }
 
-    # 构建存储数据
+    # Build storage data
     log_data = {
         "workflow_code": workflow_code,
         "task_code": task_code,
@@ -92,7 +92,7 @@ def store_results(state: AgentState, base_path: str = "data/logs") -> AgentState
         "stored_at": datetime.now().isoformat(),
     }
 
-    # 添加日志
+    # Add logs
     if state.get("driver_logs"):
         log_data["driver_logs"] = state["driver_logs"]
     if state.get("spark_logs"):
@@ -102,7 +102,7 @@ def store_results(state: AgentState, base_path: str = "data/logs") -> AgentState
     if state.get("k8s_logs"):
         log_data["k8s_logs"] = state["k8s_logs"]
 
-    # 存储文件
+    # Store file
     filename = f"{task_code_safe}_{datetime.now().strftime('%H%M%S')}.json"
     filepath = os.path.join(log_dir, filename)
 
@@ -115,7 +115,7 @@ def store_results(state: AgentState, base_path: str = "data/logs") -> AgentState
             "log_stored": False,
             "result_stored": False,
             "log_store_path": None,
-            "log_store_error": f"写入文件失败: {str(e)}",
+            "log_store_error": f"Write file failed: {str(e)}",
         }
 
     return {

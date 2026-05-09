@@ -1,45 +1,71 @@
 """
-validate_project 节点
+validate_project node
 
-验证项目是否存在且 token 有效
+Verify project exists and token is valid
 """
 
 from typing import Dict, Any
 from ..state import AgentState
-from ...config.projects import projects_registry
+from ...config.projects import projects_registry, ProjectConfig, SparkLogConfig
+from ...config import settings
 
 
 def validate_project(state: AgentState) -> AgentState:
     """
-    验证项目配置
-
-    检查:
-    - 项目编码是否存在
-    - 返回项目配置
-
-    Args:
-        state: 当前状态
-
-    Returns:
-        更新后的状态 (project_valid, project_config)
+    Validate project config
     """
-    project_code = state["project_code"]
+    print("\n" + "="*50)
+    print("[2/10] validate_project - Validate project")
+    print("="*50)
 
-    # 尝试转换为 int
+    project_code = state["project_code"]
+    print(f"  >> Checking project code: {project_code}")
+
+    # Try to convert to int
     try:
         code_int = int(project_code)
     except ValueError:
+        print("[FAIL] Invalid project code format")
         return {
             **state,
             "project_valid": False,
             "project_config": None,
         }
 
-    # 查找项目配置
+    # Find project config
     config = projects_registry.get_by_code(code_int)
 
+    # If project config not found, use global default config
+    if not config:
+        print(f"  >> Project {code_int} not configured, using global default")
+        if settings.DS_API_URL and settings.DS_API_TOKEN:
+            # Create default config
+            config = ProjectConfig(
+                name=f"project_{code_int}",
+                code=code_int,
+                ds_api_url=settings.DS_API_URL,
+                ds_api_token=settings.DS_API_TOKEN,
+                ds_version=settings.DS_VERSION,
+                spark_log=SparkLogConfig(
+                    mode="yarn",
+                    history_url=settings.SPARK_HISTORY_URL,
+                ),
+            )
+            print(f"  >> Using default DS API: {settings.DS_API_URL}")
+        else:
+            print("[FAIL] No project config and global DS API URL/Token not set")
+            return {
+                **state,
+                "project_valid": False,
+                "project_config": None,
+            }
+
     if config:
-        # 转换为字典格式
+        print(f"  >> Project name: {config.name}")
+        print(f"  >> DS API: {config.ds_api_url}")
+
+        print("[OK] Project validation passed")
+        # Convert to dict format
         config_dict = {
             "name": config.name,
             "code": config.code,
@@ -66,6 +92,7 @@ def validate_project(state: AgentState) -> AgentState:
             "project_config": config_dict,
         }
 
+    print("[FAIL] Project not configured, skip processing")
     return {
         **state,
         "project_valid": False,

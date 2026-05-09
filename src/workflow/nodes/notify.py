@@ -1,7 +1,7 @@
 """
-notify_dingtalk 节点
+notify_dingtalk node
 
-发送钉钉通知 - 完整实现
+Send DingTalk notification - full implementation
 """
 
 from ..state import AgentState
@@ -10,17 +10,17 @@ from ...tools.dingtalk_enterprise import DingTalkEnterpriseTool
 
 def notify_dingtalk(state: AgentState) -> AgentState:
     """
-    发送钉钉通知
+    Send DingTalk notification
 
-    根据审批状态发送不同类型通知:
-    - 无需审批: 错误分析通知
-    - 需审批: 审批请求通知
+    Send different notification based on approval status:
+    - No approval needed: Error analysis notification
+    - Needs approval: Approval request notification
 
     Args:
-        state: 当前状态
+        state: Current state
 
     Returns:
-        更新后的状态 (notification_sent, notification_content, approval_message_id)
+        Updated state (notification_sent, notification_content, approval_message_id)
     """
     project_config = state.get("project_config")
     dingtalk_config = project_config.get("dingtalk") if project_config else None
@@ -41,7 +41,7 @@ def notify_dingtalk(state: AgentState) -> AgentState:
     approval_required = state.get("approval_required", False)
 
     if approval_required:
-        # 审批请求通知
+        # Approval request notification
         content = tool.build_approval_request(
             task_type=state.get("task_type", ""),
             workflow_code=state.get("workflow_code", ""),
@@ -55,20 +55,30 @@ def notify_dingtalk(state: AgentState) -> AgentState:
         )
         buttons = content.get("buttons", [])
     else:
-        # 错误分析通知
+        # Error analysis notification (include execution results)
+        error_analysis = state.get("error_analysis", {})
+        execution_results = state.get("execution_results", [])
+        execution_success = state.get("execution_success", False)
+
         content = tool.build_error_notification(
             task_type=state.get("task_type", ""),
+            workflow_name=state.get("workflow_name", ""),
             workflow_code=state.get("workflow_code", ""),
+            task_name=state.get("task_name", ""),
             task_code=state.get("task_code", ""),
+            project_name=state.get("project_name", ""),
             risk_level=state.get("risk_level", ""),
             error_category=state.get("error_category", ""),
             error_patterns=state.get("error_patterns", []),
+            error_description=error_analysis.get("error_message", ""),
             suggested_actions=state.get("suggested_actions", []),
+            execution_results=execution_results,
+            execution_success=execution_success,
             ds_url=project_config.get("ds_api_url", "")
         )
         buttons = None
 
-    # 发送通知
+    # Send notification
     try:
         msg_id = tool.send_notification(
             robot_code=dingtalk_config.get("robot_code", ""),
@@ -88,7 +98,7 @@ def notify_dingtalk(state: AgentState) -> AgentState:
         return {
             **state,
             "notification_sent": False,
-            "notification_content": f"发送失败: {str(e)}",
+            "notification_content": f"Send failed: {str(e)}",
             "approval_message_id": None,
         }
 

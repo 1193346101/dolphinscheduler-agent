@@ -2,10 +2,17 @@
 DSCLIClient - dsctl CLI 封装
 
 通过 subprocess 调用 dsctl CLI 执行 DolphinScheduler 操作
+
+主要命令：
+- workflow-instance recover-failed: 恢复失败的工作流实例
+- workflow-instance export: 导出实例 YAML
+- workflow-instance edit --patch: 编辑实例（带 --sync-definition 同步到定义）
+- task-instance log: 获取任务日志
 """
 
 import subprocess
 import os
+import tempfile
 from typing import Optional
 from dataclasses import dataclass
 
@@ -23,10 +30,7 @@ class DSCLIClient:
     """
     dsctl CLI 封装
 
-    支持操作:
-    - workflow-instance rerun
-    - workflow-instance recover
-    - task-instance logs
+    正确使用 dsctl 命令执行 DolphinScheduler 操作
     """
 
     def __init__(
@@ -35,14 +39,6 @@ class DSCLIClient:
         api_token: Optional[str] = None,
         version: str = "3.2.0"
     ):
-        """
-        初始化
-
-        Args:
-            api_url: DolphinScheduler API URL
-            api_token: API Token
-            version: DS 版本
-        """
         self.api_url = api_url or os.environ.get("DS_API_URL", "")
         self.api_token = api_token or os.environ.get("DS_API_TOKEN", "")
         self.version = version
@@ -54,7 +50,7 @@ class DSCLIClient:
         env["DS_API_TOKEN"] = self.api_token
         env["DS_VERSION"] = self.version
 
-        cmd = ["py", "-m", "dsctl"] + args
+        cmd = ["python", "-m", "dsctl"] + args
 
         try:
             result = subprocess.run(
@@ -79,6 +75,200 @@ class DSCLIClient:
                 returncode=-1
             )
 
+    # ============ Task Instance ============
+
+    def get_task_logs(self, task_instance_id: int, tail: int = 1000) -> CLIResult:
+        """
+        获取任务日志（全量获取足够行数以包含配置和错误）
+
+        用户要求：
+        - 前200行是任务配置信息
+        - 后300行是错误信息
+
+        Args:
+            task_instance_id: 任务实例 ID
+            tail: 返回最后 N 行（默认1000行，包含配置+错误）
+
+        Returns:
+            CLIResult
+        """
+        return self._run_command([
+            "task-instance", "log",
+            "--raw",
+            "--tail", str(tail),
+            str(task_instance_id)
+        ], timeout=60)
+
+    # ============ Workflow Instance ============
+
+    def list_workflows(self, project_code: int) -> CLIResult:
+        """
+        列出项目中的所有工作流
+
+        Args:
+            project_code: 项目编码
+
+        Returns:
+            CLIResult (stdout 是 JSON 格式的工作流列表)
+        """
+        return self._run_command([
+            "workflow", "list",
+            "--project", str(project_code)
+        ], timeout=60)
+
+    def describe_workflow(self, project_code: int, workflow_code: int) -> CLIResult:
+        """
+        获取工作流详细信息（包含任务和关系）
+
+        Args:
+            project_code: 项目编码
+            workflow_code: 工作流编码
+
+        Returns:
+            CLIResult (stdout 是 JSON 格式的工作流详情)
+        """
+        return self._run_command([
+            "workflow", "describe",
+            "--project", str(project_code),
+            str(workflow_code)
+        ], timeout=60)
+
+    def list_schedules(self, project_code: int) -> CLIResult:
+        """
+        列出项目中的所有调度
+
+        Args:
+            project_code: 项目编码
+
+        Returns:
+            CLIResult (stdout 是 JSON 格式的调度列表)
+        """
+        return self._run_command([
+            "schedule", "list",
+            "--project", str(project_code)
+        ], timeout=60)
+
+    def list_workflow_instances(self, project_code: int, workflow_code: int, page_size: int = 20) -> CLIResult:
+        """
+        列出工作流的最近实例
+
+        Args:
+            project_code: 项目编码
+            workflow_code: 工作流编码
+            page_size: 返回数量
+
+        Returns:
+            CLIResult (stdout 是 JSON 格式的实例列表)
+        """
+        return self._run_command([
+            "workflow-instance", "list",
+            "--project", str(project_code),
+            "--workflow", str(workflow_code),
+            "--page-size", str(page_size)
+        ], timeout=60)
+
+    def workflow_instance_recover_failed(self, instance_id: int) -> CLIResult:
+        """
+        恢复失败的工作流实例
+
+        Args:
+            instance_id: 工作流实例 ID
+
+        Returns:
+            CLIResult
+        """
+        return self._run_command([
+            "workflow-instance", "recover-failed",
+            str(instance_id)
+        ])
+
+    def workflow_instance_export(self, instance_id: int) -> CLIResult:
+        """
+        导出工作流实例为 YAML
+
+        Args:
+            instance_id: 工作流实例 ID
+
+        Returns:
+            CLIResult (YAML content in stdout)
+        """
+        return self._run_command([
+            "workflow-instance", "export",
+            str(instance_id)
+        ])
+
+    def workflow_instance_edit_patch(
+        self,
+        instance_id: int,
+        patch_yaml: str,
+        sync_definition: bool = True
+    ) -> CLIResult:
+        """
+        使用 patch YAML 编辑工作流实例
+
+        Args:
+            instance_id: 工作流实例 ID
+            patch_yaml: patch YAML 内容
+            sync_definition: 是否同步到工作流定义
+
+        Returns:
+            CLIResult
+        """
+        # 写入临时文件
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            f.write(patch_yaml)
+            patch_file = f.name
+
+        try:
+            args = [
+                "workflow-instance", "edit",
+                str(instance_id),
+                "--patch", patch_file
+            ]
+
+            if sync_definition:
+                args.append("--sync-definition")
+
+            result = self._run_command(args, timeout=60)
+            return result
+        finally:
+            os.unlink(patch_file)
+
+    def workflow_instance_edit_task_script(
+        self,
+        instance_id: int,
+        task_name: str,
+        new_script: str,
+        sync_definition: bool = True
+    ) -> CLIResult:
+        """
+        编辑工作流实例中的任务脚本
+
+        Args:
+            instance_id: 工作流实例 ID
+            task_name: 任务名称
+            new_script: 新脚本内容
+            sync_definition: 是否同步到工作流定义
+
+        Returns:
+            CLIResult
+        """
+        # 构建 patch YAML
+        patch_yaml = f'''patch:
+  tasks:
+    update:
+      - match:
+          name: {task_name}
+        set:
+          command: |
+'''
+
+        # 添加脚本内容（每行缩进）
+        for line in new_script.split('\n'):
+            patch_yaml += f'            {line}\n'
+
+        return self.workflow_instance_edit_patch(instance_id, patch_yaml, sync_definition)
+
     def workflow_instance_rerun(self, instance_id: int) -> CLIResult:
         """
         重跑工作流实例
@@ -94,247 +284,52 @@ class DSCLIClient:
             str(instance_id)
         ])
 
-    def workflow_instance_recover(
-        self,
-        instance_id: int,
-        task_code: int = None,
-        from_node: int = None
-    ) -> CLIResult:
+    def workflow_instance_parent(self, sub_workflow_instance_id: int) -> CLIResult:
         """
-        从失败任务恢复工作流实例
-
-        支持两种模式：
-        1. 恢复指定失败任务：--task <task_code>
-        2. 从指定节点开始恢复：--from-node <node_code>
+        Query parent workflow instance of sub-workflow instance
 
         Args:
-            instance_id: 工作流实例 ID
-            task_code: 失败任务编码（可选，用于恢复失败任务）
-            from_node: 从此节点开始恢复（可选，用于从指定节点继续）
+            sub_workflow_instance_id: Sub-workflow instance ID
 
         Returns:
-            CLIResult
-        """
-        args = [
-            "workflow-instance", "recover",
-            str(instance_id)
-        ]
-
-        if task_code:
-            args.extend(["--task", str(task_code)])
-        elif from_node:
-            args.extend(["--from-node", str(from_node)])
-
-        return self._run_command(args)
-
-    def get_task_logs(self, task_instance_id: int) -> CLIResult:
-        """
-        获取任务日志
-
-        Args:
-            task_instance_id: 任务实例 ID
-
-        Returns:
-            CLIResult
+            CLIResult (JSON with parentWorkflowInstance field)
         """
         return self._run_command([
-            "task-instance", "logs",
-            str(task_instance_id)
+            "workflow-instance", "parent",
+            str(sub_workflow_instance_id)
         ])
 
-    def workflow_get(self, project_code: int, workflow_code: int) -> CLIResult:
+    def workflow_instance_digest(self, instance_id: int) -> CLIResult:
         """
-        获取工作流定义
+        Get workflow instance digest (failed tasks, progress etc)
 
         Args:
-            project_code: 项目编码
-            workflow_code: 工作流编码
+            instance_id: Workflow instance ID
 
         Returns:
-            CLIResult
+            CLIResult (JSON with failedTasks, progress etc)
         """
+        return self._run_command([
+            "workflow-instance", "digest",
+            str(instance_id)
+        ])
+
+    # ============ Workflow Definition ============
+
+    def workflow_get(self, project_code: int, workflow_code: int) -> CLIResult:
+        """获取工作流定义"""
         return self._run_command([
             "workflow", "get",
             str(workflow_code),
             "--project", str(project_code)
         ])
 
-    def list_workflows(self, project_code: int) -> CLIResult:
-        """
-        列出项目中的所有工作流
-
-        Args:
-            project_code: 项目编码
-
-        Returns:
-            CLIResult (JSON array of workflows)
-        """
+    def workflow_run(self, project_code: int, workflow_code: int) -> CLIResult:
+        """启动工作流"""
         return self._run_command([
-            "workflow", "list",
-            "--project", str(project_code)
-        ])
-
-    def describe_workflow(self, project_code: int, workflow_code: int) -> CLIResult:
-        """
-        获取工作流详细定义（包含任务和依赖关系）
-
-        Args:
-            project_code: 项目编码
-            workflow_code: 工作流编码
-
-        Returns:
-            CLIResult (JSON with workflow, tasks, relations)
-        """
-        return self._run_command([
-            "workflow", "describe",
-            str(workflow_code),
-            "--project", str(project_code)
-        ])
-
-    def workflow_instance_edit_and_recover(
-        self,
-        instance_id: int,
-        task_code: int,
-        script_changes: dict
-    ) -> CLIResult:
-        """
-        编辑工作流实例中的任务脚本并恢复失败
-
-        使用 dsctl workflow-instance edit 修改实例中的任务定义，
-        然后使用 recover-failed 恢复。
-
-        Args:
-            instance_id: 工作流实例 ID
-            task_code: 任务编码
-            script_changes: 脚本修改映射 {"wrong": "correct"}
-
-        Returns:
-            CLIResult
-        """
-        # 1. 先编辑实例中的任务脚本
-        # 构造 edit 参数（需要 JSON 格式的修改内容）
-        import json
-
-        # dsctl workflow-instance edit 支持修改 taskParams
-        # 格式: --task <task_code> --params '{"rawScript": "..."}'
-        edit_changes = {}
-        for wrong, correct in script_changes.items():
-            # 这里简化处理，实际需要获取当前脚本然后替换
-            edit_changes["script_fix"] = {"replace": {wrong: correct}}
-
-        edit_result = self._run_command([
-            "workflow-instance", "edit",
-            str(instance_id),
-            "--task", str(task_code),
-            "--changes", json.dumps(edit_changes)
-        ], timeout=60)
-
-        if not edit_result.success:
-            return edit_result
-
-        # 2. 恢复失败任务
-        return self.workflow_instance_recover(instance_id, task_code)
-
-    def workflow_update_config(
-        self,
-        project_code: int,
-        workflow_code: int,
-        task_code: int,
-        config_changes: dict
-    ) -> CLIResult:
-        """
-        更新工作流定义中的任务配置
-
-        使用 dsctl workflow update 修改工作流定义中的任务参数，
-        然后重新上线。
-
-        Args:
-            project_code: 项目编码
-            workflow_code: 工作流编码
-            task_code: 任务编码
-            config_changes: 配置修改 {"spark.executor.memory": "4g"}
-
-        Returns:
-            CLIResult
-        """
-        import json
-
-        # dsctl workflow update 支持修改任务配置
-        update_result = self._run_command([
-            "workflow", "update",
-            str(workflow_code),
-            "--project", str(project_code),
-            "--task", str(task_code),
-            "--config", json.dumps(config_changes)
-        ], timeout=60)
-
-        if not update_result.success:
-            return update_result
-
-        # 重新上线工作流
-        return self._run_command([
-            "workflow", "release",
-            str(workflow_code),
-            "--project", str(project_code),
-            "--state", "online"
-        ])
-
-    def workflow_run(
-        self,
-        project_code: int,
-        workflow_code: int,
-        params: dict = None
-    ) -> CLIResult:
-        """
-        启动新的工作流实例
-
-        使用 dsctl workflow run 启动工作流。
-
-        Args:
-            project_code: 项目编码
-            workflow_code: 工作流编码
-            params: 启动参数（可选）
-
-        Returns:
-            CLIResult
-        """
-        import json
-
-        args = [
             "workflow", "run",
             str(workflow_code),
             "--project", str(project_code)
-        ]
-
-        if params:
-            args.extend(["--params", json.dumps(params)])
-
-        return self._run_command(args, timeout=60)
-
-    def workflow_instance_recover_from_subworkflow(
-        self,
-        parent_instance_id: int,
-        subworkflow_node_code: int
-    ) -> CLIResult:
-        """
-        从父工作流实例的子工作流节点恢复
-
-        用于子工作流需要修改定义后重新执行的场景：
-        1. 修改子工作流定义并上线
-        2. 从父工作流的子工作流节点开始恢复
-        3. 会创建新的子工作流实例，但属于父工作流实例
-
-        Args:
-            parent_instance_id: 父工作流实例 ID
-            subworkflow_node_code: 子工作流节点编码（在父工作流中的任务编码）
-
-        Returns:
-            CLIResult
-        """
-        return self._run_command([
-            "workflow-instance", "recover",
-            str(parent_instance_id),
-            "--from-node", str(subworkflow_node_code)
         ])
 
 

@@ -1,13 +1,20 @@
 """
 Skill 基类
 
-○ 不是 Agent，使用预定义规则
-○ 不使用 LLM 进行决策
+Skill 是"快速预判器"：
+- 快速匹配已知错误模式
+- AUTO_FIXABLE 类型直接返回修复方案
+- KNOWN_NEEDS_LLM 类型给 LLM 提供上下文提示
+- UNKNOWN 类型完全交给 LLM
+
+LLM 是"深度分析师"：
+- 对 KNOWN_NEEDS_LLM 进行具体定位和原因分析
+- 对 UNKNOWN 进行完全分析
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional
-from ..models.analysis import ErrorAnalysis
+from typing import Optional, Dict
+from ..models.analysis import ErrorAnalysis, ErrorCategory
 from ..models.risk import RiskLevel, AutoFixAction
 from ..models.alert import AlertContext
 
@@ -16,30 +23,24 @@ class BaseSkill(ABC):
     """
     Skill 基类
 
-    每个 Skill 必须实现:
-    1. analyze(): 分析错误原因（预定义规则，不使用 LLM）
-    2. suggest(): 给出修复建议
-    3. can_auto_fix(): 判断是否可以自动修复
+    每个 Skill 是特定任务类型的错误专家：
+    - 快速识别常见错误模式
+    - 对可自动修复的错误直接给出方案
+    - 对需要推理的错误给 LLM 提供上下文
     """
 
     skill_name: str = ""
     task_types: list[str] = []
-
-    # 预定义的错误模式
-    error_patterns: dict[str, str] = {}
-
-    # 预定义的建议模板
-    suggestion_templates: dict[str, str] = {}
-
-    # 可自动修复的错误类型
-    auto_fixable_errors: list[str] = []
 
     @abstractmethod
     def analyze(self, log_content: str, context: AlertContext) -> ErrorAnalysis:
         """
         分析日志内容
 
-        使用预定义规则进行模式匹配，不使用 LLM
+        返回三类结果:
+        - AUTO_FIXABLE: 已知且可直接修复，返回 quick_fix
+        - KNOWN_NEEDS_LLM: 已知类型，返回 llm_hint 供 LLM 分析
+        - UNKNOWN: 无匹配，交给 LLM 完全分析
 
         Args:
             log_content: 日志内容
@@ -50,71 +51,50 @@ class BaseSkill(ABC):
         """
         pass
 
-    def suggest(self, analysis: ErrorAnalysis) -> list[str]:
-        """
-        给出修复建议
-
-        Args:
-            analysis: 错误分析结果
-
-        Returns:
-            建议列表
-        """
-        if analysis.error_type in self.suggestion_templates:
-            return [self.suggestion_templates[analysis.error_type]]
-        return ["请联系运维人员查看"]
-
-    def can_auto_fix(self, analysis: ErrorAnalysis) -> bool:
-        """
-        判断是否可以自动修复
-
-        Args:
-            analysis: 错误分析结果
-
-        Returns:
-            是否可以自动修复
-        """
-        return analysis.error_type in self.auto_fixable_errors
-
-    def get_auto_fix_action(self, analysis: ErrorAnalysis) -> Optional[AutoFixAction]:
-        """
-        获取自动修复动作
-
-        Args:
-            analysis: 错误分析结果
-
-        Returns:
-            AutoFixAction 或 None
-        """
-        if not self.can_auto_fix(analysis):
-            return None
-        return self._build_auto_fix_action(analysis)
-
-    def _build_auto_fix_action(self, analysis: ErrorAnalysis) -> Optional[AutoFixAction]:
-        """构建自动修复动作（子类实现）"""
-        return None
-
     def get_risk_level(self, analysis: ErrorAnalysis) -> RiskLevel:
         """
         获取修复风险等级
 
-        Args:
-            analysis: 错误分析结果
-
-        Returns:
-            RiskLevel
+        AUTO_FIXABLE: 低风险（拼写修正、配置调整）
+        其他: 高风险（需人工确认）
         """
-        # 配置修改为低风险，可自动执行
-        # 脚本修改为中等风险，需人工确认
-        if self.can_auto_fix(analysis):
-            # 判断修复类型
-            action = self._build_auto_fix_action(analysis)
-            if action and action.action_type == "modify_config":
-                return RiskLevel.LOW  # 配置修改可自动执行
-            elif action and action.action_type == "modify_script":
-                return RiskLevel.MEDIUM  # 脚本修改需确认
+        if analysis.category == ErrorCategory.AUTO_FIXABLE:
             return RiskLevel.LOW
         return RiskLevel.HIGH
+
+    def build_auto_fix_action(self, analysis: ErrorAnalysis) -> Optional[AutoFixAction]:
+        """
+        构建自动修复动作（仅 AUTO_FIXABLE 有）
+
+        由具体 Skill 实现
+        """
+        if analysis.category != ErrorCategory.AUTO_FIXABLE:
+            return None
+
+        quick_fix = analysis.quick_fix
+        if not quick_fix:
+            return None
+
+        action_type = quick_fix.get("action_type")
+        if action_type == "modify_script":
+            return AutoFixAction(
+                action_type="modify_script",
+                script_changes=quick_fix.get("script_changes", {}),
+                need_recover=True,
+            )
+        elif action_type == "modify_config":
+            return AutoFixAction(
+                action_type="modify_config",
+                config_changes=quick_fix.get("config_changes", {}),
+                need_recover=True,
+            )
+        elif action_type == "rerun":
+            return AutoFixAction(
+                action_type="rerun",
+                need_recover=True,
+            )
+
+        return None
 
 
 __all__ = ["BaseSkill"]

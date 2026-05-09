@@ -2,20 +2,24 @@
 SparkHistTool - Spark History Server 日志获取工具
 
 通过 Spark History Server REST API 获取应用日志
+
+API:
+- GET /api/v1/applications/{app_id} - 获取应用信息
+- GET /api/v1/applications/{app_id}/logs - 获取日志 (ZIP压缩的 event log)
 """
 
 import re
 import requests
-from typing import Dict, Optional
+import zipfile
+import io
+from typing import Dict, Optional, List
 
 
 class SparkHistTool:
     """
     Spark History Server 日志获取工具
 
-    API:
-    - GET /api/v1/applications/{app_id} - 获取应用信息
-    - GET /api/v1/applications/{app_id}/logs - 获取日志
+    返回的日志是 ZIP 压缩的 SparkListener event log (JSON 格式)
     """
 
     def __init__(self, history_url: str):
@@ -35,7 +39,7 @@ class SparkHistTool:
             application_id: Spark 应用 ID (如 application_123456_789)
 
         Returns:
-            日志字典 {"driver": "...", "executor_1": "...", ...}
+            日志字典 {"event_log": "..."} - 解压后的 event log JSON 行
         """
         try:
             # 获取应用详情（包含 attempts）
@@ -48,15 +52,31 @@ class SparkHistTool:
             app_data = response.json()
             logs = {}
 
-            # 解析 attempts 获取日志
-            for attempt in app_data.get("attempts", []):
-                attempt_id = attempt.get("id", "")
-                log_content = attempt.get("logs", "")
+            # 获取完整日志 (ZIP 格式)
+            logs_url = f"{self.history_url}/api/v1/applications/{application_id}/logs"
+            logs_response = requests.get(logs_url, timeout=30)
 
-                if attempt_id == "driver":
-                    logs["driver"] = log_content
-                else:
-                    logs[f"executor_{attempt_id}"] = log_content
+            if logs_response.status_code == 200:
+                # 解压 ZIP 文件
+                try:
+                    zip_buffer = io.BytesIO(logs_response.content)
+                    with zipfile.ZipFile(zip_buffer, 'r') as z:
+                        for name in z.namelist():
+                            content = z.read(name)
+                            # 解码为文本
+                            event_log_text = content.decode('utf-8', errors='ignore')
+                            logs["event_log"] = event_log_text
+                            logs["event_log_size"] = len(event_log_text)
+                except zipfile.BadZipFile:
+                    # 如果不是 ZIP，直接返回文本
+                    logs["event_log"] = logs_response.text
+
+            # 添加应用基本信息
+            logs["app_name"] = app_data.get("name", "")
+            attempts = app_data.get("attempts", [])
+            if attempts:
+                logs["attempt_count"] = len(attempts)
+                logs["last_attempt_duration"] = attempts[-1].get("duration", 0)
 
             return logs
 
@@ -85,6 +105,64 @@ class SparkHistTool:
                 return match.group(0)
 
         return None
+
+    def extract_errors_from_event_log(self, event_log: str) -> List[Dict]:
+        """
+        从 event log JSON 行提取错误信息
+
+        Args:
+            event_log: 解压后的 event log 文本 (每行一个 JSON)
+
+        Returns:
+            错误事件列表 [{"event": "SparkListenerTaskEnd", "reason": "..."}]
+        """
+        import json
+        errors = []
+
+        for line in event_log.splitlines():
+            if not line.strip():
+                continue
+            try:
+                event = json.loads(line)
+                event_type = event.get("Event", "")
+
+                # 提取失败相关事件
+                if event_type in [
+                    "SparkListenerTaskEnd",
+                    "SparkListenerJobEnd",
+                    "SparkListenerStageCompleted",
+                ]:
+                    # 检查是否有失败
+                    if event_type == "SparkListenerTaskEnd":
+                        reason = event.get("Task End Reason", {})
+                        if reason.get("Failure", "") or reason.get("Accumulables", []):
+                            errors.append({
+                                "event": event_type,
+                                "stage_id": event.get("Stage ID"),
+                                "task_id": event.get("Task ID"),
+                                "reason": str(reason)[:200],
+                            })
+                    elif event_type == "SparkListenerJobEnd":
+                        job_result = event.get("Job Result", {})
+                        if job_result.get("Job Result", {}).get("Failure", ""):
+                            errors.append({
+                                "event": event_type,
+                                "job_id": event.get("Job ID"),
+                                "reason": str(job_result)[:200],
+                            })
+                    elif event_type == "SparkListenerStageCompleted":
+                        stage_info = event.get("Stage Info", {})
+                        if stage_info.get("Failure Reason", ""):
+                            errors.append({
+                                "event": event_type,
+                                "stage_id": stage_info.get("Stage ID"),
+                                "reason": stage_info.get("Failure Reason")[:200],
+                            })
+
+            except json.JSONDecodeError:
+                continue
+
+        return errors
 
 
 __all__ = ["SparkHistTool"]

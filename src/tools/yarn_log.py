@@ -1,7 +1,7 @@
 """
 YARNLogTool - YARN Gateway 日志获取工具
 
-通过 Knox Gateway 代理 YARN ResourceManager API 获取 container 日志
+通过 Knox Gateway 代理 YARN ResourceManager API 获取应用信息
 """
 
 import requests
@@ -13,83 +13,106 @@ class YARNLogTool:
     """
     YARN Gateway 日志获取工具
 
-    通过 Knox Gateway 访问 YARN API
+    通过 Knox Gateway 访问 YARN API (需要 LDAP 认证)
     """
 
     def __init__(
         self,
         gateway_url: str,
         username: Optional[str] = None,
-        password: Optional[str] = None,
-        auth_type: str = "basic"
+        password: Optional[str] = None
     ):
         """
         初始化
 
         Args:
-            gateway_url: Knox Gateway YARN URL
-            username: 认证用户名
-            password: 认证密码
-            auth_type: basic / kerberos
+            gateway_url: Knox Gateway YARN URL (如 https://host:8443/gateway/default/yarn)
+            username: LDAP 认证用户名
+            password: LDAP 认证密码
         """
         self.gateway_url = gateway_url.rstrip("/")
         self.username = username
         self.password = password
-        self.auth_type = auth_type
+        self.auth = HTTPBasicAuth(username, password) if username and password else None
 
     def fetch_logs(self, application_id: str) -> Dict[str, str]:
         """
-        获取 YARN container 日志
+        获取 YARN 应用信息
 
         Args:
             application_id: YARN 应用 ID
 
         Returns:
-            日志字典 {"container_1": "...", ...}
+            应用信息字典 {"app_name", "state", "diagnostics", ...}
         """
         try:
-            url = self._build_app_url(application_id)
+            # 获取应用详情
+            url = f"{self.gateway_url}/ws/v1/cluster/apps/{application_id}"
 
-            auth = None
-            if self.username and self.password:
-                auth = HTTPBasicAuth(self.username, self.password)
-
-            response = requests.get(url, auth=auth, timeout=15, verify=False)
+            response = requests.get(
+                url,
+                auth=self.auth,
+                timeout=15,
+                verify=False  # Knox 可能使用自签名证书
+            )
 
             if response.status_code != 200:
-                return {}
+                return {"error": f"HTTP {response.status_code}", "url": url}
 
-            app_data = response.json()
+            app_data = response.json().get("app", {})
             logs = {}
 
-            # 解析 containers
-            containers = app_data.get("app", {}).get("containers", [])
-            for container in containers:
-                container_id = container.get("id", "")
-                log_content = self._fetch_container_log(application_id, container_id, auth)
-                if log_content:
-                    logs[container_id] = log_content
+            # 提取关键信息
+            logs["app_id"] = app_data.get("id", "")
+            logs["app_name"] = app_data.get("name", "")
+            logs["state"] = app_data.get("state", "")
+            logs["final_status"] = app_data.get("finalStatus", "")
+            logs["user"] = app_data.get("user", "")
+            logs["tracking_url"] = app_data.get("trackingUrl", "")
+            logs["started_time"] = app_data.get("startedTime", 0)
+            logs["finished_time"] = app_data.get("finishedTime", 0)
+            logs["elapsed_time"] = app_data.get("elapsedTime", 0)
+
+            # 诊断信息（错误原因）
+            diagnostics = app_data.get("diagnostics", "")
+            if diagnostics:
+                logs["diagnostics"] = diagnostics
+
+            # 资源使用
+            logs["allocated_vcores"] = app_data.get("allocatedVCores", 0)
+            logs["allocated_memory_mb"] = app_data.get("allocatedMB", 0)
+            logs["running_containers"] = app_data.get("runningContainers", 0)
 
             return logs
 
-        except requests.RequestException:
-            return {}
+        except requests.RequestException as e:
+            return {"error": str(e)}
 
-    def _build_app_url(self, application_id: str) -> str:
-        """构建应用 API URL"""
-        return f"{self.gateway_url}/ws/v1/cluster/apps/{application_id}"
+    def get_app_attempts(self, application_id: str) -> Dict:
+        """
+        获取应用尝试次数信息
 
-    def _fetch_container_log(self, application_id: str, container_id: str, auth) -> Optional[str]:
-        """获取单个 container 日志"""
+        Args:
+            application_id: YARN 应用 ID
+
+        Returns:
+            尝试信息 {"attempts": [...]}
+        """
         try:
-            url = f"{self.gateway_url}/ws/v1/cluster/apps/{application_id}/containers/{container_id}/logs"
-            response = requests.get(url, auth=auth, timeout=10, verify=False)
+            url = f"{self.gateway_url}/ws/v1/cluster/apps/{application_id}/appattempts"
+            response = requests.get(
+                url,
+                auth=self.auth,
+                timeout=15,
+                verify=False
+            )
 
             if response.status_code == 200:
-                return response.text
-            return None
-        except requests.RequestException:
-            return None
+                return response.json()
+            return {"error": f"HTTP {response.status_code}"}
+
+        except requests.RequestException as e:
+            return {"error": str(e)}
 
 
 __all__ = ["YARNLogTool"]

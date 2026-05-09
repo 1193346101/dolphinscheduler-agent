@@ -1,7 +1,7 @@
 """
-risk.py - 风险评估节点
+risk.py - Risk assessment node
 
-支持子工作流影响分析
+Support sub-workflow impact analysis
 """
 
 from typing import Dict
@@ -15,13 +15,33 @@ from ...config import settings
 
 
 def assess_risk(state: AgentState) -> AgentState:
-    """评估风险等级"""
+    """Assess risk level"""
+    print("\n" + "="*50)
+    print("[6/10] assess_risk - Risk assessment")
+    print("="*50)
+
     tool = RiskAssessTool()
 
+    suggested_actions = state.get("suggested_actions", [])
+    downstream_count = state.get("downstream_tasks", 0)
+
+    print(f"  >> Suggested action count: {len(suggested_actions)}")
+    print(f"  >> Downstream task count: {downstream_count}")
+
     result = tool.assess(
-        suggested_actions=state.get("suggested_actions", []),
-        downstream_count=state.get("downstream_tasks", 0),
+        suggested_actions=suggested_actions,
+        downstream_count=downstream_count,
     )
+
+    print(f"  >> Risk level: {result['risk_level']}")
+    print(f"  >> Approval required: {result['approval_required']}")
+
+    if result['risk_level'] == 'LOW':
+        print("[OK] Low risk, auto execute")
+    elif result['risk_level'] == 'MEDIUM':
+        print("[OK] Medium risk, auto execute")
+    else:
+        print("[INFO] High risk, waiting for approval")
 
     return {
         **state,
@@ -33,32 +53,32 @@ def assess_risk(state: AgentState) -> AgentState:
 
 def impact_analysis(state: AgentState) -> AgentState:
     """
-    分析下游影响
+    Analyze downstream impact
 
-    支持子工作流的影响分析：
-    - 子工作流内任务的下游
-    - 父工作流中子工作流之后的下游
-    - 父工作流的下游工作流
+    Support sub-workflow impact analysis:
+    - Downstream tasks within sub-workflow
+    - Downstream in parent workflow after sub-workflow
+    - Parent workflow downstream workflows
 
     Args:
-        state: 当前状态
+        state: Current state
 
     Returns:
-        更新后的状态 (downstream_tasks, downstream_list, impact_summary)
+        Updated state (downstream_tasks, downstream_list, impact_summary)
     """
     project_code = state.get("project_code")
     workflow_code = state.get("workflow_code")
     task_code = state.get("task_code")
     is_sub_workflow = state.get("is_sub_workflow", False)
 
-    # 使用图谱分析
+    # Use graph analysis
     graph_storage = GraphStorage(data_dir=settings.GRAPH_STORAGE_PATH)
     querier = GraphQuerier(graph_storage)
 
-    # 检查图谱是否存在
+    # Check if graph exists
     graph_available = graph_storage.graph_exists(project_code)
 
-    # 如果图谱存在且是子工作流，使用完整的影响分析
+    # If graph exists and is sub-workflow, use full impact analysis
     if graph_available and is_sub_workflow:
         sub_impact = querier.query_subworkflow_impact(
             project_code,
@@ -67,7 +87,7 @@ def impact_analysis(state: AgentState) -> AgentState:
         )
 
         if sub_impact["found"]:
-            # 构建完整的影响摘要
+            # Build full impact summary
             impact_summary = _build_subworkflow_impact_summary(sub_impact)
 
             return {
@@ -84,18 +104,18 @@ def impact_analysis(state: AgentState) -> AgentState:
                 "parent_workflow_info": sub_impact.get("parent_workflow"),
             }
 
-    # 图谱存在且是普通工作流，使用标准下游分析
+    # Graph exists and is normal workflow, use standard downstream analysis
     if graph_available:
         graph_impact = GraphImpactTool(graph_storage)
 
-        # 分析工作流下游
+        # Analyze workflow downstream
         workflow_result = graph_impact.analyze_workflow_downstream(
             str(project_code),
             str(workflow_code),
         )
 
         if workflow_result.get("graph_available"):
-            # 同时分析任务级下游
+            # Also analyze task-level downstream
             task_result = graph_impact.analyze_task_downstream(
                 str(project_code),
                 str(workflow_code),
@@ -127,18 +147,18 @@ def impact_analysis(state: AgentState) -> AgentState:
                 "impact_source": "graph",
             }
 
-    # 降级：图谱不存在时使用 task_relations 分析
+    # Fallback: Use task_relations analysis when graph not exists
     impact_tool = ImpactTool()
     task_relations = state.get("task_relations")
 
-    # task_relations 为 None 表示无法获取，返回默认值
-    # task_relations 为 [] 表示可以获取但没有下游依赖
+    # task_relations None means cannot get, return default
+    # task_relations [] means can get but no downstream dependency
     if task_relations is None:
         return {
             **state,
             "downstream_tasks": 0,
             "downstream_list": [],
-            "impact_summary": "无法分析下游影响",
+            "impact_summary": "Cannot analyze downstream impact",
             "impact_source": "fallback_none",
         }
 
@@ -154,44 +174,44 @@ def impact_analysis(state: AgentState) -> AgentState:
 
 def _build_subworkflow_impact_summary(sub_impact: Dict) -> str:
     """
-    构建子工作流影响摘要
+    Build sub-workflow impact summary
 
     Args:
-        sub_impact: 子工作流影响分析结果
+        sub_impact: Sub-workflow impact analysis result
 
     Returns:
-        Markdown 格式的摘要
+        Markdown format summary
     """
-    lines = ["## 子工作流失败影响分析\n"]
+    lines = ["## Sub-workflow failure impact analysis\n"]
 
-    # 子工作流信息
+    # Sub-workflow info
     sub_wf = sub_impact.get("sub_workflow", {})
     if sub_wf:
-        lines.append(f"**子工作流**: {sub_wf.get('name', sub_wf.get('code'))}\n")
+        lines.append(f"**Sub-workflow**: {sub_wf.get('name', sub_wf.get('code'))}\n")
 
-    # 子工作流内影响
+    # Impact within sub-workflow
     task_downstream = sub_impact.get("task_downstream_in_subworkflow", [])
     if task_downstream:
-        lines.append(f"**子工作流内下游任务**: {len(task_downstream)} 个\n")
+        lines.append(f"**Downstream tasks in sub-workflow**: {len(task_downstream)}\n")
 
-    # 父工作流信息
+    # Parent workflow info
     parent_wf = sub_impact.get("parent_workflow", {})
     if parent_wf:
-        lines.append(f"**父工作流**: {parent_wf.get('name', parent_wf.get('code'))}\n")
+        lines.append(f"**Parent workflow**: {parent_wf.get('name', parent_wf.get('code'))}\n")
 
-    # 父工作流内影响
+    # Impact in parent workflow
     downstream_in_parent = sub_impact.get("downstream_in_parent", [])
     if downstream_in_parent:
-        lines.append(f"**父工作流内下游任务**: {len(downstream_in_parent)} 个\n")
+        lines.append(f"**Downstream in parent workflow**: {len(downstream_in_parent)}\n")
 
-    # 父工作流下游工作流
+    # Parent workflow downstream workflows
     parent_downstream_wf = sub_impact.get("parent_downstream_workflows", [])
     if parent_downstream_wf:
-        lines.append(f"**父工作流下游工作流**: {len(parent_downstream_wf)} 个\n")
+        lines.append(f"**Parent workflow downstream workflows**: {len(parent_downstream_wf)}\n")
 
-    # 总影响
+    # Total impact
     total = sub_impact.get("total_impact_count", 0)
-    lines.append(f"\n**总影响范围**: {total} 个节点\n")
+    lines.append(f"\n**Total impact range**: {total} nodes\n")
 
     return "\n".join(lines)
 

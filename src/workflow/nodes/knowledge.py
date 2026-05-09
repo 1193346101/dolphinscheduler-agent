@@ -1,7 +1,7 @@
 """
-query_knowledge 节点
+query_knowledge node
 
-查询知识库，匹配历史案例
+Query knowledge base, match historical cases
 """
 
 from typing import Dict, Any, Optional
@@ -11,33 +11,33 @@ from ...knowledge.manager import knowledge_manager, KnowledgeEntry
 
 def query_knowledge(state: AgentState) -> AgentState:
     """
-    查询知识库
+    Query knowledge base
 
-    根据错误分析结果，查询历史已确认的知识
+    Based on error analysis result, query historical confirmed knowledge
 
     Args:
-        state: 当前状态
+        state: Current state
 
     Returns:
-        更新后的状态 (knowledge_match)
+        Updated state (knowledge_match)
     """
-    # 获取错误分析结果
+    # Get error analysis result
     error_analysis = state.get("error_analysis", {})
     error_type = error_analysis.get("error_type", "")
     error_message = error_analysis.get("error_message", "")
 
-    # 获取任务类型
+    # Get task type
     task_type = state.get("task_type", "UNKNOWN")
 
-    # 查询知识库
+    # Query knowledge base
     match: Optional[KnowledgeEntry] = None
 
     if error_message:
-        # 优先匹配错误消息
+        # Prefer matching error message
         match = knowledge_manager.match_error(task_type, error_message)
 
     if match:
-        # 找到匹配，更新状态
+        # Found match, update state
         return {
             **state,
             "knowledge_match": {
@@ -52,7 +52,7 @@ def query_knowledge(state: AgentState) -> AgentState:
             },
         }
 
-    # 未找到匹配
+    # No match found
     return {
         **state,
         "knowledge_match": None,

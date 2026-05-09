@@ -1,5 +1,6 @@
 # Environment
 .env
+config/projects.yaml
 __pycache__/
 *.py[cod]
 *$py.class
@@ -13,7 +14,14 @@ ENV/
 *.swp
 *.swo
 
-# Distribution
-dist/
-build/
-*.egg-info/
+# Logs
+logs/
+data/logs/
+agent.log
+agent_new.log
+agent_run.log
+
+# Temp files
+*.txt
+ngrok
+Python

@@ -1,11 +1,15 @@
 """
-DataX Skill - DataX 数据同步任务错误分析
+DataX Skill - DataX 数据同步任务错误分析专家
 
-○ 不是 Agent，使用预定义规则
+Skill 是快速预判器:
+- 快速识别常见 DataX 错误模式
+- KNOWN_NEEDS_LLM: 所有错误都需 LLM 分析具体原因
+- UNKNOWN: 无匹配，完全交给 LLM
 """
 
-from typing import Optional
-from ..models.analysis import ErrorAnalysis
+import re
+from typing import Optional, Dict, Tuple
+from ..models.analysis import ErrorAnalysis, ErrorCategory
 from ..models.risk import RiskLevel
 from ..models.alert import AlertContext
 from .base import BaseSkill
@@ -15,69 +19,125 @@ class DataXSkill(BaseSkill):
     """
     DataX 任务分析 Skill
 
-    常见错误类型:
-    - config_error: 配置错误
-    - source_connection: 源端连接失败
-    - sink_connection: 目标端连接失败
-    - data_transform: 数据转换错误
-    - write_error: 写入错误
+    DataX 错误通常涉及数据库连接、数据转换、权限等，需要人工干预
     """
 
     skill_name = "datax"
     task_types = ["DATAX"]
 
-    # 预定义的错误模式
-    error_patterns = {
-        "config_error": "Configuration error",
-        "json_parse_error": "JSON parse error",
-        "source_connection": "source connection failed",
-        "sink_connection": "sink connection failed",
-        "connection_timeout": "Connection timed out",
-        "data_transform": "Data transform error",
-        "type_convert": "Type conversion error",
-        "write_error": "Write error",
-        "primary_key_conflict": "Duplicate entry",
-        "column_not_match": "column not match",
-    }
+    # 错误模式: (pattern, category, llm_hint)
+    error_patterns: Dict[str, Tuple[str, str, str]] = {
+        # === 配置错误 ===
+        "config_error": (
+            "Configuration error",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "DataX 配置错误，请检查 job 配置文件"
+        ),
+        "json_parse_error": (
+            "JSON parse error",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "DataX JSON 配置解析失败，请检查 JSON 格式是否正确"
+        ),
 
-    # 预定义的建议模板
-    suggestion_templates = {
-        "config_error": "检查 DataX job 配置文件",
-        "json_parse_error": "检查 JSON 配置格式是否正确",
-        "source_connection": "检查源端数据库连接配置",
-        "sink_connection": "检查目标端数据库连接配置",
-        "connection_timeout": "检查网络连接或增加超时时间",
-        "data_transform": "检查数据类型转换配置",
-        "type_convert": "检查字段类型是否匹配",
-        "write_error": "检查写入权限和表结构",
-        "primary_key_conflict": "检查主键是否重复",
-        "column_not_match": "检查列名是否匹配",
-    }
+        # === 连接错误 ===
+        "source_connection": (
+            "source connection failed",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "DataX 源端数据库连接失败，请检查源端连接配置（URL、用户名、密码、网络）"
+        ),
+        "sink_connection": (
+            "sink connection failed",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "DataX 目标端数据库连接失败，请检查目标端连接配置"
+        ),
+        "connection_timeout": (
+            "Connection timed out",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "DataX 数据库连接超时，请检查网络和超时设置"
+        ),
 
-    # DataX 错误一般不可自动修复
-    auto_fixable_errors = []
+        # === 数据错误 ===
+        "data_transform": (
+            "Data transform error",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "DataX 数据转换错误，请检查数据类型转换配置"
+        ),
+        "type_convert": (
+            "Type conversion error",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "DataX 类型转换失败，请分析源字段类型和目标字段类型"
+        ),
+        "column_not_match": (
+            "column not match",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "DataX 列名不匹配，请检查源表和目标表的列名配置"
+        ),
+        "primary_key_conflict": (
+            "Duplicate entry",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "DataX 主键冲突，请分析数据是否有重复主键"
+        ),
+
+        # === 写入错误 ===
+        "write_error": (
+            "Write error",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "DataX 写入错误，请检查写入权限和目标表结构"
+        ),
+        "batch_write_failed": (
+            "batch write failed",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "DataX 批量写入失败，请分析失败的具体批次和原因"
+        ),
+
+        # === 权限错误 ===
+        "permission_denied": (
+            "Permission denied",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "DataX 权限不足，请检查数据库用户权限"
+        ),
+        "access_denied": (
+            "Access denied",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "DataX 访问被拒绝，请检查数据库访问权限"
+        ),
+
+        # === 性能错误 ===
+        "speed_limit": (
+            "speed limit",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "DataX 速度限制，请检查流量控制配置"
+        ),
+        "channel_error": (
+            "channel error",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "DataX Channel 错误，请检查并发配置"
+        ),
+    }
 
     def analyze(self, log_content: str, context: AlertContext) -> ErrorAnalysis:
-        """使用预定义规则分析日志"""
-        for error_type, pattern in self.error_patterns.items():
-            if pattern.lower() in log_content.lower():
+        """分析 DataX 任务错误"""
+        log_lower = log_content.lower()
+
+        for error_type, (pattern, category, llm_hint) in self.error_patterns.items():
+            if pattern.lower() in log_lower:
+                error_message = self._extract_error_message(log_content, pattern)
                 return ErrorAnalysis(
                     error_type=error_type,
-                    error_message=self._extract_error_message(log_content, pattern),
+                    category=ErrorCategory.KNOWN_NEEDS_LLM,
+                    error_message=error_message,
                     matched_pattern=pattern,
-                    can_auto_fix=False,
-                    confidence=0.8,
+                    llm_hint=llm_hint,
                 )
 
         return ErrorAnalysis(
             error_type="unknown",
+            category=ErrorCategory.UNKNOWN,
             error_message=log_content[:500],
-            can_auto_fix=False,
-            confidence=0.5,
         )
 
     def _extract_error_message(self, log_content: str, pattern: str) -> str:
-        """提取错误消息"""
+        """提取错误消息片段"""
         lines = log_content.split("\n")
         for i, line in enumerate(lines):
             if pattern.lower() in line.lower():

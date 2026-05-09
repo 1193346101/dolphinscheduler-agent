@@ -6,6 +6,22 @@ import os
 from dataclasses import dataclass, field
 from typing import Optional
 
+# 加载 .env 文件
+def load_dotenv():
+    """手动加载 .env 文件"""
+    env_file = os.path.join(os.path.dirname(__file__), '..', '..', '.env')
+    if os.path.exists(env_file):
+        with open(env_file, encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    # 只设置未定义的环境变量
+                    if key not in os.environ:
+                        os.environ[key] = value
+
+load_dotenv()
+
 
 @dataclass
 class Settings:
@@ -22,8 +38,12 @@ class Settings:
     DS_VERSION: str = field(default_factory=lambda: os.getenv("DS_VERSION", "3.2.0"))
 
     # 钉钉机器人
-    DINGTALK_WEBHOOK: str = field(default_factory=lambda: os.getenv("DINGTALK_WEBHOOK", ""))
-    DINGTALK_SECRET: str = field(default_factory=lambda: os.getenv("DINGTALK_SECRET", ""))
+    DINGTALK_CLIENT_ID: str = field(default_factory=lambda: os.getenv("DINGTALK_CLIENT_ID", ""))
+    DINGTALK_CLIENT_SECRET: str = field(default_factory=lambda: os.getenv("DINGTALK_CLIENT_SECRET", ""))
+    DINGTALK_ROBOT_CODE: str = field(default_factory=lambda: os.getenv("DINGTALK_ROBOT_CODE", ""))
+    DINGTALK_AGENT_ID: str = field(default_factory=lambda: os.getenv("DINGTALK_AGENT_ID", ""))
+    DINGTALK_GROUP_ID: str = field(default_factory=lambda: os.getenv("DINGTALK_GROUP_ID", ""))
+    DINGTALK_WEBHOOK_URL: str = field(default_factory=lambda: os.getenv("DINGTALK_WEBHOOK_URL", ""))
 
     # 飞书机器人
     FEISHU_WEBHOOK: str = field(default_factory=lambda: os.getenv("FEISHU_WEBHOOK", ""))

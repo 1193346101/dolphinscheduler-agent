@@ -29,18 +29,24 @@ class AgentState(TypedDict, total=False):
     alert_raw: Dict[str, Any]
     # Project code
     project_code: str
+    # Project name
+    project_name: str
     # Workflow code
     workflow_code: str
     # Workflow name
     workflow_name: str
     # Task code (failed task code in current workflow)
     task_code: str
+    # Task name (failed task name)
+    task_name: str
     # Task type (limited to specific values)
     task_type: Literal["SHELL", "SPARK", "PYTHON", "DATAX"]
     # Alert timestamp
     error_time: str
     # Whether this is a sub-workflow
     is_sub_workflow: bool
+    # Workflow instance ID
+    process_instance_id: int
     # Parent workflow code (if this is a sub-workflow)
     parent_workflow_code: Optional[str]
     # Parent workflow instance ID (if this is a sub-workflow)
@@ -127,12 +133,15 @@ INITIAL_STATE: Dict[str, Any] = {
     # Input stage - defaults
     "alert_raw": {},
     "project_code": "",
+    "project_name": "",
     "workflow_code": "",
     "workflow_name": "",
     "task_code": "",
+    "task_name": "",
     "task_type": "SHELL",
     "error_time": "",
     "is_sub_workflow": False,
+    "process_instance_id": 0,
     "parent_workflow_code": None,
     "parent_process_instance_id": None,
     "sub_workflow_node_code": None,

@@ -1,12 +1,15 @@
 """
-Python Skill - Python 任务错误分析
+Python Skill - Python 任务错误分析专家
 
-○ 不是 Agent，使用预定义规则
+Skill 是快速预判器:
+- 快速识别常见 Python 错误模式
+- KNOWN_NEEDS_LLM: 所有错误都需 LLM 分析具体原因
+- UNKNOWN: 无匹配，完全交给 LLM
 """
 
 import re
-from typing import Optional
-from ..models.analysis import ErrorAnalysis
+from typing import Optional, Dict, Tuple
+from ..models.analysis import ErrorAnalysis, ErrorCategory
 from ..models.risk import RiskLevel
 from ..models.alert import AlertContext
 from .base import BaseSkill
@@ -16,66 +19,147 @@ class PythonSkill(BaseSkill):
     """
     Python 任务分析 Skill
 
-    常见错误类型:
-    - syntax_error: Python 语法错误
-    - module_not_found: 模块不存在
-    - import_error: 导入错误
-    - runtime_error: 运行时异常
+    Python 错误大多数需要人工检查代码，因此都归类为 KNOWN_NEEDS_LLM
     """
 
     skill_name = "python"
     task_types = ["PYTHON"]
 
-    # 预定义的错误模式
-    error_patterns = {
-        "syntax_error": "SyntaxError:",
-        "module_not_found": "ModuleNotFoundError:",
-        "import_error": "ImportError:",
-        "key_error": "KeyError:",
-        "type_error": "TypeError:",
-        "value_error": "ValueError:",
-        "attribute_error": "AttributeError:",
-        "index_error": "IndexError:",
-        "runtime_error": "RuntimeError:",
-    }
+    # 错误模式: (pattern, category, llm_hint)
+    error_patterns: Dict[str, Tuple[str, str, str]] = {
+        # === 语法错误 ===
+        "syntax_error": (
+            "SyntaxError:",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "Python 语法错误，请分析具体位置和原因（如缩进、括号、引号问题）"
+        ),
+        "indentation_error": (
+            "IndentationError:",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "Python 缩进错误，请检查缩进是否一致"
+        ),
 
-    # 预定义的建议模板
-    suggestion_templates = {
-        "syntax_error": "检查 Python 语法，特别是缩进、括号和引号",
-        "module_not_found": "检查模块是否安装: pip install <module>",
-        "import_error": "检查导入路径是否正确",
-        "key_error": "检查字典 key 是否存在",
-        "type_error": "检查类型是否正确",
-        "value_error": "检查值是否在有效范围内",
-        "attribute_error": "检查对象是否有该属性",
-        "index_error": "检查索引是否在有效范围内",
-        "runtime_error": "检查运行时环境",
-    }
+        # === 导入错误 ===
+        "module_not_found": (
+            "ModuleNotFoundError:",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "Python 模块不存在，请分析缺失的模块名和安装方式"
+        ),
+        "import_error": (
+            "ImportError:",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "Python 导入错误，请分析导入失败的原因"
+        ),
 
-    # Python 错误一般不可自动修复（需要人工检查代码）
-    auto_fixable_errors = []
+        # === 类型错误 ===
+        "type_error": (
+            "TypeError:",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "Python 类型错误，请分析类型不匹配的具体原因"
+        ),
+        "value_error": (
+            "ValueError:",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "Python 值错误，请分析值无效的原因"
+        ),
+        "attribute_error": (
+            "AttributeError:",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "Python 属性不存在，请分析对象类型和属性名"
+        ),
+
+        # === 数据结构错误 ===
+        "key_error": (
+            "KeyError:",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "Python 字典 key 不存在，请分析缺失的 key 和字典内容"
+        ),
+        "index_error": (
+            "IndexError:",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "Python 索引越界，请分析列表长度和索引值"
+        ),
+
+        # === 运行时错误 ===
+        "runtime_error": (
+            "RuntimeError:",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "Python 运行时错误，请分析具体运行时问题"
+        ),
+        "zero_division": (
+            "ZeroDivisionError:",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "Python 除零错误，请分析除数为零的情况"
+        ),
+        "name_error": (
+            "NameError:",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "Python 变量名未定义，请检查变量定义"
+        ),
+
+        # === 文件错误 ===
+        "file_not_found": (
+            "FileNotFoundError:",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "Python 文件不存在，请检查文件路径"
+        ),
+        "permission_error": (
+            "PermissionError:",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "Python 权限错误，请检查文件权限"
+        ),
+
+        # === 内存错误 ===
+        "memory_error": (
+            "MemoryError:",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "Python 内存不足，请分析内存使用情况"
+        ),
+        "recursion_error": (
+            "RecursionError:",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "Python 递归深度超限，请检查递归逻辑"
+        ),
+
+        # === 其他 ===
+        "stop_iteration": (
+            "StopIteration:",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "Python 迭代器耗尽，请检查迭代逻辑"
+        ),
+        "assertion_error": (
+            "AssertionError:",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "Python 断言失败，请分析断言条件"
+        ),
+        "not_implemented": (
+            "NotImplementedError:",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "Python 功能未实现，请检查代码"
+        ),
+    }
 
     def analyze(self, log_content: str, context: AlertContext) -> ErrorAnalysis:
-        """使用预定义规则分析日志"""
-        for error_type, pattern in self.error_patterns.items():
+        """分析 Python 任务错误"""
+        for error_type, (pattern, category, llm_hint) in self.error_patterns.items():
             if pattern in log_content:
+                error_message = self._extract_error_message(log_content, pattern)
                 return ErrorAnalysis(
                     error_type=error_type,
-                    error_message=self._extract_error_message(log_content, pattern),
+                    category=ErrorCategory.KNOWN_NEEDS_LLM,
+                    error_message=error_message,
                     matched_pattern=pattern,
-                    can_auto_fix=False,
-                    confidence=0.85,
+                    llm_hint=llm_hint,
                 )
 
         return ErrorAnalysis(
             error_type="unknown",
+            category=ErrorCategory.UNKNOWN,
             error_message=log_content[:500],
-            can_auto_fix=False,
-            confidence=0.5,
         )
 
     def _extract_error_message(self, log_content: str, pattern: str) -> str:
-        """提取错误消息"""
+        """提取错误消息片段（Python traceback 通常较长）"""
         lines = log_content.split("\n")
         for i, line in enumerate(lines):
             if pattern in line:

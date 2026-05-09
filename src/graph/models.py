@@ -17,6 +17,9 @@ class WorkflowNode:
     schedule_cron: str
     is_sub_workflow: bool
     parent_workflow: Optional[str]  # 父工作流 code
+    schedule_start_time: str = ""  # 调度开始时间
+    schedule_end_time: str = ""  # 调度结束时间
+    schedule_timezone: str = ""  # 时区
 
 
 @dataclass

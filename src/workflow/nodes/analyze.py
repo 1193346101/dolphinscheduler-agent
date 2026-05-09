@@ -1,39 +1,49 @@
 """
-analyze_error 节点
+analyze_error node
 
-分析错误模式 - Skill 分发 + LLM 辅助
+Analyze error patterns - Skill quick pre-check + LLM deep analysis
+
+Process:
+1. Skill quick error pattern recognition
+   - AUTO_FIXABLE: Return fix solution directly (typo, OOM config)
+   - KNOWN_NEEDS_LLM: Return error type + LLM hint
+   - UNKNOWN: Return to LLM for full analysis
+
+2. LLM deep analysis (only when category is not AUTO_FIXABLE)
+   - Analyze specific cause, locate problem
+   - Return fix suggestions and script_changes/config_changes
 """
 
 from typing import Dict, List
 from ..state import AgentState
 from ...tools.llm_client import LLMClient
 from ...models.alert import AlertContext, AlertInfo
+from ...models.analysis import ErrorCategory
+from ...config import settings
+from ...tools.dingtalk_progress import get_notifier_from_settings
 
 
 def analyze_error(state: AgentState) -> AgentState:
     """
-    分析错误
-
-    流程:
-    1. 根据 task_type 选择 Skill
-    2. Skill 分析日志，匹配错误模式
-    3. 低置信度时调用 LLM 辅助
-    4. 合并结果
-
-    Args:
-        state: 当前状态
-
-    Returns:
-        更新后的状态 (error_patterns, error_category, suggested_actions, confidence_score, error_analysis)
+    Analyze error
     """
+    print("\n" + "="*50)
+    print("[4/10] analyze_error - Analyze error")
+    print("="*50)
+
     task_type = state.get("task_type", "SPARK")
+    print(f"  >> Task type: {task_type}")
+
     driver_logs = state.get("driver_logs", "") or ""
     spark_logs = state.get("spark_logs", "") or ""
+    yarn_logs = state.get("yarn_logs", "") or ""
 
-    # 合并日志
-    logs = _combine_logs(driver_logs, spark_logs)
+    # Combine logs (driver_logs + spark_logs + yarn_logs)
+    logs = _combine_logs(driver_logs, spark_logs, yarn_logs)
+    print(f"  >> Log length: {len(logs)} chars")
 
     if not logs:
+        print("[WARN] No log content, skip analysis")
         return {
             **state,
             "error_patterns": [],
@@ -44,11 +54,24 @@ def analyze_error(state: AgentState) -> AgentState:
             "error_analysis": {
                 "error_type": "unknown",
                 "error_message": "",
-                "can_auto_fix": False,
+                "category": "UNKNOWN",
             },
         }
 
-    # 构建 AlertContext
+    # 先检查 YARN diagnostics 是否有明确的错误信息
+    yarn_error = None
+    if yarn_logs and "[YARN Diagnostics]" in yarn_logs:
+        import re
+        # 提取诊断部分
+        diagnostics_match = re.search(r'\[YARN Diagnostics\]\n(.+)', yarn_logs, re.DOTALL)
+        if diagnostics_match:
+            diagnostics = diagnostics_match.group(1)
+            # 检查常见 YARN 错误
+            if "Container killed" in diagnostics or "memory" in diagnostics.lower():
+                yarn_error = diagnostics[:300]
+                print(f"  >> YARN diagnostics indicates resource issue")
+
+    # Build AlertContext
     context = AlertContext(
         alert_info=AlertInfo(
             project_code=int(state.get("project_code", 0) or 0),
@@ -61,37 +84,139 @@ def analyze_error(state: AgentState) -> AgentState:
         )
     )
 
-    # 1. Skill 分发
+    # 1. Skill quick pre-check
     skill = _get_skill_for_task_type(task_type)
     skill_result = None
 
-    if skill:
-        try:
-            skill_result = skill.analyze(logs, context)
-        except Exception:
-            pass
+    # 如果 YARN diagnostics 有明确的资源错误，先尝试 Skill 分析
+    if yarn_error:
+        print(f"  >> YARN diagnostics detected, trying Skill...")
+        if skill:
+            # 构建 YARN 错误日志给 Skill
+            yarn_error_log = f"[YARN Diagnostics]\n{yarn_error}"
+            try:
+                skill_result = skill.analyze(yarn_error_log, context)
+                if skill_result.category == ErrorCategory.AUTO_FIXABLE:
+                    print(f"  >> Skill detected YARN resource issue: {skill_result.error_type}")
+            except Exception as e:
+                print(f"[ERROR] Skill analysis on YARN failed: {e}")
 
-    # 2. 处理 Skill 结果
-    if skill_result and skill_result.confidence >= 0.8:
-        # 高置信度直接使用
-        error_patterns = [skill_result.error_type]
-        error_category = _map_error_category(skill_result.error_type)
-        suggested_actions = _build_actions_from_skill(skill, skill_result)
-        confidence_score = skill_result.confidence
+    # 如果 YARN 没有检测到可修复问题，用完整日志分析
+    if not skill_result or skill_result.category == ErrorCategory.UNKNOWN:
+        if skill:
+            try:
+                skill_result = skill.analyze(logs, context)
+            except Exception as e:
+                print(f"[ERROR] Skill analysis failed: {e}")
 
-        # 构建 error_analysis 字段
-        error_analysis = {
-            "error_type": skill_result.error_type,
-            "error_message": skill_result.error_message[:500] if skill_result.error_message else "",
-            "can_auto_fix": skill_result.can_auto_fix,
-        }
+    # 2. Determine follow-up process based on category
+    if skill_result:
+        print(f"  >> Skill result: {skill_result.error_type}")
+        print(f"  >> Category: {skill_result.category.value}")
+
+        if skill_result.category == ErrorCategory.AUTO_FIXABLE:
+            # Skill can fix directly
+            print("[OK] AUTO_FIXABLE - Skill can fix directly")
+            error_patterns = [skill_result.error_type]
+            error_category = _map_error_category(skill_result.error_type)
+            suggested_actions = _build_actions_from_skill(skill, skill_result)
+            confidence_score = skill_result.confidence
+
+            error_analysis = {
+                "error_type": skill_result.error_type,
+                "error_message": skill_result.error_message[:500] if skill_result.error_message else "",
+                "category": "AUTO_FIXABLE",
+                "quick_fix": skill_result.quick_fix,
+            }
+
+        elif skill_result.category == ErrorCategory.KNOWN_NEEDS_LLM:
+            # Known type, needs LLM deep analysis
+            print(f"  >> LLM hint: {skill_result.llm_hint}")
+            llm_client = LLMClient()
+            llm_result = llm_client.analyze(
+                log_excerpt=logs[:2000],
+                task_type=task_type,
+                skill_result={
+                    "error_type": skill_result.error_type,
+                    "error_message": skill_result.error_message[:500] if skill_result.error_message else "",
+                    "llm_hint": skill_result.llm_hint,
+                }
+            )
+
+            if llm_result.get("confidence", 0) > 0:
+                print(f"  >> LLM analysis complete: {llm_result.get('error_description', '')[:100]}")
+                error_patterns = [skill_result.error_type] + llm_result.get("error_patterns", [])
+                error_category = llm_result.get("error_category", _map_error_category(skill_result.error_type))
+                suggested_actions = llm_result.get("suggested_actions", [])
+                confidence_score = llm_result.get("confidence", 0.7)
+
+                error_analysis = {
+                    "error_type": skill_result.error_type,
+                    "error_message": llm_result.get("error_description", skill_result.error_message[:200] if skill_result.error_message else ""),
+                    "category": llm_result.get("can_auto_fix", False) and "AUTO_FIXABLE" or "KNOWN_NEEDS_LLM",
+                    "llm_result": llm_result,
+                }
+            else:
+                # LLM also cannot analyze, use Skill hint
+                print("[WARN] LLM analysis failed, use Skill hint")
+                error_patterns = [skill_result.error_type]
+                error_category = _map_error_category(skill_result.error_type)
+                suggested_actions = [{
+                    "action_type": "suggested",
+                    "description": skill_result.llm_hint or "Please contact ops team",
+                }]
+                confidence_score = 0.6
+
+                error_analysis = {
+                    "error_type": skill_result.error_type,
+                    "error_message": skill_result.error_message[:500] if skill_result.error_message else "",
+                    "category": "KNOWN_NEEDS_LLM",
+                }
+
+        else:  # UNKNOWN
+            # Unknown error, fully交给 LLM
+            print("[INFO] UNKNOWN - Fully交给 LLM analysis")
+            llm_client = LLMClient()
+            print(f"  >> LLM API URL: {llm_client.api_url}")
+            print(f"  >> LLM Model: {llm_client.model}")
+            llm_result = llm_client.analyze(
+                log_excerpt=logs[:2000],
+                task_type=task_type,
+                skill_result={"error_type": "unknown", "confidence": 0.5}
+            )
+
+            print(f"  >> LLM returned: {llm_result}")
+            if llm_result.get("confidence", 0) > 0:
+                error_patterns = llm_result.get("error_patterns", [])
+                error_category = llm_result.get("error_category", "")
+                suggested_actions = llm_result.get("suggested_actions", [])
+                confidence_score = llm_result.get("confidence", 0.5)
+
+                error_analysis = {
+                    "error_type": llm_result.get("error_category", "unknown"),
+                    "error_message": llm_result.get("error_description", logs[:200]),
+                    "category": llm_result.get("can_auto_fix", False) and "AUTO_FIXABLE" or "UNKNOWN",
+                    "llm_result": llm_result,
+                }
+            else:
+                error_patterns = []
+                error_category = ""
+                suggested_actions = []
+                confidence_score = 0.0
+
+                error_analysis = {
+                    "error_type": "unknown",
+                    "error_message": "",
+                    "category": "UNKNOWN",
+                }
     else:
-        # 低置信度调用 LLM 辅助
+        # No Skill, call LLM directly
+        print("[INFO] No matching Skill, call LLM analysis")
         llm_client = LLMClient()
         llm_result = llm_client.analyze(
             log_excerpt=logs[:2000],
             task_type=task_type,
-            skill_result={"error_type": getattr(skill_result, 'error_type', 'unknown'), "confidence": getattr(skill_result, 'confidence', 0.5)}
+            skill_result={"error_type": "unknown", "confidence": 0.5}
         )
 
         if llm_result.get("confidence", 0) > 0:
@@ -101,9 +226,10 @@ def analyze_error(state: AgentState) -> AgentState:
             confidence_score = llm_result.get("confidence", 0.5)
 
             error_analysis = {
-                "error_type": error_category,
-                "error_message": logs[:200] if logs else "",
-                "can_auto_fix": False,
+                "error_type": llm_result.get("error_category", "unknown"),
+                "error_message": llm_result.get("error_description", logs[:200]),
+                "category": llm_result.get("can_auto_fix", False) and "AUTO_FIXABLE" or "UNKNOWN",
+                "llm_result": llm_result,
             }
         else:
             error_patterns = []
@@ -114,8 +240,73 @@ def analyze_error(state: AgentState) -> AgentState:
             error_analysis = {
                 "error_type": "unknown",
                 "error_message": "",
-                "can_auto_fix": False,
+                "category": "UNKNOWN",
             }
+
+    # Send error analysis notification
+    notifier = get_notifier_from_settings()
+    project_name = state.get("project_name", state.get("project_code", "N/A"))
+    workflow_name = state.get("workflow_name", state.get("workflow_code", "N/A"))
+    task_name = state.get("task_name", "N/A")
+    task_type = state.get("task_type", "UNKNOWN")
+
+    # Build error summary for notification
+    error_type_display = error_analysis.get("error_type", "unknown") if error_analysis else "unknown"
+    category = error_analysis.get("category", "UNKNOWN") if error_analysis else "UNKNOWN"
+    error_message = (error_analysis.get("error_message", "")[:150] if error_analysis else "").replace("\n", " ")
+
+    # Extract specific log error lines (find ERROR/FATAL/syntax error lines)
+    log_error_lines = ""
+    if logs:
+        # Find lines containing error keywords
+        error_keywords = ["error", "ERROR", "failed", "FAILED", "exception", "Exception", "fatal", "FATAL", "syntax"]
+        lines = logs.split("\n")
+        error_lines = []
+        for line in lines:
+            if any(kw in line for kw in error_keywords):
+                error_lines.append(line.strip())
+        # Take last 5 error lines (most relevant)
+        if error_lines:
+            log_error_lines = "\n".join(error_lines[-5:])
+
+    # Build fix suggestions
+    fix_text = ""
+    if suggested_actions:
+        fix_text = "**建议修复方案:**\n\n"
+        for i, action in enumerate(suggested_actions[:3], 1):
+            action_type = action.get("action_type", "unknown")
+            desc = action.get("description", "").replace("\n", " ")
+            # Don't truncate - show full description
+            fix_text += f"{i}. **{action_type}**: {desc}\n"
+
+    # Build notification text
+    notification_text = f"## 🔍 错误分析结果\n\n"
+    notification_text += f"| 项目 | 工作流实例 | 任务节点名称 |\n"
+    notification_text += f"| --- | --- | --- |\n"
+    notification_text += f"| {project_name} | {workflow_name} | {task_name} |\n\n"
+    notification_text += f"**任务类型:** {task_type}\n\n"
+    notification_text += f"**错误类型:** `{error_type_display}`\n\n"
+    notification_text += f"**错误类别:** {category}\n\n"
+    notification_text += f"**分析置信度:** {confidence_score:.2%}\n\n"
+    notification_text += "---\n\n"
+
+    if log_error_lines:
+        # Increase log error lines display to 500 chars
+        notification_text += f"**日志错误信息:**\n```\n{log_error_lines[:500]}{'...' if len(log_error_lines) > 500 else ''}\n```\n\n"
+        notification_text += "---\n\n"
+
+    if error_message:
+        # Increase error message display to 200 chars
+        error_message_display = (error_analysis.get("error_message", "")[:200] if error_analysis else "").replace("\n", " ")
+        notification_text += f"**错误分析摘要:**\n> {error_message_display}\n\n"
+        notification_text += "---\n\n"
+
+    notification_text += fix_text
+
+    notifier.send_markdown(
+        title=f"错误分析 - {task_name}",
+        text=notification_text
+    )
 
     return {
         **state,
@@ -125,21 +316,43 @@ def analyze_error(state: AgentState) -> AgentState:
         "knowledge_match": None,
         "confidence_score": confidence_score,
         "error_analysis": error_analysis,
+        "skill_result": {"error_type": error_type_display, "confidence": confidence_score} if error_analysis else None,
     }
 
 
-def _combine_logs(driver_logs: str, spark_logs: str) -> str:
-    """合并日志"""
+def _combine_logs(driver_logs: str, spark_logs: str, yarn_logs: str = "") -> str:
+    """
+    Combine logs for analysis
+
+    日志优先级：
+    1. driver_logs (dsctl) - 包含完整错误堆栈
+    2. spark_logs (Spark History) - 包含配置和错误事件
+    3. yarn_logs (YARN) - 包含诊断信息
+
+    分析策略：
+    - 从 driver_logs 提取错误堆栈
+    - 从 spark_logs 提取 Spark 配置信息
+    - 从 yarn_logs 提取 YARN 层面的诊断（如 Container killed）
+    """
     parts = []
+
+    # Driver logs 包含最完整的错误信息
     if driver_logs:
         parts.append(driver_logs)
+
+    # Spark History 补充配置和执行统计
     if spark_logs:
-        parts.append(spark_logs)
+        parts.append("\n" + spark_logs)
+
+    # YARN 补充诊断信息
+    if yarn_logs:
+        parts.append("\n" + yarn_logs)
+
     return "\n".join(parts)
 
 
 def _get_skill_for_task_type(task_type: str):
-    """根据任务类型获取 Skill"""
+    """Get Skill based on task type"""
     try:
         if task_type == "SPARK":
             from ...skills.spark_skill import SparkSkill
@@ -159,7 +372,7 @@ def _get_skill_for_task_type(task_type: str):
 
 
 def _map_error_category(error_type: str) -> str:
-    """将错误类型映射到分类"""
+    """Map error type to category"""
     mapping = {
         "oom_executor": "RESOURCE",
         "oom_driver": "RESOURCE",
@@ -172,33 +385,39 @@ def _map_error_category(error_type: str) -> str:
         "connection_refused": "NETWORK",
         "hdfs_not_found": "DATA",
         "schema_mismatch": "DATA",
+        "syntax_error": "EXECUTION",
         "broadcast_timeout": "EXECUTION",
         "stage_failed": "EXECUTION",
+        "command_not_found": "EXECUTION",
     }
     return mapping.get(error_type, "EXECUTION")
 
 
 def _build_actions_from_skill(skill, skill_result) -> List[Dict]:
-    """从 Skill 结果构建动作"""
+    """Build actions from Skill result"""
     actions = []
 
-    if skill_result.can_auto_fix:
-        fix_action = skill._build_auto_fix_action(skill_result)
-        if fix_action:
-            actions.append({
-                "action_type": fix_action.action_type,
-                "description": str(fix_action.config_changes) if hasattr(fix_action, 'config_changes') else "auto fix",
-                "risk_level": "LOW"
-            })
-
-    # 添加建议
-    suggestions = skill.suggest(skill_result) if hasattr(skill, 'suggest') else []
-    for suggestion in suggestions[:2]:
+    # Build AutoFixAction
+    fix_action = skill.build_auto_fix_action(skill_result)
+    if fix_action:
+        changes = getattr(fix_action, 'script_changes', None) or getattr(fix_action, 'config_changes', None)
         actions.append({
-            "action_type": "suggested",
-            "description": suggestion,
-            "risk_level": "MEDIUM"
+            "action_type": fix_action.action_type,
+            "description": str(changes) if changes else "auto fix",
+            "risk_level": "LOW",
+            "script_changes": getattr(fix_action, 'script_changes', None),
+            "config_changes": getattr(fix_action, 'config_changes', None),
         })
+
+    # Add suggestions
+    if hasattr(skill, 'suggest'):
+        suggestions = skill.suggest(skill_result)
+        for suggestion in suggestions[:2]:
+            actions.append({
+                "action_type": "suggested",
+                "description": suggestion,
+                "risk_level": "MEDIUM"
+            })
 
     return actions
 

@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DolphinScheduler 工作流知识图谱</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+        }
+        .container { max-width: 1600px; margin: 0 auto; }
+        h1 { color: #333; margin-bottom: 20px; }
+
+        .stats {
+            display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;
+        }
+        .stat-card {
+            background: white; padding: 15px 25px; border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .stat-card .label { color: #666; font-size: 14px; }
+        .stat-card .value { color: #333; font-size: 24px; font-weight: bold; }
+
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .tab {
+            padding: 10px 20px; background: white; border-radius: 8px;
+            cursor: pointer; border: 2px solid transparent;
+        }
+        .tab.active { border-color: #4a90d9; background: #e8f4fc; }
+        .tab:hover { background: #f0f0f0; }
+
+        .content {
+            background: white; padding: 20px; border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); min-height: 400px;
+        }
+
+        select.workflow-select {
+            width: 100%; padding: 10px; margin-bottom: 15px;
+            border: 1px solid #ddd; border-radius: 4px; font-size: 14px;
+        }
+
+        /* DAG 容器 */
+        .dag-container { overflow: auto; max-height: 700px; padding: 10px; }
+        .dag-info {
+            background: #f8f9fa; padding: 10px; border-radius: 4px;
+            margin-bottom: 15px; font-size: 14px;
+        }
+
+        /* 工作流层级树 */
+        .tree-container { max-height: 500px; overflow: auto; }
+        .tree-node { margin-left: 20px; margin-bottom: 5px; }
+        .tree-node.root { margin-left: 0; }
+        .tree-header {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 12px; background: #fafafa; border-radius: 4px;
+            cursor: pointer; border: 1px solid #eee;
+        }
+        .tree-header:hover { background: #e8f4fc; }
+        .tree-header.selected { background: #d4e8f8; border-color: #4a90d9; }
+        .tree-expand {
+            width: 20px; height: 20px; display: flex; align-items: center;
+            justify-content: center; color: #666; font-size: 12px;
+        }
+        .tree-name { font-weight: bold; color: #333; word-break: break-all; }
+        .tree-type { color: #999; font-size: 12px; }
+        .tree-badge {
+            background: #4a90d9; color: white; padding: 2px 6px;
+            border-radius: 10px; font-size: 11px;
+        }
+        .tree-badge.sub { background: #52c41a; }
+        .tree-badge.spark { background: #ff7a45; }
+        .tree-badge.datax { background: #1890ff; }
+        .tree-badge.table { background: #722ed1; }
+        .tree-children { margin-top: 5px; display: none; }
+        .tree-children.expanded { display: block; }
+
+        /* 详情面板 */
+        .detail-panel {
+            border-top: 1px solid #eee; margin-top: 20px; padding-top: 20px;
+        }
+        .detail-title { font-size: 18px; color: #333; margin-bottom: 15px; word-break: break-all; }
+
+        /* 任务/表卡片 */
+        .task-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 10px;
+        }
+        .task-card {
+            padding: 12px; border: 1px solid #ddd; border-radius: 6px; background: #fff;
+        }
+        .task-card .name { font-weight: bold; color: #333; margin-bottom: 5px; word-break: break-all; }
+        .task-card .meta { color: #666; font-size: 12px; word-break: break-all; }
+        .task-card .class { color: #4a90d9; font-size: 12px; margin-top: 5px; word-break: break-all; }
+
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>DolphinScheduler 工作流知识图谱 - ad_monitor</h1>
+
+        <div class="stats">
+            <div class="stat-card"><div class="label">工作流</div><div class="value" id="wf-count">-</div></div>
+            <div class="stat-card"><div class="label">任务</div><div class="value" id="task-count">-</div></div>
+            <div class="stat-card"><div class="label">SPARK</div><div class="value" id="spark-count">-</div></div>
+            <div class="stat-card"><div class="label">DATAX</div><div class="value" id="datax-count">-</div></div>
+            <div class="stat-card"><div class="label">子流程</div><div class="value" id="sub-count">-</div></div>
+            <div class="stat-card"><div class="label">表</div><div class="value" id="table-count">-</div></div>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('hierarchy')">工作流层级</div>
+            <div class="tab" onclick="showTab('dag')">完整DAG</div>
+            <div class="tab" onclick="showTab('lineage')">表血缘</div>
+            <div class="tab" onclick="showTab('table-search')">表影响分析</div>
+        </div>
+
+        <div class="content">
+            <!-- 工作流层级 -->
+            <div id="hierarchy-panel">
+                <div class="tree-container" id="workflow-tree"></div>
+                <div class="detail-panel" id="workflow-detail"></div>
+            </div>
+
+            <!-- 完整 DAG -->
+            <div id="dag-panel" class="hidden">
+                <select class="workflow-select" id="dag-select" onchange="renderFullDag()">
+                    <option value="">选择工作流</option>
+                </select>
+                <div class="dag-info" id="dag-info"></div>
+                <div class="dag-container" id="dag-container"></div>
+            </div>
+
+            <!-- 表血缘 -->
+            <div id="lineage-panel" class="hidden">
+                <select class="workflow-select" id="lineage-select" onchange="renderLineage()">
+                    <option value="">选择工作流查看表血缘</option>
+                </select>
+                <div class="dag-container" id="lineage-container"></div>
+            </div>
+
+            <!-- 表影响分析 -->
+            <div id="table-search-panel" class="hidden">
+                <input type="text" id="table-search-input" placeholder="搜索表名（如 impression_log）"
+                    style="width:100%;padding:10px;margin-bottom:15px;border:1px solid #ddd;border-radius:4px;"
+                    oninput="searchTable()">
+                <div id="table-search-results"></div>
+                <div class="detail-panel" id="table-impact-detail"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="graph_data.js"></script>
+    <script>
+        mermaid.initialize({ startOnLoad: false, theme: 'default', flowchart: { useMaxWidth: false } });
+
+        let selectedWorkflow = null;
+
+        // 构建工作流层级关系
+        function buildWorkflowHierarchy() {
+            const workflowMap = {};
+            graphData.nodes.workflows.forEach(wf => {
+                workflowMap[wf.code] = { ...wf, children: [], tasks: [] };
+            });
+
+            // 关联子工作流
+            graphData.edges.workflow_calls_subworkflow.forEach(e => {
+                if (workflowMap[e.source] && workflowMap[e.target]) {
+                    workflowMap[e.source].children.push(e.target);
+                }
+            });
+
+            // 关联任务
+            graphData.edges.workflow_contains_task.forEach(e => {
+                if (workflowMap[e.source]) {
+                    workflowMap[e.source].tasks.push(e.target);
+                }
+            });
+
+            return workflowMap;
+        }
+
+        function renderStats() {
+            document.getElementById('wf-count').textContent = graphData.nodes.workflows.length;
+            document.getElementById('task-count').textContent = graphData.nodes.tasks.length;
+            document.getElementById('spark-count').textContent =
+                graphData.nodes.tasks.filter(t => t.task_type === 'SPARK').length;
+            document.getElementById('datax-count').textContent =
+                graphData.nodes.tasks.filter(t => t.task_type === 'DATAX').length;
+            document.getElementById('sub-count').textContent =
+                graphData.nodes.tasks.filter(t => t.task_type === 'SUB_PROCESS').length;
+            document.getElementById('table-count').textContent = graphData.nodes.tables.length;
+        }
+
+        function renderWorkflowTree() {
+            const hierarchy = buildWorkflowHierarchy();
+            const container = document.getElementById('workflow-tree');
+
+            // 找到根节点
+            const calledWorkflows = graphData.edges.workflow_calls_subworkflow.map(e => e.target);
+            const rootWorkflows = graphData.nodes.workflows.filter(wf => !calledWorkflows.includes(wf.code));
+
+            let html = '';
+            rootWorkflows.forEach(wf => {
+                html += renderTreeNode(hierarchy, wf.code, true);
+            });
+
+            container.innerHTML = html;
+        }
+
+        function renderTreeNode(hierarchy, code, isRoot) {
+            const wf = hierarchy[code];
+            if (!wf) return '';
+
+            const tasks = graphData.nodes.tasks.filter(t => t.workflow_code === code);
+            const sparkTasks = tasks.filter(t => t.task_type === 'SPARK');
+            const dataxTasks = tasks.filter(t => t.task_type === 'DATAX');
+            const subTasks = tasks.filter(t => t.task_type === 'SUB_PROCESS');
+
+            // 获取表数量
+            const tablesConsumed = graphData.edges.task_consumes_table
+                .filter(e => tasks.map(t => t.code).includes(e.source))
+                .map(e => e.target);
+            const uniqueTables = [...new Set(tablesConsumed)];
+
+            const hasChildren = wf.children.length > 0;
+            const expandIcon = hasChildren ? '▶' : '';
+
+            let html = `
+                <div class="tree-node ${isRoot ? 'root' : ''}">
+                    <div class="tree-header" onclick="selectWorkflow('${code}')" data-code="${code}">
+                        <span class="tree-expand" onclick="toggleExpand(event, '${code}')">${expandIcon}</span>
+                        <span class="tree-name">${wf.name}</span>
+                        <span class="tree-type">(${tasks.length}任务)</span>
+                        ${sparkTasks.length ? `<span class="tree-badge spark">${sparkTasks.length} SPARK</span>` : ''}
+                        ${dataxTasks.length ? `<span class="tree-badge datax">${dataxTasks.length} DATAX</span>` : ''}
+                        ${wf.children.length ? `<span class="tree-badge sub">${wf.children.length} 子流程</span>` : ''}
+                        ${uniqueTables.length ? `<span class="tree-badge table">${uniqueTables.length} 表</span>` : ''}
+                    </div>
+                    <div class="tree-children" id="children-${code}">
+            `;
+
+            // 递归渲染子工作流
+            wf.children.forEach(childCode => {
+                html += renderTreeNode(hierarchy, childCode, false);
+            });
+
+            html += '</div></div>';
+            return html;
+        }
+
+        function toggleExpand(event, code) {
+            event.stopPropagation();
+            const children = document.getElementById(`children-${code}`);
+            const expandIcon = event.target;
+
+            if (children.classList.contains('expanded')) {
+                children.classList.remove('expanded');
+                expandIcon.textContent = '▶';
+            } else {
+                children.classList.add('expanded');
+                expandIcon.textContent = '▼';
+            }
+        }
+
+        function selectWorkflow(code) {
+            document.querySelectorAll('.tree-header').forEach(h => h.classList.remove('selected'));
+            const header = document.querySelector(`.tree-header[data-code="${code}"]`);
+            if (header) header.classList.add('selected');
+
+            selectedWorkflow = code;
+            renderWorkflowDetail(code);
+        }
+
+        function renderWorkflowDetail(code) {
+            const wf = graphData.nodes.workflows.find(w => w.code === code);
+            const tasks = graphData.nodes.tasks.filter(t => t.workflow_code === code);
+            const subEdges = graphData.edges.workflow_calls_subworkflow.filter(e => e.source === code);
+
+            let html = `
+                <div class="detail-title">${wf.name}</div>
+                <p style="color:#666;margin-bottom:15px;">
+                    Code: ${code} | 任务总数: ${tasks.length}
+                </p>
+            `;
+
+            // 子工作流
+            if (subEdges.length > 0) {
+                html += '<h4 style="color:#52c41a;margin-bottom:10px;">子工作流</h4><div class="task-grid">';
+                subEdges.forEach(e => {
+                    const subWf = graphData.nodes.workflows.find(w => w.code === e.target);
+                    if (subWf) {
+                        const subTasks = graphData.nodes.tasks.filter(t => t.workflow_code === e.target);
+                        html += `<div class="task-card" onclick="selectWorkflow('${e.target}')">
+                            <div class="name">${subWf.name}</div>
+                            <div class="meta">Code: ${e.target} | 任务: ${subTasks.length}</div>
+                        </div>`;
+                    }
+                });
+                html += '</div>';
+            }
+
+            // 表血缘
+            const taskCodes = tasks.map(t => t.code);
+            const inputTables = graphData.edges.task_consumes_table
+                .filter(e => taskCodes.includes(e.source))
+                .map(e => e.target);
+            const uniqueInputTables = [...new Set(inputTables)];
+
+            if (uniqueInputTables.length > 0) {
+                html += '<h4 style="color:#722ed1;margin:15px 0 10px;">输入表</h4><div class="task-grid">';
+                uniqueInputTables.forEach(t => {
+                    html += `<div class="task-card">
+                        <div class="name">${t.replace('hdfs:', 'HDFS:')}</div>
+                    </div>`;
+                });
+                html += '</div>';
+            }
+
+            // SPARK 任务
+            const sparkTasks = tasks.filter(t => t.task_type === 'SPARK');
+            if (sparkTasks.length > 0) {
+                html += '<h4 style="color:#ff7a45;margin:15px 0 10px;">SPARK 任务</h4><div class="task-grid">';
+                sparkTasks.forEach(t => {
+                    html += `<div class="task-card">
+                        <div class="name">${t.name}</div>
+                        <div class="class">${t.spark_main_class || '-'}</div>
+                    </div>`;
+                });
+                html += '</div>';
+            }
+
+            // DATAX 任务
+            const dataxTasks = tasks.filter(t => t.task_type === 'DATAX');
+            if (dataxTasks.length > 0) {
+                html += '<h4 style="color:#1890ff;margin:15px 0 10px;">DATAX 任务</h4><div class="task-grid">';
+                dataxTasks.forEach(t => {
+                    html += `<div class="task-card">
+                        <div class="name">${t.name}</div>
+                        <div class="meta">数据同步</div>
+                    </div>`;
+                });
+                html += '</div>';
+            }
+
+            document.getElementById('workflow-detail').innerHTML = html;
+        }
+
+        // 完整 DAG（单个工作流内部任务流程）
+        async function renderFullDag() {
+            const code = document.getElementById('dag-select').value;
+            const container = document.getElementById('dag-container');
+            const infoBox = document.getElementById('dag-info');
+
+            if (!code) {
+                container.innerHTML = '<p>请选择工作流</p>';
+                infoBox.innerHTML = '';
+                return;
+            }
+
+            const wf = graphData.nodes.workflows.find(w => w.code === code);
+
+            // 过滤任务：排除表分区相关任务
+            const allTasks = graphData.nodes.tasks.filter(t => t.workflow_code === code);
+            const tasks = allTasks.filter(t => {
+                const name = t.name.toLowerCase();
+                if (name.includes('分区') || name.includes('partition')) return false;
+                if (name.includes('添加') && (name.includes('当日') || name.includes('分区'))) return false;
+                return true;
+            });
+
+            const filteredCount = allTasks.length - tasks.length;
+            const taskCodes = tasks.map(t => t.code);
+
+            // 获取该工作流的任务依赖边
+            const taskEdges = graphData.edges.task_depends_task.filter(e =>
+                taskCodes.includes(e.source) && taskCodes.includes(e.target)
+            );
+
+            // 显示统计信息
+            infoBox.innerHTML = `
+                <strong>${wf.name}</strong> |
+                显示: ${tasks.length} 任务${filteredCount > 0 ? `<span style="color:#999">(过滤 ${filteredCount} 分区任务)</span>` : ''} |
+                SPARK: ${tasks.filter(t => t.task_type === 'SPARK').length} |
+                DATAX: ${tasks.filter(t => t.task_type === 'DATAX').length} |
+                子流程: ${tasks.filter(t => t.task_type === 'SUB_PROCESS').length}
+            `;
+
+            // 构建 Mermaid 图
+            let mermaidCode = 'graph TD\n';
+
+            // 添加任务节点
+            tasks.forEach(t => {
+                let taskName = t.name
+                    .replace('ad_monitor.', '')
+                    .replace('datax 同步 ', '')
+                    .replace(/"/g, "'");
+
+                mermaidCode += `  ${t.code}("${taskName}")\n`;
+            });
+
+            // 添加任务依赖边
+            taskEdges.forEach(e => {
+                mermaidCode += `  ${e.source} --> ${e.target}\n`;
+            });
+
+            if (tasks.length === 0) {
+                mermaidCode += '  empty("无任务")\n';
+            }
+
+            container.innerHTML = `<div class="mermaid">${mermaidCode}</div>`;
+            await mermaid.run();
+        }
+
+        // 表血缘
+        async function renderLineage() {
+            const code = document.getElementById('lineage-select').value;
+            const container = document.getElementById('lineage-container');
+
+            if (!code) {
+                container.innerHTML = '<p>请选择工作流</p>';
+                return;
+            }
+
+            // 收集所有任务（包含子工作流）
+            const allTasks = [];
+            function collectTasks(wfCode) {
+                const tasks = graphData.nodes.tasks.filter(t => t.workflow_code === wfCode);
+                allTasks.push(...tasks);
+                graphData.edges.workflow_calls_subworkflow
+                    .filter(e => e.source === wfCode)
+                    .forEach(e => collectTasks(e.target));
+            }
+            collectTasks(code);
+
+            const taskCodes = allTasks.map(t => t.code);
+
+            // 构建表血缘
+            const tablesConsumed = graphData.edges.task_consumes_table
+                .filter(e => taskCodes.includes(e.source));
+
+            // 构建 Mermaid
+            let mermaidCode = 'graph LR\n';
+
+            // 输入表
+            const inputTables = [...new Set(tablesConsumed.map(e => e.target))];
+            inputTables.forEach(t => {
+                let tableName = t.replace('hdfs:', 'HDFS:').replace(/"/g, "'");
+                mermaidCode += `  input_${t.replace(/[^a-zA-Z0-9]/g, '_')}["${tableName}"]\n`;
+            });
+
+            // 任务
+            allTasks.forEach(t => {
+                let taskName = t.name.replace(/"/g, "'");
+                mermaidCode += `  task_${t.code}["${taskName}<br/><small>${t.task_type}</small>"]\n`;
+            });
+
+            // 表到任务的边
+            tablesConsumed.forEach(e => {
+                const tableId = e.target.replace(/[^a-zA-Z0-9]/g, '_');
+                mermaidCode += `  input_${tableId} --> task_${e.source}\n`;
+            });
+
+            // 任务依赖边
+            graphData.edges.task_depends_task.forEach(e => {
+                if (taskCodes.includes(e.source) && taskCodes.includes(e.target)) {
+                    mermaidCode += `  task_${e.source} --> task_${e.target}\n`;
+                }
+            });
+
+            container.innerHTML = `<div class="mermaid">${mermaidCode}</div>`;
+            await mermaid.run();
+        }
+
+        function populateSelects() {
+            const dagSelect = document.getElementById('dag-select');
+            const lineageSelect = document.getElementById('lineage-select');
+
+            graphData.nodes.workflows.forEach(wf => {
+                dagSelect.innerHTML += `<option value="${wf.code}">${wf.name}</option>`;
+                lineageSelect.innerHTML += `<option value="${wf.code}">${wf.name}</option>`;
+            });
+        }
+
+        // 表搜索和影响分析
+        function searchTable() {
+            const keyword = document.getElementById('table-search-input').value.toLowerCase();
+            const resultsContainer = document.getElementById('table-search-results');
+            const detailContainer = document.getElementById('table-impact-detail');
+
+            if (!keyword) {
+                resultsContainer.innerHTML = '<p style="color:#666">请输入表名关键词</p>';
+                detailContainer.innerHTML = '';
+                return;
+            }
+
+            // 搜索匹配的表
+            const matchedTables = graphData.nodes.tables.filter(t =>
+                t.full_name.toLowerCase().includes(keyword)
+            );
+
+            if (matchedTables.length === 0) {
+                resultsContainer.innerHTML = '<p style="color:#999">未找到匹配的表</p>';
+                detailContainer.innerHTML = '';
+                return;
+            }
+
+            // 显示搜索结果
+            resultsContainer.innerHTML = `
+                <p style="color:#666;margin-bottom:15px">找到 ${matchedTables.length} 个匹配的表：</p>
+                <div class="task-grid">
+                    ${matchedTables.map(t => `
+                        <div class="task-card" onclick="analyzeTableImpact('${t.full_name}')">
+                            <div class="name">${t.full_name}</div>
+                            <div class="meta">类型: ${t.table_type}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function analyzeTableImpact(tableName) {
+            const detailContainer = document.getElementById('table-impact-detail');
+
+            // 找到消费这张表的任务
+            const consumingEdges = graphData.edges.task_consumes_table.filter(e => e.target === tableName);
+            const producingEdges = graphData.edges.task_produces_table.filter(e => e.target === tableName);
+
+            const consumingTasks = consumingEdges.map(e => {
+                const task = graphData.nodes.tasks.find(t => t.code === e.source);
+                const workflow = graphData.nodes.workflows.find(w => w.code === task?.workflow_code);
+                return { task, workflow, edge: e };
+            }).filter(t => t.task);
+
+            const producingTasks = producingEdges.map(e => {
+                const task = graphData.nodes.tasks.find(t => t.code === e.source);
+                const workflow = graphData.nodes.workflows.find(w => w.code === task?.workflow_code);
+                return { task, workflow, edge: e };
+            }).filter(t => t.task);
+
+            // 获取工作流信息
+            const workflowsInvolved = [...new Set(consumingTasks.map(t => t.workflow?.code))];
+            const workflowDetails = workflowsInvolved.map(code => {
+                const wf = graphData.nodes.workflows.find(w => w.code === code);
+                return {
+                    code,
+                    name: wf?.name,
+                    tasks: consumingTasks.filter(t => t.workflow?.code === code)
+                };
+            });
+
+            let html = `
+                <div class="detail-title">表影响分析: ${tableName}</div>
+                <p style="color:#666;margin-bottom:15px">
+                    消费任务: ${consumingTasks.length} |
+                    生产任务: ${producingTasks.length} |
+                    涉及工作流: ${workflowsInvolved.length}
+                </p>
+            `;
+
+            // 按工作流显示
+            if (workflowDetails.length > 0) {
+                html += '<h4 style="color:#333;margin-bottom:10px;">涉及的工作流</h4>';
+                html += '<div class="task-grid">';
+                workflowDetails.forEach(wf => {
+                    html += `<div class="task-card" style="background:#f8f9fa">
+                        <div class="name">${wf.name}</div>
+                        <div class="meta">任务数: ${wf.tasks.length}</div>
+                        <div class="meta">Code: ${wf.code}</div>
+                    </div>`;
+                });
+                html += '</div>';
+
+                // 详细任务列表
+                html += '<h4 style="color:#ff7a45;margin:15px 0 10px;">消费此表的任务</h4>';
+                html += '<div class="task-grid">';
+                consumingTasks.forEach(t => {
+                    const taskTypeColor = t.task.task_type === 'SPARK' ? '#ff7a45' :
+                                        t.task.task_type === 'DATAX' ? '#1890ff' : '#666';
+                    html += `<div class="task-card">
+                        <div class="name">${t.task.name}</div>
+                        <div class="meta" style="color:${taskTypeColor}">${t.task.task_type}</div>
+                        <div class="meta">工作流: ${t.workflow?.name}</div>
+                        ${t.task.spark_main_class ? `<div class="class">${t.task.spark_main_class}</div>` : ''}
+                    </div>`;
+                });
+                html += '</div>';
+            }
+
+            // 生成依赖 DAG
+            if (consumingTasks.length > 0) {
+                html += '<h4 style="color:#333;margin:15px 0 10px;">任务依赖关系</h4>';
+                html += '<div class="dag-container" id="table-impact-dag"></div>';
+            }
+
+            detailContainer.innerHTML = html;
+
+            // 渲染 DAG
+            if (consumingTasks.length > 0) {
+                renderTableImpactDag(tableName, consumingTasks);
+            }
+        }
+
+        async function renderTableImpactDag(tableName, consumingTasks) {
+            const container = document.getElementById('table-impact-dag');
+            if (!container) return;
+
+            const taskCodes = consumingTasks.map(t => t.task.code);
+
+            // 收集相关任务的所有依赖
+            const allRelatedTasks = [...taskCodes];
+            const allEdges = [];
+
+            // 向上追溯依赖
+            function traceUpstream(taskCode, depth) {
+                if (depth > 5) return;
+                graphData.edges.task_depends_task.forEach(e => {
+                    if (e.target === taskCode && !allRelatedTasks.includes(e.source)) {
+                        allRelatedTasks.push(e.source);
+                        allEdges.push(e);
+                        traceUpstream(e.source, depth + 1);
+                    }
+                });
+            }
+
+            taskCodes.forEach(code => traceUpstream(code, 0));
+
+            // 向下追溯下游
+            function traceDownstream(taskCode, depth) {
+                if (depth > 5) return;
+                graphData.edges.task_depends_task.forEach(e => {
+                    if (e.source === taskCode && !allRelatedTasks.includes(e.target)) {
+                        allRelatedTasks.push(e.target);
+                        allEdges.push(e);
+                        traceDownstream(e.target, depth + 1);
+                    }
+                });
+            }
+
+            taskCodes.forEach(code => traceDownstream(code, 0));
+
+            // 构建 Mermaid
+            let mermaidCode = 'graph TD\n';
+
+            // 表节点
+            let tableDisplayName = tableName.replace('hdfs:', 'HDFS:');
+            mermaidCode += `  TABLE["${tableDisplayName}<br/><small>表</small>"]\n`;
+
+            // 任务节点
+            allRelatedTasks.forEach(code => {
+                const task = graphData.nodes.tasks.find(t => t.code === code);
+                if (!task) return;
+                let taskName = task.name.replace(/"/g, "'");
+                const isConsumer = taskCodes.includes(code);
+                mermaidCode += `  ${code}["${taskName}<br/><small>${task.task_type}</small>"]\n`;
+            });
+
+            // 表到消费任务的边
+            consumingTasks.forEach(t => {
+                mermaidCode += `  TABLE --> ${t.task.code}\n`;
+            });
+
+            // 任务依赖边
+            allEdges.forEach(e => {
+                mermaidCode += `  ${e.source} --> ${e.target}\n`;
+            });
+
+            container.innerHTML = `<div class="mermaid">${mermaidCode}</div>`;
+            await mermaid.run();
+        }
+
+        function showTab(tabName) {
+            document.querySelectorAll('.content > div').forEach(p => p.classList.add('hidden'));
+            document.getElementById(`${tabName}-panel`).classList.remove('hidden');
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        // 初始化
+        renderStats();
+        renderWorkflowTree();
+        populateSelects();
+    </script>
+</body>
+</html>
