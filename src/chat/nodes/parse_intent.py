@@ -105,7 +105,7 @@ def parse_with_llm(message: str) -> Dict:
             f"{llm_client.api_url}/v1/messages",
             headers=headers,
             json=payload,
-            timeout=30
+            timeout=60  # 增加超时时间
         )
 
         if response.status_code != 200:
