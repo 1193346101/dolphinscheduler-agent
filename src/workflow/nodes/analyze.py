@@ -4,12 +4,13 @@ analyze_error node
 Analyze error patterns - Skill quick pre-check + LLM deep analysis
 
 Process:
-1. Skill quick error pattern recognition
+1. Preprocess log (提取 config_lines, error_blocks, data_metrics)
+2. Skill quick error pattern recognition
    - AUTO_FIXABLE: Return fix solution directly (typo, OOM config)
    - KNOWN_NEEDS_LLM: Return error type + LLM hint
    - UNKNOWN: Return to LLM for full analysis
 
-2. LLM deep analysis (only when category is not AUTO_FIXABLE)
+3. LLM deep analysis (only when category is not AUTO_FIXABLE)
    - Analyze specific cause, locate problem
    - Return fix suggestions and script_changes/config_changes
 """
@@ -21,6 +22,7 @@ from ...models.alert import AlertContext, AlertInfo
 from ...models.analysis import ErrorCategory
 from ...config import settings
 from ...tools.dingtalk_progress import get_notifier_from_settings
+from ...skills.common.preprocess_log import preprocess_log
 
 
 def analyze_error(state: AgentState) -> AgentState:
@@ -50,13 +52,20 @@ def analyze_error(state: AgentState) -> AgentState:
             "error_category": "",
             "suggested_actions": [],
             "knowledge_match": None,
-            "confidence_score": 0.0,
             "error_analysis": {
                 "error_type": "unknown",
                 "error_message": "",
                 "category": "UNKNOWN",
             },
         }
+
+    # 预处理日志（提取配置、错误块、数据指标等）
+    preprocessed = preprocess_log(logs, task_type=task_type.lower())
+    config_lines = preprocessed.get("config_lines", [])
+    error_blocks = preprocessed.get("error_blocks", [])
+    data_metrics = preprocessed.get("data_metrics", {})
+    app_info = preprocessed.get("app_info", {})
+    print(f"  >> Preprocessed: {len(config_lines)} config lines, {len(error_blocks)} error blocks")
 
     # 先检查 YARN diagnostics 是否有明确的错误信息
     yarn_error = None
@@ -140,6 +149,11 @@ def analyze_error(state: AgentState) -> AgentState:
                     "error_type": skill_result.error_type,
                     "error_message": skill_result.error_message[:500] if skill_result.error_message else "",
                     "llm_hint": skill_result.llm_hint,
+                    # 传递预处理结果
+                    "config_lines": config_lines[:10],  # 只传前10条配置
+                    "error_blocks": error_blocks[:2],   # 只传前2个错误块
+                    "data_metrics": data_metrics,
+                    "app_info": app_info,
                 }
             )
 
@@ -182,7 +196,14 @@ def analyze_error(state: AgentState) -> AgentState:
             llm_result = llm_client.analyze(
                 log_excerpt=logs[:2000],
                 task_type=task_type,
-                skill_result={"error_type": "unknown", "confidence": 0.5}
+                skill_result={
+                    "error_type": "unknown",
+                    # 传递预处理结果
+                    "config_lines": config_lines[:10],
+                    "error_blocks": error_blocks[:2],
+                    "data_metrics": data_metrics,
+                    "app_info": app_info,
+                }
             )
 
             print(f"  >> LLM returned: {llm_result}")
@@ -216,7 +237,14 @@ def analyze_error(state: AgentState) -> AgentState:
         llm_result = llm_client.analyze(
             log_excerpt=logs[:2000],
             task_type=task_type,
-            skill_result={"error_type": "unknown", "confidence": 0.5}
+            skill_result={
+                "error_type": "unknown",
+                # 传递预处理结果
+                "config_lines": config_lines[:10],
+                "error_blocks": error_blocks[:2],
+                "data_metrics": data_metrics,
+                "app_info": app_info,
+            }
         )
 
         if llm_result.get("confidence", 0) > 0:
