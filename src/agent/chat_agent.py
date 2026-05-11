@@ -114,8 +114,10 @@ class ChatAgent:
         parser = IntentParser()
         intent = parser.parse(message)
 
-        if intent.intent_type in ("scan_graph", "lineage_query", "visualize_lineage"):
-            return intent.intent_type
+        # IntentParser.parse() 返回 dict
+        intent_type = intent.get("intent_type")
+        if intent_type in ("scan_graph", "lineage_query", "visualize_lineage"):
+            return intent_type
 
         return None
 
