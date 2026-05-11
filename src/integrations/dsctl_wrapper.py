@@ -148,24 +148,48 @@ class DSCLIClient:
             "--project", str(project_code)
         ], timeout=60)
 
-    def list_workflow_instances(self, project_code: int, workflow_code: int, page_size: int = 20) -> CLIResult:
+    def list_workflow_instances(
+        self,
+        project_code: int,
+        workflow_code: int,
+        page_size: int = 20,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+        state: Optional[str] = None
+    ) -> CLIResult:
         """
-        列出工作流的最近实例
+        列出工作流的最近实例（支持时间范围过滤）
 
         Args:
             project_code: 项目编码
             workflow_code: 工作流编码
-            page_size: 返回数量
+            page_size: 返回数量（默认20，建议不超过50）
+            start_time: 开始时间下限，格式 'YYYY-MM-DD HH:MM:SS'
+            end_time: 开始时间上限，格式 'YYYY-MM-DD HH:MM:SS'
+            state: 状态过滤，如 'FAILURE', 'SUCCESS'
 
         Returns:
             CLIResult (stdout 是 JSON 格式的实例列表)
+
+        注意:
+        - 建议设置时间范围，避免查询全量数据
+        - 追踪子/依赖工作流时，建议使用告警时间前后1小时范围
         """
-        return self._run_command([
+        args = [
             "workflow-instance", "list",
             "--project", str(project_code),
             "--workflow", str(workflow_code),
             "--page-size", str(page_size)
-        ], timeout=60)
+        ]
+
+        if start_time:
+            args.extend(["--start", start_time])
+        if end_time:
+            args.extend(["--end", end_time])
+        if state:
+            args.extend(["--state", state])
+
+        return self._run_command(args, timeout=60)
 
     def workflow_instance_recover_failed(self, instance_id: int) -> CLIResult:
         """
@@ -297,6 +321,38 @@ class DSCLIClient:
         return self._run_command([
             "workflow-instance", "parent",
             str(sub_workflow_instance_id)
+        ])
+
+    def workflow_instance_children(self, main_workflow_instance_id: int) -> CLIResult:
+        """
+        Query sub-workflow instances of a main workflow instance
+
+        NOTE: This method is deprecated. Use get_task_sub_workflow instead.
+
+        Args:
+            main_workflow_instance_id: Main workflow instance ID
+
+        Returns:
+            CLIResult (JSON with subWorkflowInstances list)
+        """
+        return self._run_command([
+            "workflow-instance", "children",
+            str(main_workflow_instance_id)
+        ])
+
+    def get_task_sub_workflow(self, task_instance_id: int) -> CLIResult:
+        """
+        Get sub-workflow instance from a SUB_PROCESS task instance
+
+        Args:
+            task_instance_id: SUB_PROCESS task instance ID
+
+        Returns:
+            CLIResult (JSON with subWorkflowInstanceId)
+        """
+        return self._run_command([
+            "task-instance", "sub-workflow",
+            str(task_instance_id)
         ])
 
     def workflow_instance_digest(self, instance_id: int) -> CLIResult:
