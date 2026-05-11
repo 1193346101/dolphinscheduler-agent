@@ -25,6 +25,10 @@ from ..tools.approval_tool import ApprovalTool
 # 创建 FastAPI 应用
 app = FastAPI(title="DolphinScheduler Agent API")
 
+# 注册钉钉对话路由
+from ..chat.api import router as dingtalk_router
+app.include_router(dingtalk_router)
+
 # 初始化组件
 approval_workflow = ApprovalWorkflow()
 approval_tool = ApprovalTool()
