@@ -32,9 +32,6 @@ class ErrorAnalysis:
     # 错误消息片段
     error_message: str                   # 日志片段（用于 LLM 分析）
 
-    # 置信度（仅用于 AUTO_FIXABLE）
-    confidence: float = 0.95             # AUTO_FIXABLE >= 0.95, 其他类别忽略此字段
-
     # 匹配的模式（调试用）
     matched_pattern: Optional[str] = None
 
@@ -43,6 +40,16 @@ class ErrorAnalysis:
 
     # 给 LLM 的提示（仅 KNOWN_NEEDS_LLM 有）
     llm_hint: Optional[str] = None       # 如 "语法错误，请定位具体位置和原因"
+
+    # === 透明化分析报告 ===
+    # 原始日志错误信息（从 error_blocks 中提取的关键片段）
+    original_log_error: Optional[str] = None
+
+    # 分析过程说明（如何识别出错误类型）
+    analysis_process: Optional[str] = None
+
+    # 建议理由（为什么给出这样的修复建议）
+    reasoning: Optional[str] = None
 
     # 任务类型特有信息
     spark_app_id: Optional[str] = None
