@@ -17,4 +17,19 @@ from .dsctl_wrapper import DSCLIClient, CLIResult
 # from .dingtalk import DingTalkNotifier
 # from .ds_cli import DSCLIClient, CLIResult
 
-__all__ = ["DSCLIClient", "CLIResult", "DingTalkNotifier"]
+# DingTalkNotifier 延迟导入
+def get_dingtalk_notifier():
+    from .dingtalk import DingTalkNotifier
+    return DingTalkNotifier
+
+# DingTalkStreamClient 延迟导入
+def get_dingtalk_stream_client():
+    from .dingtalk_stream import DingTalkStreamClient
+    return DingTalkStreamClient
+
+__all__ = [
+    "DSCLIClient",
+    "CLIResult",
+    "get_dingtalk_notifier",
+    "get_dingtalk_stream_client",
+]

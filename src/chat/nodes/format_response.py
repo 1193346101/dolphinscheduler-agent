@@ -33,6 +33,14 @@ def format_response_node(state: ChatState) -> ChatState:
     result_data = state.get("result_data")
     error_message = state.get("error_message")
 
+    # 如果已经有 response_content，直接使用（如 query_workflow_node 已设置）
+    existing_response = state.get("response_content")
+    if existing_response:
+        return {
+            **state,
+            "response_content": existing_response,
+        }
+
     response_content: Optional[str] = None
 
     # Handle error first

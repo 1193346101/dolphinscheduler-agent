@@ -2,8 +2,9 @@
 DolphinScheduler Agent Package Entry
 
 使用方式：
-- python -m src           # 启动 API 服务（默认）
-- python -m src api       # 启动 API 服务
+- python -m src           # 启钉钉 Stream 模式（默认，推荐）
+- python -m src stream    # 启动钉钉 Stream 模式（无需公网地址）
+- python -m src api       # 启动 API 服务（需要公网地址）
 - python -m src chat      # 启动交互式对话
 """
 
@@ -21,16 +22,35 @@ def main():
     """Main entry point"""
     # 解析命令行参数
     args = sys.argv[1:]
-    mode = args[0] if args else "api"
+    mode = args[0] if args else "stream"
 
-    if mode == "api":
+    if mode == "stream":
+        run_dingtalk_stream()
+    elif mode == "api":
         run_api_server()
     elif mode == "chat":
         run_chat_repl()
     else:
         print(f"未知模式: {mode}")
-        print("用法: python -m src [api|chat]")
+        print("用法: python -m src [stream|api|chat]")
         sys.exit(1)
+
+
+def run_dingtalk_stream():
+    """启动钉钉 Stream 模式"""
+    print("=" * 60)
+    print("DolphinScheduler Agent - 钉钉 Stream 模式")
+    print("=" * 60)
+    print()
+    print("无需公网地址，直接从钉钉服务器拉取消息")
+    print()
+    print(f"Client ID: {settings.DINGTALK_CLIENT_ID}")
+    print(f"DS_API_URL: {settings.DS_API_URL}")
+    print("-" * 60)
+
+    from .integrations.dingtalk_stream import DingTalkStreamClient
+    client = DingTalkStreamClient()
+    client.run()
 
 
 def run_api_server():

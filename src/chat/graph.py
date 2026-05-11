@@ -14,6 +14,7 @@ from .nodes import (
     scan_graph_node,
     visualize_node,
     format_response_node,
+    query_workflow_node,
 )
 
 
@@ -34,6 +35,10 @@ def route_intent(state: ChatState) -> str:
         return "lineage_query"
     elif intent == "visualize_lineage":
         return "visualize"
+    elif intent == "query_workflow":
+        return "query_workflow"
+    elif intent == "query_status":
+        return "query_workflow"  # 使用相同节点处理
     elif intent == "help":
         return "help"
     else:
@@ -49,6 +54,7 @@ def create_chat_graph():
       - scan_graph -> scan_graph_node -> format_response
       - lineage_query -> query_lineage_node -> format_response
       - visualize_lineage -> visualize_node -> format_response
+      - query_workflow -> query_workflow_node -> format_response
       - help -> format_response (direct return)
       - unknown -> format_response (return cannot understand)
 
@@ -62,6 +68,7 @@ def create_chat_graph():
     graph.add_node("scan_graph", scan_graph_node)
     graph.add_node("lineage_query", query_lineage_node)
     graph.add_node("visualize", visualize_node)
+    graph.add_node("query_workflow", query_workflow_node)
     graph.add_node("format_response", format_response_node)
 
     # Set entry point
@@ -75,6 +82,7 @@ def create_chat_graph():
             "scan_graph": "scan_graph",
             "lineage_query": "lineage_query",
             "visualize": "visualize",
+            "query_workflow": "query_workflow",
             "help": "format_response",
             "unknown": "format_response",
         },
@@ -84,6 +92,7 @@ def create_chat_graph():
     graph.add_edge("scan_graph", "format_response")
     graph.add_edge("lineage_query", "format_response")
     graph.add_edge("visualize", "format_response")
+    graph.add_edge("query_workflow", "format_response")
     graph.add_edge("format_response", END)
 
     return graph.compile()
