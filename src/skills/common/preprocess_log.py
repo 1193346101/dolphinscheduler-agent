@@ -164,7 +164,7 @@ def extract_app_id(log_content: str) -> Optional[str]:
     return None
 
 
-def extract_data_metrics(log_content: str) -> Dict[str, int]:
+def _extract_spark_metrics(log_content: str) -> Dict[str, int]:
     """
     Extract data metrics from Spark Event Log JSON entries.
 
@@ -228,7 +228,7 @@ def extract_data_metrics(log_content: str) -> Dict[str, int]:
     return metrics
 
 
-def validate_extraction(extraction: Dict[str, Any]) -> Dict[str, Any]:
+def validate_extraction(original: str, extracted: Dict[str, Any]) -> Dict[str, Any]:
     """
     Validate extraction completeness and quality.
 
@@ -239,7 +239,8 @@ def validate_extraction(extraction: Dict[str, Any]) -> Dict[str, Any]:
     - Overall extraction validity
 
     Args:
-        extraction: Dictionary containing extraction results
+        original: The original log content
+        extracted: Dictionary containing extraction results
 
     Returns:
         Dictionary with:
@@ -248,25 +249,26 @@ def validate_extraction(extraction: Dict[str, Any]) -> Dict[str, Any]:
     """
     warnings = []
 
-    if not extraction.get("config_lines"):
+    if not extracted.get("config_lines"):
         warnings.append("No configuration lines found")
 
-    if not extraction.get("error_blocks"):
+    if not extracted.get("error_blocks"):
         warnings.append("No error blocks found")
 
-    if not extraction.get("app_id"):
+    app_info = extracted.get("app_info", {})
+    if not app_info.get("app_id"):
         warnings.append("No application ID found")
 
-    data_metrics = extraction.get("data_metrics", {})
+    data_metrics = extracted.get("data_metrics", {})
     total_metrics = sum(data_metrics.values()) if data_metrics else 0
     if total_metrics == 0:
         warnings.append("No data metrics found")
 
     # Extraction is valid if at least one piece of useful info was found
     is_valid = bool(
-        extraction.get("config_lines") or
-        extraction.get("error_blocks") or
-        extraction.get("app_id") or
+        extracted.get("config_lines") or
+        extracted.get("error_blocks") or
+        app_info.get("app_id") or
         total_metrics > 0
     )
 
@@ -276,7 +278,7 @@ def validate_extraction(extraction: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def preprocess_log(log_content: str) -> Dict[str, Any]:
+def preprocess_log(log_content: str, task_type: str = None) -> Dict[str, Any]:
     """
     Preprocess log content to extract key information.
 
@@ -288,20 +290,23 @@ def preprocess_log(log_content: str) -> Dict[str, Any]:
 
     Args:
         log_content: The raw log content to process
+        task_type: Optional task type (e.g., 'spark', 'flink') for specialized processing
 
     Returns:
         Dictionary containing:
         - config_lines: List of configuration lines
         - error_blocks: List of error blocks
-        - app_id: Application ID or None
+        - app_info: Dict containing app_id (Application ID or None)
         - data_metrics: Dictionary with input_bytes, shuffle_read_bytes,
                        shuffle_write_bytes, memory_spilled
+        - resource_stats: List of resource statistics (empty for now)
     """
     return {
         "config_lines": extract_config_lines(log_content),
         "error_blocks": extract_error_blocks(log_content),
-        "app_id": extract_app_id(log_content),
-        "data_metrics": extract_data_metrics(log_content)
+        "app_info": {"app_id": extract_app_id(log_content)},
+        "data_metrics": _extract_spark_metrics(log_content),
+        "resource_stats": [],
     }
 
 
@@ -309,7 +314,6 @@ __all__ = [
     "extract_config_lines",
     "extract_error_blocks",
     "extract_app_id",
-    "extract_data_metrics",
     "validate_extraction",
     "preprocess_log",
 ]

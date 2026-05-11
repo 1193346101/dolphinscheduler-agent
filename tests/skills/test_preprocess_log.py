@@ -7,7 +7,6 @@ from src.skills.common.preprocess_log import (
     extract_config_lines,
     extract_error_blocks,
     extract_app_id,
-    extract_data_metrics,
     validate_extraction,
     preprocess_log,
 )
@@ -224,16 +223,17 @@ No application ID here
         assert result is None
 
 
-class TestExtractDataMetrics:
+class TestPreprocessLogExtractDataMetrics:
     """Tests for extracting data metrics from Spark Event Log JSON"""
 
     def test_extract_metrics_from_spark_event_log(self):
         """Test extracting metrics from Spark Event Log JSON format"""
+        from src.skills.common.preprocess_log import _extract_spark_metrics
         log_content = """
 {"Event":"SparkListenerTaskEnd","Task Type":"ShuffleMapTask","Task Metrics":{"Input Metrics":{"Bytes Read":1048576},"Shuffle Read Metrics":{"Remote Bytes Read":2097152},"Shuffle Write Metrics":{"Shuffle Bytes Written":524288},"Memory Bytes Spilled":1024}}
 {"Event":"SparkListenerTaskEnd","Task Type":"ResultTask","Task Metrics":{"Input Metrics":{"Bytes Read":2097152},"Shuffle Read Metrics":{"Remote Bytes Read":1048576},"Shuffle Write Metrics":{"Shuffle Bytes Written":262144},"Memory Bytes Spilled":2048}}
 """
-        result = extract_data_metrics(log_content)
+        result = _extract_spark_metrics(log_content)
 
         assert result["input_bytes"] == 3145728  # Sum of both tasks
         assert result["shuffle_read_bytes"] == 3145728
@@ -242,10 +242,11 @@ class TestExtractDataMetrics:
 
     def test_extract_metrics_partial_data(self):
         """Test extracting metrics when only some metrics are present"""
+        from src.skills.common.preprocess_log import _extract_spark_metrics
         log_content = """
 {"Event":"SparkListenerTaskEnd","Task Metrics":{"Input Metrics":{"Bytes Read":1048576}}}
 """
-        result = extract_data_metrics(log_content)
+        result = _extract_spark_metrics(log_content)
 
         assert result["input_bytes"] == 1048576
         assert result["shuffle_read_bytes"] == 0
@@ -254,10 +255,11 @@ class TestExtractDataMetrics:
 
     def test_extract_metrics_no_json(self):
         """Test with no JSON metrics data"""
+        from src.skills.common.preprocess_log import _extract_spark_metrics
         log_content = """
 Regular log without JSON metrics
 """
-        result = extract_data_metrics(log_content)
+        result = _extract_spark_metrics(log_content)
 
         assert result["input_bytes"] == 0
         assert result["shuffle_read_bytes"] == 0
@@ -266,7 +268,8 @@ Regular log without JSON metrics
 
     def test_extract_metrics_empty_log(self):
         """Test with empty log"""
-        result = extract_data_metrics("")
+        from src.skills.common.preprocess_log import _extract_spark_metrics
+        result = _extract_spark_metrics("")
 
         assert result["input_bytes"] == 0
         assert result["shuffle_read_bytes"] == 0
@@ -279,95 +282,105 @@ class TestValidateExtraction:
 
     def test_validate_extraction_complete(self):
         """Test validation with complete extraction"""
-        extraction = {
+        original = "some log content"
+        extracted = {
             "config_lines": ["spark.driver.memory=4g"],
             "error_blocks": ["ERROR: Something failed"],
-            "app_id": "application_1234567890_0001",
+            "app_info": {"app_id": "application_1234567890_0001"},
             "data_metrics": {
                 "input_bytes": 1048576,
                 "shuffle_read_bytes": 0,
                 "shuffle_write_bytes": 0,
                 "memory_spilled": 0
-            }
+            },
+            "resource_stats": []
         }
 
-        result = validate_extraction(extraction)
+        result = validate_extraction(original, extracted)
 
         assert result["is_valid"] is True
         assert len(result["warnings"]) == 0
 
     def test_validate_extraction_missing_config_lines(self):
         """Test validation with missing config lines"""
-        extraction = {
+        original = "some log content"
+        extracted = {
             "config_lines": [],
             "error_blocks": ["ERROR: Something failed"],
-            "app_id": "application_1234567890_0001",
+            "app_info": {"app_id": "application_1234567890_0001"},
             "data_metrics": {
                 "input_bytes": 1048576,
                 "shuffle_read_bytes": 0,
                 "shuffle_write_bytes": 0,
                 "memory_spilled": 0
-            }
+            },
+            "resource_stats": []
         }
 
-        result = validate_extraction(extraction)
+        result = validate_extraction(original, extracted)
 
         assert result["is_valid"] is True
         assert "No configuration lines found" in result["warnings"]
 
     def test_validate_extraction_missing_error_blocks(self):
         """Test validation with missing error blocks"""
-        extraction = {
+        original = "some log content"
+        extracted = {
             "config_lines": ["spark.driver.memory=4g"],
             "error_blocks": [],
-            "app_id": "application_1234567890_0001",
+            "app_info": {"app_id": "application_1234567890_0001"},
             "data_metrics": {
                 "input_bytes": 1048576,
                 "shuffle_read_bytes": 0,
                 "shuffle_write_bytes": 0,
                 "memory_spilled": 0
-            }
+            },
+            "resource_stats": []
         }
 
-        result = validate_extraction(extraction)
+        result = validate_extraction(original, extracted)
 
         assert result["is_valid"] is True
         assert "No error blocks found" in result["warnings"]
 
     def test_validate_extraction_missing_app_id(self):
         """Test validation with missing app ID"""
-        extraction = {
+        original = "some log content"
+        extracted = {
             "config_lines": ["spark.driver.memory=4g"],
             "error_blocks": ["ERROR: Something failed"],
-            "app_id": None,
+            "app_info": {"app_id": None},
             "data_metrics": {
                 "input_bytes": 1048576,
                 "shuffle_read_bytes": 0,
                 "shuffle_write_bytes": 0,
                 "memory_spilled": 0
-            }
+            },
+            "resource_stats": []
         }
 
-        result = validate_extraction(extraction)
+        result = validate_extraction(original, extracted)
 
         assert result["is_valid"] is True
         assert "No application ID found" in result["warnings"]
 
     def test_validate_extraction_empty(self):
         """Test validation with empty extraction"""
-        extraction = {
+        original = "some log content"
+        extracted = {
             "config_lines": [],
             "error_blocks": [],
-            "app_id": None,
+            "app_info": {"app_id": None},
             "data_metrics": {
                 "input_bytes": 0,
                 "shuffle_read_bytes": 0,
                 "shuffle_write_bytes": 0,
                 "memory_spilled": 0
-            }
+            },
+            "resource_stats": []
         }
 
-        result = validate_extraction(extraction)
+        result = validate_extraction(original, extracted)
 
         assert result["is_valid"] is False
         assert len(result["warnings"]) >= 3
@@ -375,6 +388,48 @@ class TestValidateExtraction:
 
 class TestPreprocessLog:
     """Tests for the main preprocess_log function"""
+
+    def test_preprocess_log_extract_config_lines(self):
+        """Test full log preprocessing extracts config lines"""
+        log_content = """
+spark.driver.memory=4g
+spark.executor.memory=8g
+INFO: Starting application application_1234567890_0001
+ERROR: Task failed
+    at com.example.Task.run(Task.java:10)
+{"Event":"SparkListenerTaskEnd","Task Metrics":{"Input Metrics":{"Bytes Read":1048576}}}
+"""
+        result = preprocess_log(log_content)
+
+        assert len(result["config_lines"]) == 2
+        assert "spark.driver.memory=4g" in result["config_lines"]
+
+    def test_preprocess_log_extract_error_blocks(self):
+        """Test full log preprocessing extracts error blocks"""
+        log_content = """
+spark.driver.memory=4g
+INFO: Starting application application_1234567890_0001
+ERROR: Task failed
+    at com.example.Task.run(Task.java:10)
+{"Event":"SparkListenerTaskEnd","Task Metrics":{"Input Metrics":{"Bytes Read":1048576}}}
+"""
+        result = preprocess_log(log_content)
+
+        assert len(result["error_blocks"]) == 1
+        assert "ERROR: Task failed" in result["error_blocks"][0]
+
+    def test_preprocess_log_extract_app_id(self):
+        """Test full log preprocessing extracts app ID"""
+        log_content = """
+spark.driver.memory=4g
+INFO: Starting application application_1234567890_0001
+ERROR: Task failed
+    at com.example.Task.run(Task.java:10)
+{"Event":"SparkListenerTaskEnd","Task Metrics":{"Input Metrics":{"Bytes Read":1048576}}}
+"""
+        result = preprocess_log(log_content)
+
+        assert result["app_info"]["app_id"] == "application_1234567890_0001"
 
     def test_preprocess_log_full(self):
         """Test full log preprocessing"""
@@ -390,8 +445,9 @@ ERROR: Task failed
 
         assert len(result["config_lines"]) == 2
         assert len(result["error_blocks"]) == 1
-        assert result["app_id"] == "application_1234567890_0001"
+        assert result["app_info"]["app_id"] == "application_1234567890_0001"
         assert result["data_metrics"]["input_bytes"] == 1048576
+        assert result["resource_stats"] == []
 
     def test_preprocess_log_empty(self):
         """Test preprocessing empty log"""
@@ -399,8 +455,17 @@ ERROR: Task failed
 
         assert result["config_lines"] == []
         assert result["error_blocks"] == []
-        assert result["app_id"] is None
+        assert result["app_info"]["app_id"] is None
         assert result["data_metrics"]["input_bytes"] == 0
+        assert result["resource_stats"] == []
+
+    def test_preprocess_log_with_task_type(self):
+        """Test preprocessing with task_type parameter"""
+        log_content = "spark.driver.memory=4g"
+        result = preprocess_log(log_content, task_type="spark")
+
+        assert len(result["config_lines"]) == 1
+        assert result["resource_stats"] == []
 
     def test_preprocess_log_preserves_original(self):
         """Test that preprocessing doesn't modify original content"""
