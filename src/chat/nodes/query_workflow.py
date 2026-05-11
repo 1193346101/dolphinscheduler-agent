@@ -110,18 +110,18 @@ def query_workflow_node(state: ChatState) -> ChatState:
                 code = str(wf.get("code", ""))
                 release_state = wf.get("releaseState", "OFFLINE")
 
-                # 状态说明
-                state_desc = {
-                    "ONLINE": "已发布（可运行）",
-                    "OFFLINE": "未发布（不可运行）",
-                    "SCHEDULE": "已调度",
-                }.get(release_state, release_state)
+                # 状态图标
+                state_icon = {
+                    "ONLINE": "✅",
+                    "OFFLINE": "⬇️",
+                    "SCHEDULE": "🕐",
+                }.get(release_state, "❓")
 
-                workflow_list.append(f"- **{name}**\n  编码: `{code}`\n  状态: {state_desc}")
+                workflow_list.append(f"{name} 项目编码: {code} {state_icon}")
             else:
-                workflow_list.append(f"- {wf}")
+                workflow_list.append(f"{wf}")
 
-        response = f"### 项目 {project_name} 工作流列表\n\n共 **{len(workflows)}** 个工作流:\n\n" + "\n".join(workflow_list)
+        response = f"### {project_name} 工作流列表\n\n共 {len(workflows)} 个\n\n" + "\n".join(workflow_list)
 
     return {
         **state,

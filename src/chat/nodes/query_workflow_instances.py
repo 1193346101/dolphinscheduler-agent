@@ -143,34 +143,30 @@ def query_workflow_instances_node(state: ChatState) -> ChatState:
     else:
         # 状态中文映射
         state_desc = {
-            "SUCCESS": "✅ 成功",
-            "FAILURE": "❌ 失败",
-            "RUNNING": "🔄 运行中",
-            "WAITTING": "⏳ 等待",
-            "PAUSE": "⏸️ 暂停",
-            "STOP": "🛑 停止",
+            "SUCCESS": "✅",
+            "FAILURE": "❌",
+            "RUNNING": "🔄",
+            "WAITTING": "⏳",
+            "PAUSE": "⏸️",
+            "STOP": "🛑",
         }
 
         # 按状态分组统计
         success_count = sum(1 for i in all_instances if i["state"] == "SUCCESS")
         failure_count = sum(1 for i in all_instances if i["state"] == "FAILURE")
         running_count = sum(1 for i in all_instances if i["state"] == "RUNNING")
-        other_count = len(all_instances) - success_count - failure_count - running_count
 
         instance_list = []
-        for inst in all_instances[:20]:  # 最多显示20个
-            state_text = state_desc.get(inst["state"], inst["state"])
+        for inst in all_instances[:30]:  # 最多显示30个
+            state_icon = state_desc.get(inst["state"], "❓")
             time_str = inst["start_time"].split(" ")[1] if inst["start_time"] else "N/A"  # 只显示时分秒
             instance_list.append(
-                f"- **{inst['workflow_name']}**\n"
-                f"  实例ID: `{inst['instance_id']}`\n"
-                f"  状态: {state_text}\n"
-                f"  开始: {time_str}"
+                f"{inst['workflow_name']} 实例ID: {inst['instance_id']} {state_icon} {time_str}"
             )
 
-        response = f"### 项目 {project_name} 工作流实例 ({query_date})\n\n"
-        response += f"**统计**: 成功 {success_count} | 失败 {failure_count} | 运行中 {running_count} | 其他 {other_count}\n\n"
-        response += "**实例列表**:\n\n" + "\n".join(instance_list)
+        response = f"### {project_name} 工作流实例 ({query_date})\n\n"
+        response += f"成功 {success_count} | 失败 {failure_count} | 运行中 {running_count}\n\n"
+        response += "\n".join(instance_list)
 
     return {
         **state,
