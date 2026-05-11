@@ -250,6 +250,16 @@ def analyze_error(state: AgentState) -> AgentState:
     task_name = state.get("task_name", "N/A")
     task_type = state.get("task_type", "UNKNOWN")
 
+    # 从 skill_result 获取透明化报告
+    original_log_error = None
+    analysis_process = None
+    reasoning = None
+
+    if skill_result:
+        original_log_error = getattr(skill_result, 'original_log_error', None)
+        analysis_process = getattr(skill_result, 'analysis_process', None)
+        reasoning = getattr(skill_result, 'reasoning', None)
+
     # Build error summary for notification
     error_type_display = error_analysis.get("error_type", "unknown") if error_analysis else "unknown"
     category = error_analysis.get("category", "UNKNOWN") if error_analysis else "UNKNOWN"
@@ -287,10 +297,20 @@ def analyze_error(state: AgentState) -> AgentState:
     notification_text += f"**任务类型:** {task_type}\n\n"
     notification_text += f"**错误类型:** `{error_type_display}`\n\n"
     notification_text += f"**错误类别:** {category}\n\n"
-    notification_text += f"**分析置信度:** {confidence_score:.2%}\n\n"
+
+    if analysis_process:
+        notification_text += f"**分析过程:**\n> {analysis_process}\n\n"
+
+    if reasoning:
+        notification_text += f"**建议理由:**\n> {reasoning}\n\n"
+
     notification_text += "---\n\n"
 
-    if log_error_lines:
+    if original_log_error:
+        display_log = original_log_error[:500] if len(original_log_error) > 500 else original_log_error
+        notification_text += f"**原始日志错误信息:**\n```\n{display_log}\n```\n\n"
+        notification_text += "---\n\n"
+    elif log_error_lines:
         # Increase log error lines display to 500 chars
         notification_text += f"**日志错误信息:**\n```\n{log_error_lines[:500]}{'...' if len(log_error_lines) > 500 else ''}\n```\n\n"
         notification_text += "---\n\n"
