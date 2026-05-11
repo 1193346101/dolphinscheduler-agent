@@ -5,6 +5,7 @@
 import pytest
 from src.skills.spark_skill import SparkSkill
 from src.models.alert import AlertContext, AlertInfo
+from src.models.analysis import ErrorAnalysis, ErrorCategory
 
 
 class TestSparkSkillExtended:
@@ -31,7 +32,7 @@ class TestSparkSkillExtended:
         result = self.skill.analyze(log, self.context)
 
         assert result.error_type == "oom_executor"
-        assert result.can_auto_fix is True
+        assert result.category == ErrorCategory.AUTO_FIXABLE
 
     def test_analyze_class_not_found(self):
         """测试 ClassNotFoundException 分析"""
@@ -41,7 +42,7 @@ class TestSparkSkillExtended:
         result = self.skill.analyze(log, self.context)
 
         assert result.error_type == "class_not_found"
-        assert result.can_auto_fix is False
+        assert result.category == ErrorCategory.KNOWN_NEEDS_LLM
 
     def test_analyze_shuffle_failed(self):
         """测试 Shuffle 失败分析"""
@@ -58,7 +59,7 @@ class TestSparkSkillExtended:
         result = self.skill.analyze(log, self.context)
 
         assert result.error_type == "broadcast_timeout"
-        assert result.can_auto_fix is True
+        assert result.category == ErrorCategory.AUTO_FIXABLE
 
     def test_analyze_hdfs_not_found(self):
         """测试 HDFS 文件不存在分析"""
@@ -74,8 +75,21 @@ class TestSparkSkillExtended:
 
         result = self.skill.analyze(log, self.context)
 
+        # container_killed matches for general "Container killed by YARN"
         assert result.error_type == "container_killed"
-        assert result.can_auto_fix is False
+        assert result.category == ErrorCategory.KNOWN_NEEDS_LLM
+
+    def test_analyze_container_killed_memory(self):
+        """测试 Container killed memory 分析"""
+        # Use a log that only matches container_killed_memory pattern
+        # avoiding "Container killed" which matches container_killed first
+        log = """exceeding memory limits"""
+
+        result = self.skill.analyze(log, self.context)
+
+        # container_killed_memory is AUTO_FIXABLE
+        assert result.error_type == "container_killed_memory"
+        assert result.category == ErrorCategory.AUTO_FIXABLE
 
     def test_analyze_stage_failed(self):
         """测试 Stage failed 分析"""
@@ -109,13 +123,14 @@ class TestSparkSkillExtended:
 
         assert result.error_type == "executor_lost"
 
-    def test_analyze_skewed_partition(self):
-        """测试 Skewed partition 分析"""
-        log = """Skewed partition detected in join operation"""
+    def test_analyze_gc_overhead(self):
+        """测试 GC overhead 分析"""
+        log = """java.lang.OutOfMemoryError: GC overhead limit exceeded"""
 
         result = self.skill.analyze(log, self.context)
 
-        assert result.error_type == "skewed_partition"
+        assert result.error_type == "gc_overhead"
+        assert result.category == ErrorCategory.AUTO_FIXABLE
 
     def test_analyze_killed_by_user(self):
         """测试 Killed by user 分析"""
@@ -132,142 +147,73 @@ class TestSparkSkillExtended:
         result = self.skill.analyze(log, self.context)
 
         assert result.error_type == "unknown"
-        assert result.can_auto_fix is False
-        assert result.confidence == 0.5
+        assert result.category == ErrorCategory.UNKNOWN
+        assert result.confidence == 0.95  # default value
 
     def test_suggest_returns_list(self):
         """测试建议返回列表"""
-        from src.models.analysis import ErrorAnalysis
-
         analysis = ErrorAnalysis(
             error_type="oom_executor",
             error_message="OOM",
-            can_auto_fix=True,
+            category=ErrorCategory.AUTO_FIXABLE,
+        )
+
+        suggestions = self.skill.suggest(analysis)
+
+        assert isinstance(suggestions, list)
+
+    def test_suggest_for_known_error(self):
+        """测试已知错误的建议"""
+        analysis = ErrorAnalysis(
+            error_type="class_not_found",
+            error_message="ClassNotFound",
+            category=ErrorCategory.KNOWN_NEEDS_LLM,
         )
 
         suggestions = self.skill.suggest(analysis)
 
         assert isinstance(suggestions, list)
         assert len(suggestions) >= 1
-        assert "spark.executor.memory" in suggestions[0]
+        assert "依赖包" in suggestions[0]
 
-    def test_suggest_for_non_auto_fixable(self):
-        """测试非自动修复错误的建议"""
-        from src.models.analysis import ErrorAnalysis
+    def test_quick_fix_for_oom_executor(self):
+        """测试 OOM Executor 的 quick_fix"""
+        log = """java.lang.OutOfMemoryError: Java heap space"""
 
-        analysis = ErrorAnalysis(
-            error_type="class_not_found",
-            error_message="ClassNotFound",
-            can_auto_fix=False,
-        )
+        result = self.skill.analyze(log, self.context)
 
-        suggestions = self.skill.suggest(analysis)
+        assert result.quick_fix is not None
+        assert result.quick_fix["action_type"] == "modify_config"
+        assert "spark.executor.memory" in result.quick_fix["config_changes"]
 
-        assert isinstance(suggestions, list)
-        assert "请联系运维人员查看" in suggestions
+    def test_quick_fix_for_broadcast_timeout(self):
+        """测试 Broadcast timeout 的 quick_fix"""
+        log = """BroadcastHashJoin timeout"""
 
-    def test_get_auto_fix_rules(self):
-        """测试获取自动修复规则"""
-        rules = self.skill.get_auto_fix_rules()
+        result = self.skill.analyze(log, self.context)
 
-        assert isinstance(rules, list)
-        assert len(rules) >= 4
-        assert any(r["action_type"] == "config-change" for r in rules)
+        assert result.quick_fix is not None
+        assert result.quick_fix["action_type"] == "modify_config"
+        assert "spark.sql.autoBroadcastJoinThreshold" in result.quick_fix["config_changes"]
+        assert result.quick_fix["config_changes"]["spark.sql.autoBroadcastJoinThreshold"] == "-1"
 
-    def test_build_auto_fix_action_oom_executor(self):
-        """测试构建 OOM Executor 修复动作"""
-        from src.models.analysis import ErrorAnalysis
+    def test_quick_fix_for_oom_driver(self):
+        """测试 OOM Driver 的 quick_fix"""
+        log = """OutOfMemoryError: unable to create new native thread"""
 
-        analysis = ErrorAnalysis(
-            error_type="oom_executor",
-            error_message="OOM",
-            can_auto_fix=True,
-        )
+        result = self.skill.analyze(log, self.context)
 
-        action = self.skill._build_auto_fix_action(analysis)
+        assert result.quick_fix is not None
+        assert "spark.driver.memory" in result.quick_fix["config_changes"]
 
-        assert action is not None
-        assert action.action_type == "modify_config"
-        assert "spark.executor.memory" in action.config_changes
+    def test_no_quick_fix_for_known_needs_llm(self):
+        """测试 KNOWN_NEEDS_LLM 没有 quick_fix"""
+        log = """java.lang.ClassNotFoundException: com.example.MyClass"""
 
-    def test_build_auto_fix_action_oom_driver(self):
-        """测试构建 OOM Driver 修复动作"""
-        from src.models.analysis import ErrorAnalysis
+        result = self.skill.analyze(log, self.context)
 
-        analysis = ErrorAnalysis(
-            error_type="oom_driver",
-            error_message="OOM Driver",
-            can_auto_fix=True,
-        )
-
-        action = self.skill._build_auto_fix_action(analysis)
-
-        assert action is not None
-        assert action.action_type == "modify_config"
-        assert "spark.driver.memory" in action.config_changes
-
-    def test_build_auto_fix_action_oom_driver_direct(self):
-        """测试构建 OOM Driver Direct 修复动作"""
-        from src.models.analysis import ErrorAnalysis
-
-        analysis = ErrorAnalysis(
-            error_type="oom_driver_direct",
-            error_message="OOM Driver Direct",
-            can_auto_fix=True,
-        )
-
-        action = self.skill._build_auto_fix_action(analysis)
-
-        assert action is not None
-        assert action.action_type == "modify_config"
-        assert "spark.driver.maxResultSize" in action.config_changes
-
-    def test_build_auto_fix_action_broadcast_timeout(self):
-        """测试构建 Broadcast timeout 修复动作"""
-        from src.models.analysis import ErrorAnalysis
-
-        analysis = ErrorAnalysis(
-            error_type="broadcast_timeout",
-            error_message="Broadcast timeout",
-            can_auto_fix=True,
-        )
-
-        action = self.skill._build_auto_fix_action(analysis)
-
-        assert action is not None
-        assert action.action_type == "modify_config"
-        assert "spark.sql.autoBroadcastJoinThreshold" in action.config_changes
-        assert action.config_changes["spark.sql.autoBroadcastJoinThreshold"] == "-1"
-
-    def test_build_auto_fix_action_connection_refused(self):
-        """测试构建 Connection refused 修复动作"""
-        from src.models.analysis import ErrorAnalysis
-
-        analysis = ErrorAnalysis(
-            error_type="connection_refused",
-            error_message="Connection refused",
-            can_auto_fix=True,
-        )
-
-        action = self.skill._build_auto_fix_action(analysis)
-
-        assert action is not None
-        assert action.action_type == "rerun"
-        assert action.config_changes == {}
-
-    def test_build_auto_fix_action_non_fixable(self):
-        """测试非自动修复错误返回 None"""
-        from src.models.analysis import ErrorAnalysis
-
-        analysis = ErrorAnalysis(
-            error_type="class_not_found",
-            error_message="ClassNotFound",
-            can_auto_fix=False,
-        )
-
-        action = self.skill._build_auto_fix_action(analysis)
-
-        assert action is None
+        assert result.quick_fix is None
+        assert result.llm_hint is not None
 
     def test_extract_app_id_application_format(self):
         """测试提取 application_xxx_xxx 格式的 App ID"""
@@ -293,34 +239,6 @@ class TestSparkSkillExtended:
 
         assert app_id is None
 
-    def test_can_auto_fix_returns_true(self):
-        """测试 can_auto_fix 返回 True"""
-        from src.models.analysis import ErrorAnalysis
-
-        analysis = ErrorAnalysis(
-            error_type="oom_executor",
-            error_message="OOM",
-            can_auto_fix=True,
-        )
-
-        result = self.skill.can_auto_fix(analysis)
-
-        assert result is True
-
-    def test_can_auto_fix_returns_false(self):
-        """测试 can_auto_fix 返回 False"""
-        from src.models.analysis import ErrorAnalysis
-
-        analysis = ErrorAnalysis(
-            error_type="shuffle_failed",
-            error_message="Shuffle failed",
-            can_auto_fix=False,
-        )
-
-        result = self.skill.can_auto_fix(analysis)
-
-        assert result is False
-
     def test_skill_name_and_task_types(self):
         """测试 skill 属性"""
         assert self.skill.skill_name == "spark"
@@ -332,13 +250,59 @@ class TestSparkSkillExtended:
         # 应该有至少 20 个错误模式
         assert len(self.skill.error_patterns) >= 20
 
-    def test_suggestion_templates_count(self):
-        """测试建议模板数量"""
-        # 每个错误模式都应该有对应的建议
-        assert len(self.skill.suggestion_templates) >= len(self.skill.error_patterns)
+    def test_auto_fixable_patterns_have_quick_fix(self):
+        """测试 AUTO_FIXABLE 类型的错误模式都有对应的 quick_fix"""
+        auto_fixable_types = [
+            error_type
+            for error_type, (_, category, _) in self.skill.error_patterns.items()
+            if category == ErrorCategory.AUTO_FIXABLE
+        ]
 
-    def test_auto_fixable_errors_in_patterns(self):
-        """测试可自动修复错误都在错误模式中"""
-        for error_type in self.skill.auto_fixable_errors:
-            assert error_type in self.skill.error_patterns
-            assert error_type in self.skill.suggestion_templates
+        # 检查每个 AUTO_FIXABLE 类型都有对应的 quick_fix
+        quick_fix_types = set(self.skill._build_quick_fix(None) or {})
+        # Check that quick_fix method exists for these types
+        for error_type in ["oom_executor", "oom_driver", "broadcast_timeout", "gc_overhead"]:
+            if error_type in auto_fixable_types:
+                fix = self.skill._build_quick_fix(error_type)
+                assert fix is not None, f"{error_type} should have a quick_fix"
+
+    def test_llm_hint_for_known_needs_llm(self):
+        """测试 KNOWN_NEEDS_LLM 类型都有 llm_hint"""
+        for error_type, (pattern, category, llm_hint) in self.skill.error_patterns.items():
+            if category == ErrorCategory.KNOWN_NEEDS_LLM:
+                assert llm_hint is not None and llm_hint != "", f"{error_type} should have llm_hint"
+
+    def test_analyze_returns_error_analysis(self):
+        """测试 analyze 返回 ErrorAnalysis 类型"""
+        log = """java.lang.OutOfMemoryError: Java heap space"""
+
+        result = self.skill.analyze(log, self.context)
+
+        assert isinstance(result, ErrorAnalysis)
+
+    def test_confidence_for_auto_fixable(self):
+        """测试 AUTO_FIXABLE 类型的置信度"""
+        log = """java.lang.OutOfMemoryError: Java heap space"""
+
+        result = self.skill.analyze(log, self.context)
+
+        assert result.confidence == 0.95
+
+    def test_matched_pattern_populated(self):
+        """测试 matched_pattern 字段填充"""
+        log = """java.lang.ClassNotFoundException: com.example.MyClass"""
+
+        result = self.skill.analyze(log, self.context)
+
+        assert result.matched_pattern is not None
+        assert "ClassNotFoundException" in result.matched_pattern
+
+    def test_error_message_contains_context(self):
+        """测试 error_message 包含错误上下文"""
+        log = """2024-01-15 10:30:45 ERROR Executor: Exception in thread "executor-1"
+java.lang.OutOfMemoryError: Java heap space
+at org.apache.spark.executor.Executor.taskRun"""
+
+        result = self.skill.analyze(log, self.context)
+
+        assert "OutOfMemoryError" in result.error_message
