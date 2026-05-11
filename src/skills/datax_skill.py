@@ -172,13 +172,16 @@ class DataXSkill(BaseSkill):
 
                     match_result = match_error_module.match_error(error_text, str(patterns_file))
                     if match_result.get("error_type") != "unknown":
+                        category = ErrorCategory(match_result["category"])
                         return ErrorAnalysis(
                             error_type=match_result["error_type"],
-                            category=ErrorCategory(match_result["category"]),
+                            category=category,
                             error_message=match_result.get("error_message", error_text[:500]),
                             matched_pattern=match_result.get("matched_pattern", ""),
-                            llm_hint=match_result.get("extra", ""),
-                            confidence=0.85,
+                            llm_hint=match_result.get("extra", "") if category == ErrorCategory.KNOWN_NEEDS_LLM else "",
+                            original_log_error=error_text[:300],
+                            analysis_process=f"匹配模式: {match_result.get('matched_pattern', '')}",
+                            reasoning=match_result.get("extra", "") or "根据模式匹配结果分析",
                         )
             except Exception:
                 pass  # Fallback to legacy
@@ -199,12 +202,18 @@ class DataXSkill(BaseSkill):
                     error_message=error_message,
                     matched_pattern=pattern,
                     llm_hint=llm_hint,
+                    original_log_error=error_message,
+                    analysis_process=f"通过内置模式库匹配: {error_type}",
+                    reasoning=llm_hint or "已知错误类型，需进一步分析具体原因",
                 )
 
         return ErrorAnalysis(
             error_type="unknown",
             category=ErrorCategory.UNKNOWN,
             error_message=log_content[:500],
+            original_log_error=log_content[:300],
+            analysis_process="无匹配错误模式",
+            reasoning="未知错误类型，建议人工分析或查阅相关文档",
         )
 
     def _extract_error_message(self, log_content: str, pattern: str) -> str:
