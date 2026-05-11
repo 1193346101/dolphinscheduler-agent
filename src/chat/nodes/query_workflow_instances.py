@@ -4,7 +4,7 @@ Query Workflow Instances Node - 查询工作流实例列表（运行记录）
 
 import os
 import json
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from typing import Dict, Any
 
 from ..state import ChatState
@@ -48,8 +48,14 @@ def query_workflow_instances_node(state: ChatState) -> ChatState:
         project_code = project_config.code
 
     # 计算时间范围（默认今天）
-    if not query_date:
-        query_date = date.today().strftime("%Y-%m-%d")
+    today = date.today()
+
+    # 处理 query_date（可能是"今天"、"昨天"或日期格式）
+    if not query_date or query_date in ["今天", "今日"]:
+        query_date = today.strftime("%Y-%m-%d")
+    elif query_date in ["昨天", "昨日"]:
+        yesterday = today - timedelta(days=1)
+        query_date = yesterday.strftime("%Y-%m-%d")
 
     start_time = f"{query_date} 00:00:00"
     end_time = f"{query_date} 23:59:59"
