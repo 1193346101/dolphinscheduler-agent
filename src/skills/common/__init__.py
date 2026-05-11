@@ -9,6 +9,13 @@ from .preprocess_log import (
     validate_extraction,
     preprocess_log,
 )
+from .safety_check import (
+    check_cluster_safety,
+    check_downstream_impact,
+)
+from .extract_context import (
+    extract_targets,
+)
 
 __all__ = [
     "extract_config_lines",
@@ -16,4 +23,7 @@ __all__ = [
     "extract_app_id",
     "validate_extraction",
     "preprocess_log",
+    "check_cluster_safety",
+    "check_downstream_impact",
+    "extract_targets",
 ]
