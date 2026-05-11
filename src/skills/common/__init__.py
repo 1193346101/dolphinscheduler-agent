@@ -16,6 +16,10 @@ from .safety_check import (
 from .extract_context import (
     extract_targets,
 )
+from .cluster_lookup import (
+    parse_hosts_table,
+    lookup_service,
+)
 
 __all__ = [
     "extract_config_lines",
@@ -26,4 +30,6 @@ __all__ = [
     "check_cluster_safety",
     "check_downstream_impact",
     "extract_targets",
+    "parse_hosts_table",
+    "lookup_service",
 ]
