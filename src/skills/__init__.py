@@ -6,10 +6,10 @@ Skills 模块
 """
 
 from .base import BaseSkill
-from .spark.skill import SparkSkill
-from .shell.skill import ShellSkill
-from .python.skill import PythonSkill
-from .datax.skill import DataXSkill
+from .spark.analyzer import SparkSkill
+from .shell.analyzer import ShellSkill
+from .python.analyzer import PythonSkill
+from .datax.analyzer import DataXSkill
 from .registry import SkillRegistry, skill_registry
 
 __all__ = [

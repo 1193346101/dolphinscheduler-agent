@@ -21,10 +21,10 @@ from typing import Optional, Dict, List, Any
 from dataclasses import dataclass, field
 
 from .base import BaseSkill
-from .spark.skill import SparkSkill
-from .shell.skill import ShellSkill
-from .python.skill import PythonSkill
-from .datax.skill import DataXSkill
+from .spark.analyzer import SparkSkill
+from .shell.analyzer import ShellSkill
+from .python.analyzer import PythonSkill
+from .datax.analyzer import DataXSkill
 from ..models.analysis import ErrorAnalysis, ErrorCategory
 from ..models.alert import AlertContext
 
