@@ -454,20 +454,37 @@ class ShellSkill(BaseSkill):
         error_text = "\n".join(error_blocks)
 
         # 2. 尝试使用 match_error.py 脚本
-        patterns_file = self._get_patterns_file()
-        if patterns_file:
-            from .shell_error_analyzer.scripts.match_error import match_error
-            match_result = match_error(error_text, str(patterns_file))
+        scripts_dir = self._get_scripts_dir()
+        if scripts_dir:
+            try:
+                import importlib.util
+                match_error_path = scripts_dir / "match_error.py"
+                if match_error_path.exists():
+                    spec = importlib.util.spec_from_file_location(
+                        "match_error",
+                        match_error_path
+                    )
+                    match_error_module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(match_error_module)
 
-            if match_result.get("error_type") != "unknown":
-                return ErrorAnalysis(
-                    error_type=match_result["error_type"],
-                    category=ErrorCategory(match_result["category"]),
-                    error_message=match_result.get("error_message", error_text[:500]),
-                    matched_pattern=match_result.get("matched_pattern", ""),
-                    llm_hint=match_result.get("extra", ""),
-                    confidence=0.85,
-                )
+                    patterns_file = self._get_patterns_file()
+                    if patterns_file:
+                        match_result = match_error_module.match_error(error_text, str(patterns_file))
+
+                        if match_result.get("error_type") != "unknown":
+                            category = ErrorCategory(match_result["category"])
+                            return ErrorAnalysis(
+                                error_type=match_result["error_type"],
+                                category=category,
+                                error_message=match_result.get("error_message", error_text[:500]),
+                                matched_pattern=match_result.get("matched_pattern", ""),
+                                llm_hint=match_result.get("extra", "") if category == ErrorCategory.KNOWN_NEEDS_LLM else "",
+                                original_log_error=error_text[:300],
+                                analysis_process=f"匹配模式: {match_result.get('matched_pattern', '')}",
+                                reasoning=match_result.get("extra", "") or "根据模式匹配结果分析",
+                            )
+            except Exception:
+                pass  # Fallback to legacy
 
         # 3. Fallback: 使用 legacy 分析
         return self._legacy_analyze(log_content, context)
@@ -490,9 +507,11 @@ class ShellSkill(BaseSkill):
                             error_type=error_type,
                             category=ErrorCategory.AUTO_FIXABLE,
                             error_message=error_message,
-                            confidence=0.98,
                             matched_pattern=pattern,
                             quick_fix=quick_fix,
+                            original_log_error=error_message,
+                            analysis_process=f"通过内置模式库匹配: {error_type}",
+                            reasoning="根据错误模式匹配结果，提供标准修复方案",
                         )
                     # 无法构建快速修复，降级为 KNOWN_NEEDS_LLM
                     return ErrorAnalysis(
@@ -501,6 +520,9 @@ class ShellSkill(BaseSkill):
                         error_message=error_message,
                         matched_pattern=pattern,
                         llm_hint="命令未找到，请分析具体原因",
+                        original_log_error=error_message,
+                        analysis_process=f"通过内置模式库匹配: {error_type}",
+                        reasoning="已知错误类型，但无法自动修复",
                     )
 
                 # KNOWN_NEEDS_LLM 类型
@@ -510,6 +532,9 @@ class ShellSkill(BaseSkill):
                     error_message=error_message,
                     matched_pattern=pattern,
                     llm_hint=llm_hint,
+                    original_log_error=error_message,
+                    analysis_process=f"通过内置模式库匹配: {error_type}",
+                    reasoning=llm_hint or "已知错误类型，需进一步分析具体原因",
                 )
 
         # 未匹配任何模式
@@ -517,6 +542,9 @@ class ShellSkill(BaseSkill):
             error_type="unknown",
             category=ErrorCategory.UNKNOWN,
             error_message=log_content[:500],
+            original_log_error=log_content[:300],
+            analysis_process="无匹配错误模式",
+            reasoning="未知错误类型，建议人工分析或查阅相关文档",
         )
 
     def _try_build_quick_fix(self, log_content: str, error_type: str) -> Optional[Dict]:

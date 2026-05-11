@@ -32,12 +32,15 @@ result = preprocess_log(log_content, task_type="spark")
 
 ### 2. 匹配错误模式
 
-调用 `scripts/match_error.py` 匹配已知错误模式：
+调用 `scripts/match_error.py` 匹配已知错误模式（使用动态导入）：
 
 ```python
-from skills.spark_error_analyzer.scripts.match_error import match_error
+import importlib.util
+spec = importlib.util.spec_from_file_location("match_error", scripts_dir / "match_error.py")
+match_error_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(match_error_module)
 
-match = match_error(error_blocks, patterns_file="spark_patterns.md")
+match = match_error_module.match_error(error_blocks, patterns_file="spark_patterns.md")
 # 返回: error_type, category, pattern, fix_action
 ```
 
@@ -121,7 +124,9 @@ if fix:
     "reasoning": "Executor OOM detected with 10GB input data. Increasing executor memory."
   },
   "llm_hint": null,
-  "confidence": 0.95
+  "original_log_error": "java.lang.OutOfMemoryError: Java heap space...",
+  "analysis_process": "提取配置项 15 条，提取错误块 2 个，匹配模式: OutOfMemoryError",
+  "reasoning": "Increased executor memory to resolve OOM"
 }
 ```
 

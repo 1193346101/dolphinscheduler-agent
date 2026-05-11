@@ -33,12 +33,15 @@ tasks = [
 
 ### 2. 分析超时根因
 
-调用 `scripts/analyze_timeout.py` 进行根因分析：
+调用 `scripts/analyze_timeout.py` 进行根因分析（使用动态导入）：
 
 ```python
-from skills.timeout_analyzer.scripts.analyze_timeout import analyze_timeout_alert
+import importlib.util
+spec = importlib.util.spec_from_file_location("analyze_timeout", scripts_dir / "analyze_timeout.py")
+analyze_timeout_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(analyze_timeout_module)
 
-result = analyze_timeout_alert(tasks, historical_metrics)
+result = analyze_timeout_module.analyze_timeout_alert(tasks, historical_metrics)
 ```
 
 ### 3. 判断超时类型
@@ -52,12 +55,15 @@ result = analyze_timeout_alert(tasks, historical_metrics)
 
 ### 4. 检查集群资源状态
 
-对于 `resource_waiting` 类型，检查集群状态：
+对于 `resource_waiting` 类型，检查集群状态（使用动态导入）：
 
 ```python
-from skills.timeout_analyzer.scripts.check_cluster import get_cluster_resource_status
+import importlib.util
+spec = importlib.util.spec_from_file_location("check_cluster", scripts_dir / "check_cluster.py")
+check_cluster_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(check_cluster_module)
 
-status = get_cluster_resource_status(yarn_metrics)
+status = check_cluster_module.get_cluster_resource_status(yarn_metrics)
 ```
 
 ## Output Format
@@ -97,8 +103,8 @@ status = get_cluster_resource_status(yarn_metrics)
 
 ## Dependencies
 
-- `skills/timeout_analyzer/scripts/analyze_timeout.py` - 超时分析核心逻辑
-- `skills/timeout_analyzer/scripts/check_cluster.py` - 集群资源状态检查
+- `skills/timeout-analyzer/scripts/analyze_timeout.py` - 超时分析核心逻辑
+- `skills/timeout-analyzer/scripts/check_cluster.py` - 集群资源状态检查
 
 ## Examples
 

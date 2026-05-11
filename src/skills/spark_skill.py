@@ -311,10 +311,6 @@ class SparkSkill(BaseSkill):
         scripts_dir = Path(__file__).parent / "spark-error-analyzer" / "scripts"
         if scripts_dir.exists():
             return scripts_dir
-        # 检查 underscore variant
-        scripts_dir = Path(__file__).parent / "spark_error_analyzer" / "scripts"
-        if scripts_dir.exists():
-            return scripts_dir
         return None
 
     def _get_patterns_file(self) -> Optional[Path]:

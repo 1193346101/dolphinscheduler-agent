@@ -35,14 +35,22 @@ DolphinScheduler Agent 是一个智能运维助手，通过接收 DolphinSchedul
 | AlertAgent | `src/agent/alert_agent.py` | 告警自动化处理 | 需要规划流程、风险评估、决定是否自动修复、自动调整配置、自动重跑 |
 | ChatAgent | `src/agent/chat_agent.py` | 对话交互 | 需要理解意图、提取参数、构建命令、评估风险 |
 
-**4 个主要 Skills（预定义规则，不需要 LLM）**：
+**Skills 模块（重构为 anthropics/skills 规范）**：
 
 | Skill | 路径 | 职责 | 支持任务类型 |
 |-------|------|------|-------------|
-| SparkSkill | `src/skills/spark_skill.py` | Spark 错误分析 | SPARK, SPARK_STREAMING |
-| ShellSkill | `src/skills/shell_skill.py` | Shell 脚本分析 | SHELL |
-| PythonSkill | `src/skills/python_skill.py` | Python 错误分析 | PYTHON |
-| DataXSkill | `src/skills/datax_skill.py` | DataX 同步分析 | DATAX |
+| SparkSkill | `skills/spark-error-analyzer/` | Spark 错误分析 | SPARK, SPARK_STREAMING |
+| ShellSkill | `skills/shell-error-analyzer/` | Shell 脚本分析 | SHELL |
+| PythonSkill | `skills/python-error-analyzer/` | Python 错误分析 | PYTHON |
+| DataXSkill | `skills/datax-error-analyzer/` | DataX 同步分析 | DATAX |
+| TimeoutAnalyzer | `skills/timeout-analyzer/` | 超时告警分析 | 全类型 |
+
+**Skills 结构（参考 anthropics/skills/pdf 规范）：**
+
+每个 Skill 目录包含：
+- `SKILL.md`: 核心工作流（Markdown + YAML frontmatter）
+- `*_patterns.md`: 错误模式表（Markdown 表格）
+- `scripts/`: Python 脚本（匹配、解析、修复）
 
 ---
 
@@ -90,12 +98,31 @@ DolphinScheduler Agent 是一个智能运维助手，通过接收 DolphinSchedul
 │         └──────────────────────────────┘   └──────────────────────────────┘ │
 │                                                                              │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│                          Skills 层 (预定义规则)                              │
+│                          Skills 层 (anthropics/skills 规范)                  │
+│                                                                              │
+│  公共模块: skills/common/                                                    │
+│  ├── preprocess_log.py      # 日志降噪（所有 skill 共用）                    │
+│  ├── extract_context.py     # IP/域名/HDFS 提取                              │
+│  └── cluster_lookup.py      # 集群配置关联                                   │
+│                                                                              │
+│  Skill 目录 (SKILL.md + patterns.md + scripts/):                            │
 │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────┐│
-│  │   Spark Skill   │ │   Shell Skill   │ │  Python Skill   │ │ DataX Skill ││
-│  │   ○ 不是 Agent  │ │   ○ 不是 Agent  │ │   ○ 不是 Agent  │ │ ○ 不是 Agent││
-│  │   (错误模式匹配)│ │   (语法检测)    │ │   (依赖/语法)   │ │ (同步错误) ││
+│  │ spark-error-    │ │ shell-error-    │ │ python-error-   │ │ datax-error-││
+│  │ analyzer        │ │ analyzer        │ │ analyzer        │ │ analyzer    ││
+│  │                 │ │                 │ │                 │ │             ││
+│  │ SKILL.md        │ │ SKILL.md        │ │ SKILL.md        │ │ SKILL.md    ││
+│  │ spark_patterns  │ │ shell_patterns  │ │ python_patterns │ │ datax_pattn ││
+│  │ scripts/        │ │ scripts/        │ │ scripts/        │ │ scripts/    ││
+│  │  match_error.py │ │  match_error.py │ │  match_error.py │ │match_error  ││
+│  │  build_fix.py   │ │                 │ │  traceback.py   │ │             ││
+│  │  calc_resource  │ │                 │ │                 │ │             ││
 │  └─────────────────┘ └─────────────────┘ └─────────────────┘ └─────────────┘│
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │ timeout-analyzer                                                         ││
+│  │ SKILL.md + scripts/analyze_timeout.py + scripts/check_cluster.py        ││
+│  │ (超时分析: 报错重试 + 资源等待)                                            ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
 │                                                                              │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                           Tools 层 (功能实现)                                │
@@ -152,16 +179,49 @@ dolphinscheduler-agent/
 │   │       ├── intent_parser.py        # 用户意图解析
 │   │       └── code_parser.py          # 代码语法解析
 │   │
-│   ├── skills/                         # Skills 模块（预定义分析逻辑）
+│   ├── skills/                         # Skills 模块（anthropics/skills 规范）
 │   │   ├── __init__.py
-│   │   ├── base.py                     # BaseSkill 基类
-│   │   ├── registry.py                 # Skill 注册表
-│   │   ├── spark_skill.py              # ○ Spark 分析 Skill（主要）
-│   │   ├── shell_skill.py              # ○ Shell 分析 Skill（主要）
-│   │   ├── python_skill.py             # ○ Python 分析 Skill（主要）
-│   │   ├── datax_skill.py              # ○ DataX 分析 Skill（主要）
-│   │   ├── sql_skill.py                # ○ SQL 分析 Skill（次要）
-│   │   └── default_skill.py            # ○ 默认分析 Skill（其他任务类型）
+│   │   ├── registry.py                 # Skill 注册表（统一入口）
+│   │   │
+│   │   ├── common/                     # 公共模块
+│   │   │   ├── preprocess_log.py       # 日志降噪（智能提取）
+│   │   │   ├── extract_context.py      # IP/域名/HDFS 提取
+│   │   │   └── cluster_lookup.py       # 集群配置关联
+│   │   │
+│   │   ├── spark-error-analyzer/       # Spark 错误分析 Skill
+│   │   │   ├── SKILL.md                # 工作流定义
+│   │   │   ├── spark_patterns.md       # 错误模式表（Markdown）
+│   │   │   └── scripts/
+│   │   │       ├── match_error.py      # 匹配脚本
+│   │   │       ├── analyze_traceback.py# 堆栈深度解析
+│   │   │       ├── build_fix.py        # 构建修复方案
+│   │   │       └── calculate_resource.py# 资源建议（最高2倍）
+│   │   │
+│   │   ├── shell-error-analyzer/       # Shell 错误分析 Skill
+│   │   │   ├── SKILL.md
+│   │   │   ├── shell_patterns.md
+│   │   │   └── scripts/
+│   │   │       ├── match_error.py
+│   │   │       └── analyze_traceback.py
+│   │   │
+│   │   ├── python-error-analyzer/      # Python 错误分析 Skill
+│   │   │   ├── SKILL.md
+│   │   │   ├── python_patterns.md
+│   │   │   └── scripts/
+│   │   │       ├── match_error.py
+│   │   │       └── analyze_traceback.py# Python traceback 深度解析
+│   │   │
+│   │   ├── datax-error-analyzer/       # DataX 错误分析 Skill
+│   │   │   ├── SKILL.md
+│   │   │   ├── datax_patterns.md
+│   │   │   └── scripts/
+│   │   │       └── match_error.py
+│   │   │
+│   │   └── timeout-analyzer/           # 超时分析 Skill
+│   │       ├── SKILL.md
+│   │       └── scripts/
+│   │           ├── analyze_timeout.py  # 超时根因分析
+│   │           └── check_cluster.py    # 集群资源状态
 │   │
 │   ├── integrations/                   # 外部系统集成（客户端）
 │   │   ├── __init__.py
@@ -227,19 +287,33 @@ dolphinscheduler-agent/
 │       └── workflow.py                 # WorkflowInfo, TaskInfo
 │
 ├── config/                             # 配置文件目录
-│   └── projects.yaml                   # 多项目配置文件
+│   ├── projects.yaml                   # 多项目配置文件
+│   └── cluster_info.md                 # 集群配置（IP/服务映射，Markdown）
+│
+├── data/                               # 数据目录
+│   ├── metrics/                        # 每日任务执行指标
+│   │   ├── 2026-05-10.json             # 每日采集数据
+│   │   ├── 2026-05-11.json
+│   │   └── summary/                    # 汇总数据
+│   │       └── workflow_xxx.json       # 按工作流汇总
+│   │
+│   ├── graph/                          # 知识图谱数据
+│   │   ├── xxx_graph.json              # 工作流依赖图
+│   │   └── graph_viewer.html           # 可视化
+│   │
+│   └── knowledge_base/                 # 知识库数据目录（增强版）
+│       ├── spark_oom.md                # 通用知识
+│       ├── projects/                   # 项目历史
+│       │   └ 21451302002208/
+│       │       ├── spark_errors.md     # 项目历史修复记录
+│       │       └ workflow_errors.md
+│       └── approved/                   # 人工确认知识
+│           └── spark_oom_approved.md
 │
 ├── logs/                               # 日志目录
 │   ├── spark_history/                  # Spark History 日志（7天清理）
 │   ├── yarn/                           # YARN 日志（7天清理）
 │   └── agent/                          # Agent 运行日志
-│
-├── knowledge_base/                     # 知识库数据目录
-│   ├── spark/                          # Spark 知识库 JSON
-│   ├── shell/                          # Shell 知识库 JSON
-│   ├── python/                         # Python 知识库 JSON
-│   ├── datax/                          # DataX 知识库 JSON
-│   └── confirmed_index.json            # 已确认知识索引
 │
 ├── tests/                              # 测试目录
 │   ├── test_agent/                     # Agent 测试
@@ -516,166 +590,171 @@ class ChatAgent:
 
 ---
 
-## 六、Skills 详细设计
+## 六、Skills 详细设计（anthropics/skills 规范）
 
-### 6.1 Skill 基类 (`src/skills/base.py`)
+### 6.1 Skills 架构概述
 
-```python
-class BaseSkill(ABC):
-    """
-    Skill 基类
-    
-    ○ 不是 Agent，不需要 LLM 决策
-    
-    定义:
-    - 预定义的分析逻辑
-    - 特定领域的错误模式
-    - 输入→输出的固定映射
-    - 可以调用 Tools
-    
-    每个 Skill 必须实现:
-    1. analyze(log_content, context) -> ErrorAnalysis
-    2. suggest(analysis, knowledge) -> Suggestion
-    3. can_auto_fix(analysis) -> bool
-    """
-    
-    skill_name: str                    # Skill 名称
-    task_types: list[str]              # 支持的任务类型
-    error_patterns: dict[str, str]     # 错误模式（预定义）
-    suggestion_templates: dict[str, str]  # 建议模板（预定义）
-    
-    @abstractmethod
-    def analyze(self, log_content: str, context: AnalysisContext) -> ErrorAnalysis:
-        """分析日志内容（预定义规则，不使用 LLM）"""
-        
-    @abstractmethod
-    def suggest(self, analysis: ErrorAnalysis, knowledge: list[KnowledgeEntry]) -> Suggestion:
-        """基于分析和知识库给出建议"""
-        
-    def can_auto_fix(self, analysis: ErrorAnalysis) -> bool:
-        """判断是否可以自动修复"""
-        return False  # 默认不可自动修复
+Skills 模块重构为 [anthropics/skills](https://github.com/anthropics/skills) 规范格式：
+
+**核心变化：**
+
+| 原实现 | 新设计 | 改进 |
+|--------|--------|------|
+| Python 类硬编码模式 | SKILL.md + patterns.md | 人可编辑维护 |
+| ShellSkill 370+ 行拼写映射 | **移除** | 减少 token 消耗 |
+| 固定前200后300行日志 | 智能预处理（日志降噪） | 提取关键信息 |
+| 无超时分析 | timeout-analyzer Skill | 报错重试 + 资源等待 |
+| 无历史数据支撑 | 每日采集任务指标 | 超时分析、频率统计 |
+
+### 6.2 Skill 目录结构
+
+每个 Skill 参考 pdf skill 结构：
+
+```
+skills/
+├── spark-error-analyzer/
+│   ├── SKILL.md              # 工作流定义（<100 lines）
+│   ├── spark_patterns.md     # 错误模式表（Markdown 表格）
+│   └── scripts/
+│       ├── match_error.py    # 匹配脚本（读取 MD，输出 JSON）
+│       ├── analyze_traceback.py  # 堆栈深度解析
+│       ├── build_fix.py      # 构建修复方案
+│       └── calculate_resource.py # 资源建议（最高2倍）
+│
+├── common/                   # 公共模块（所有 Skill 共用）
+│   ├── preprocess_log.py     # 日志降噪（智能提取配置、错误块）
+│   ├── extract_context.py    # IP/域名/HDFS 提取
+│   └── cluster_lookup.py     # 集群配置关联
+│
+└── registry.py               # 统一注册表
 ```
 
-### 6.2 Spark Skill (`src/skills/spark_skill.py`)
+### 6.3 SKILL.md 格式示例
 
-```python
-class SparkSkill(BaseSkill):
-    """
-    Spark 任务分析 Skill
-    
-    ○ 不是 Agent
-    
-    预定义的分析逻辑:
-    1. 错误模式匹配（OOM、ClassNotFound、ShuffleError）
-    2. 关键信息提取（ApplicationId、Executor 数量）
-    3. 根据错误类型给出预定义建议
-    4. 知识库匹配增强建议
-    
-    可调用的 Tools:
-    - SparkHistoryFetcherTool: 拉取 Spark History 日志
-    - YarnLogFetcherTool: 拉取 YARN 日志
-    
-    可自动修复的错误:
-    - OOM: 自动调整内存配置
-    """
-    
-    skill_name = "spark"
-    task_types = ["SPARK", "SPARK_STREAMING"]
-    
-    # 预定义的错误模式（不需要 LLM）
-    error_patterns = {
-        "oom_executor": "java.lang.OutOfMemoryError: Java heap space",
-        "oom_driver": "OutOfMemoryError: unable to create new native thread",
-        "class_not_found": "ClassNotFoundException",
-        "shuffle_failed": "FetchFailedException",
-        "container_killed": "Container killed by YARN",
-    }
-    
-    # 预定义的建议模板
-    suggestion_templates = {
-        "oom_executor": "增加 Executor 内存: spark.executor.memory=4g",
-        "oom_driver": "增加 Driver 内存: spark.driver.memory=2g",
-        "class_not_found": "检查依赖包是否已上传",
-        "shuffle_failed": "检查网络或增加 shuffle service",
-        "container_killed": "检查 YARN 资源配额",
-    }
-    
-    # 可自动修复的错误类型
-    auto_fixable_errors = ["oom_executor", "oom_driver"]
-    
-    def analyze(self, log_content: str, context: AnalysisContext) -> ErrorAnalysis:
-        """使用预定义规则分析日志"""
-        for error_type, pattern in self.error_patterns.items():
-            if pattern in log_content:
-                return ErrorAnalysis(
-                    error_type=error_type,
-                    error_message=self._extract_error_message(log_content, pattern),
-                    spark_app_id=self._extract_app_id(log_content),
-                    can_auto_fix=error_type in self.auto_fixable_errors,
-                )
-        return ErrorAnalysis(error_type="unknown", can_auto_fix=False)
-    
-    def get_auto_fix_action(self, analysis: ErrorAnalysis) -> AutoFixAction:
-        """获取自动修复动作"""
-        if analysis.error_type == "oom_executor":
-            return AutoFixAction(
-                action_type="modify_config",
-                config_changes={"spark.executor.memory": "4g"},
-            )
-        elif analysis.error_type == "oom_driver":
-            return AutoFixAction(
-                action_type="modify_config",
-                config_changes={"spark.driver.memory": "2g"},
-            )
+```markdown
+---
+name: spark-error-analyzer
+description: Analyze Spark task execution errors. Use when SPARK task fails.
+---
+
+# Spark Error Analyzer
+
+## Quick Reference
+
+| Category | Example Patterns | Action |
+|----------|------------------|--------|
+| OOM | `OutOfMemoryError` | AUTO_FIXABLE |
+| ClassNotFound | `ClassNotFoundException` | KNOWN_NEEDS_LLM |
+| Shuffle | `FetchFailedException` | KNOWN_NEEDS_LLM |
+
+## Workflow
+
+1. Run `common/preprocess_log.py` (日志降噪)
+2. Run `scripts/match_error.py --patterns spark_patterns.md`
+3. If AUTO_FIXABLE → `scripts/build_fix.py`
+4. Output JSON with error_type, fix, llm_hint
 ```
 
-### 6.3 Shell Skill (`src/skills/shell_skill.py`)
+### 6.4 日志降噪（preprocess_log.py）
 
 ```python
-class ShellSkill(BaseSkill):
-    """
-    Shell 任务分析 Skill
-    
-    ○ 不是 Agent
-    
-    可自动修复的错误:
-    - 命令拼写错误（如 git -> giit）
-    - 简单语法错误
-    """
-    
-    skill_name = "shell"
-    task_types = ["SHELL"]
-    
-    error_patterns = {
-        "syntax_error": "syntax error:",
-        "command_not_found": "command not found:",
-        "permission_denied": "Permission denied",
-        "no_such_file": "No such file or directory",
+def preprocess_log(log_content: str) -> Dict:
+    """智能提取关键信息，替代固定前200后300行"""
+    return {
+        'config_lines': [],      # Spark/Hadoop 配置
+        'error_blocks': [],      # 完整错误堆栈
+        'resource_stats': [],    # 资源统计
+        'data_metrics': {},      # 数据量（Spark Event Log）
+        'app_info': {}           # Application ID
     }
-    
-    auto_fixable_errors = ["command_not_found"]  # 拼写错误可自动修复
-    
-    def can_auto_fix(self, analysis: ErrorAnalysis) -> bool:
-        """判断是否可以自动修复"""
-        if analysis.error_type == "command_not_found":
-            return self._is_spelling_error(analysis.error_message)
-        return False
-    
-    def get_auto_fix_action(self, analysis: ErrorAnalysis) -> AutoFixAction:
-        """获取自动修复动作（拼写修正）"""
-        if analysis.error_type == "command_not_found":
-            wrong_cmd = self._extract_wrong_command(analysis.error_message)
-            correct_cmd = self._suggest_correct_command(wrong_cmd)
-            return AutoFixAction(
-                action_type="modify_script",
-                script_changes={wrong_cmd: correct_cmd},
-            )
+
+    # 效果：500 行 → 20-50 行关键信息
 ```
 
-### 6.4 Python Skill & DataX Skill
+### 6.5 数据量检测（从日志提取）
 
-类似的设计模式，预定义错误模式和建议模板。
+```python
+def extract_data_metrics_from_event_log(event_log: str) -> Dict:
+    """从 Spark Event Log 提取数据量"""
+    return {
+        'input_bytes': ...,      # 输入数据量
+        'output_bytes': ...,     # 输出数据量
+        'shuffle_read_bytes': ...,# Shuffle 读
+        'shuffle_write_bytes': ...,# Shuffle 写
+        'memory_spilled': ...,   # Spill 到磁盘（关键）
+        'stage_metrics': [...]   # Stage 级别指标
+    }
+```
+
+### 6.6 超时分析（timeout-analyzer）
+
+**触发超时的两个原因：**
+
+| 原因 | 分析方式 | 定位 |
+|-----|---------|-----|
+| 任务报错重试 | retry_count > 0 + 错误类型 | 哪个任务报错 |
+| 资源等待 | queue_wait_time vs 历史（7天） | 集群资源竞争 |
+
+```python
+def analyze_timeout_alert(workflow_code: str) -> Dict:
+    # 原因1: 任务报错重试
+    if task['retry_count'] > 0:
+        return {'type': 'task_error_retry', 'task': ..., 'error_type': ...}
+    
+    # 原因2: 资源等待
+    if task['queue_wait_time'] > avg_queue_wait * 2:
+        return {'type': 'resource_waiting', 'cluster_utilization': ...}
+```
+
+### 6.7 知识库增强（项目历史）
+
+```
+data/knowledge_base/projects/{workflow_code}/spark_errors.md
+
+| 错误类型 | 发生时间 | 原配置 | 修复配置 | 结果 |
+|---------|---------|-------|---------|-----|
+| oom_executor | 2026-05-10 | 2g | 4g | ✅ SUCCESS |
+
+匹配优先级：项目历史 > 通用知识 > LLM 分析
+```
+
+### 6.8 资源建议（最高2倍）
+
+```python
+def calculate_resource_suggestion(error_type: str, current: Dict, historical: List):
+    # 1. 优先历史成功配置
+    # 2. 默认翻倍（上限2倍）
+    # 3. 检查集群上限
+    suggested = min(current * 2, cluster_limit)
+```
+
+### 6.9 堆栈深度解析
+
+```python
+def parse_python_traceback(log: str) -> Dict:
+    return {
+        'error_type': 'KeyError',
+        'error_message': "'column_name'",
+        'call_chain': [
+            {'file': '/app/transform.py', 'line': 45, 'function': 'process_data'}
+        ],
+        'root_cause': {'file': 'transform.py', 'line': 45}
+    }
+```
+
+### 6.10 每日数据采集
+
+```python
+def collect_daily_task_metrics(date: str):
+    """采集任务执行指标"""
+    return {
+        'queue_wait_time': ...,  # 提交→开始运行
+        'exec_duration': ...,    # 真实执行时长
+        'requested_memory': ...,# 请求内存
+        'retry_count': ...       # 重试次数
+    }
+    # 存储: data/metrics/{date}.json
+```
 
 ---
 
