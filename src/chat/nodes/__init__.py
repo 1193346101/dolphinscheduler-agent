@@ -10,6 +10,7 @@ from .format_response import format_response_node
 from .scan_graph import scan_graph_node
 from .visualize import visualize_node
 from .query_workflow import query_workflow_node
+from .query_workflow_instances import query_workflow_instances_node
 
 __all__ = [
     "parse_intent_node",
@@ -18,4 +19,5 @@ __all__ = [
     "scan_graph_node",
     "visualize_node",
     "query_workflow_node",
+    "query_workflow_instances_node",
 ]

@@ -1,5 +1,453 @@
 {
-  "generated_at": "2026-05-08T19:02:56.524489",
-  "table_consumers": {},
+  "generated_at": "2026-05-11T19:48:24.276382",
+  "table_consumers": {
+    "hdfs:/project/ad_monitor/ads/ads_ak_spot_freq_day_report/": {
+      "workflows": [
+        "11598178397184",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13544161066753",
+        "21098215415969"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/ads_ak_spot_county_freq_day_report/": {
+      "workflows": [
+        "11598178397184",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13544164738305",
+        "21098217401633"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/ads_ak_spot_freq_total_report/": {
+      "workflows": [
+        "11598178397184",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13544168717697",
+        "21098218831777"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/ads_ak_spot_county_freq_total_report/": {
+      "workflows": [
+        "11598178397184",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13544172264449",
+        "21098221600288"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/ads_ak_spot_monitor_day_report/": {
+      "workflows": [
+        "11598179392256",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13544193152769",
+        "21098210508065"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/ads_ak_spot_monitor_county_day_report/": {
+      "workflows": [
+        "11598179392256",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13544203232513",
+        "21098211739937"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/ads_ak_adid_monitor_day_report/": {
+      "workflows": [
+        "11598180699776",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13544181607297",
+        "21098204717345"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/ads_ak_adid_monitor_county_day_report/": {
+      "workflows": [
+        "11598180699776",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13544185146113",
+        "21098206804640"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/ads_ak_spot_req_day_report/": {
+      "workflows": [
+        "11598184562432"
+      ],
+      "tasks": [
+        "13544147133313"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/ads_ak_adid_req_day_report/": {
+      "workflows": [
+        "11598184562432"
+      ],
+      "tasks": [
+        "13544151483008"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/base_report/": {
+      "workflows": [
+        "11599819950336",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13544219227777",
+        "21098194882849"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/ipip_base_report/": {
+      "workflows": [
+        "11599819950336",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13544224252544",
+        "21098198561824"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/impression_mark_total_report/": {
+      "workflows": [
+        "11599821572608",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13544004969345",
+        "21098159728801"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/impression_province_total_report/": {
+      "workflows": [
+        "11599821572608",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13544015764992",
+        "21098164516769"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/ak_monitor_freq_total_report/": {
+      "workflows": [
+        "11599821572608",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13544020113920",
+        "21098167206560"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/impression_media_total_report/": {
+      "workflows": [
+        "11599821572608",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13544023176320",
+        "21098169330465"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/ak_deal_screen_size_report/": {
+      "workflows": [
+        "11599821572608",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13544028079616",
+        "21098172228640"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/impression_mark_freq_total_report/": {
+      "workflows": [
+        "11599823357440",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13543944649729",
+        "21098179390369"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/impression_media_freq_total_report/": {
+      "workflows": [
+        "11599823357440",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13543960695809",
+        "21098181383968"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/impression_province_freq_total_report/": {
+      "workflows": [
+        "11599823357440",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13543964440833",
+        "21098183810208"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/ak_monitor_county_freq_total_report/": {
+      "workflows": [
+        "11599823357440",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13543973511424",
+        "21098185202465"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/impression_mark_day_report/": {
+      "workflows": [
+        "11599826665344",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13544044622337",
+        "21098119668641"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/impression_province_day_report/": {
+      "workflows": [
+        "11599826665344",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13544048142977",
+        "21098130970529"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/ak_plan_freq_week_report/": {
+      "workflows": [
+        "11599826665344",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13544051090945",
+        "21098133519521"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/ak_deal_freq_week_report/": {
+      "workflows": [
+        "11599826665344",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13544058807041",
+        "21098135953696"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/impression_media_day_report/": {
+      "workflows": [
+        "11599826665344",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13544061752448",
+        "21098139967905"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/ak_monitor_freq_week_report/": {
+      "workflows": [
+        "11599826665344",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13544065527041",
+        "21098142413217"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/impression_collide_report": {
+      "workflows": [
+        "11599834736896"
+      ],
+      "tasks": [
+        "11599834736900"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/impression_county_collide_report": {
+      "workflows": [
+        "11599834736896"
+      ],
+      "tasks": [
+        "11599834736901"
+      ],
+      "classes": []
+    },
+    "hdfs:/original/ad_monitor/huan_ad_monitor_impression_log/": {
+      "workflows": [
+        "11599837063296"
+      ],
+      "tasks": [
+        "11599837063297"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/dws/impression_log_pre/": {
+      "workflows": [
+        "11599837063296"
+      ],
+      "tasks": [
+        "11599837063298"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ods/huan_ad_monitor_impression_log_orc/": {
+      "workflows": [
+        "11599837063296",
+        "17647007721632"
+      ],
+      "tasks": [
+        "11599837063299",
+        "17691897461409"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/dwd/impression_log/": {
+      "workflows": [
+        "11599837063296"
+      ],
+      "tasks": [
+        "11599837063300"
+      ],
+      "classes": []
+    },
+    "hdfs:/original/ad_monitor/huan_ad_monitor_click_log/": {
+      "workflows": [
+        "11599837995904"
+      ],
+      "tasks": [
+        "11599837995905"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/dwd/click_log/": {
+      "workflows": [
+        "11599837995904"
+      ],
+      "tasks": [
+        "11599837995906"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/dws/click_log_pre/": {
+      "workflows": [
+        "11599837995904"
+      ],
+      "tasks": [
+        "11599837995907"
+      ],
+      "classes": []
+    },
+    "hdfs:/original/ad_monitor/huan_ad_monitor_middle_log/": {
+      "workflows": [
+        "11599839174784"
+      ],
+      "tasks": [
+        "11599839174785"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/dwd/middle_log/": {
+      "workflows": [
+        "11599839174784"
+      ],
+      "tasks": [
+        "11599839174786"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/dws/middle_log_pre/": {
+      "workflows": [
+        "11599839174784"
+      ],
+      "tasks": [
+        "11599839174787"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/impression_mark_freq_day_report/": {
+      "workflows": [
+        "11599840142464",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13544117220737",
+        "21098147555745"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/impression_media_freq_day_report/": {
+      "workflows": [
+        "11599840142464",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13544123700865",
+        "21098149141025"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/impression_province_freq_day_report/": {
+      "workflows": [
+        "11599840142464",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13544127869569",
+        "21098151355296"
+      ],
+      "classes": []
+    },
+    "hdfs:/project/ad_monitor/ads/ak_monitor_county_freq_week_report/": {
+      "workflows": [
+        "11599840142464",
+        "21098229252384"
+      ],
+      "tasks": [
+        "13544130692992",
+        "21098153551009"
+      ],
+      "classes": []
+    }
+  },
   "table_producers": {}
 }

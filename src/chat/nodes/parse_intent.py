@@ -54,8 +54,10 @@ def parse_intent_node(state: ChatState) -> ChatState:
         "query_type": result.get("query_type"),
         "workflow_code": result.get("workflow_code"),
         "workflow_name": result.get("workflow_name"),
+        "workflow_instance_id": result.get("workflow_instance_id"),
         "table_name": result.get("table_name"),
         "project_name": result.get("project_name"),
+        "query_date": result.get("query_date"),
     }
 
 
@@ -70,19 +72,22 @@ def parse_with_llm(message: str) -> Dict:
     prompt = f"""分析用户消息，提取意图类型和参数，返回 JSON 格式。
 
 支持的意图类型：
-- query_workflow: 查询项目工作流列表，参数 project_name
+- query_workflow: 查询项目工作流定义列表，参数 project_name
+- query_workflow_instances: 查询工作流实例列表（运行记录），参数 project_name, date(可选，默认今天)
 - query_status: 查询工作流状态，参数 workflow_code
 - query_logs: 查看日志，参数 workflow_code
+- query_task_instances: 查询任务实例详情，参数 workflow_instance_id
 - recover_failure: 恢复失败工作流，参数 workflow_code
 - lineage_query: 血缘查询，参数 query_type(downstream/upstream/table_consumer/table_producer), workflow_code/table_name
 - scan_graph: 扫描项目图谱，参数 project_name
 - visualize_lineage: 可视化血缘链路，参数 workflow_code
+- run_workflow: 手动运行工作流，参数 workflow_code
 - help: 帮助
 - unknown: 未知意图
 
 用户消息：{message}
 
-返回 JSON：{{"intent_type": "xxx", "project_name": "xxx", "workflow_code": "xxx", "query_type": "xxx", "table_name": "xxx"}}"""
+返回 JSON：{{"intent_type": "xxx", "project_name": "xxx", "workflow_code": "xxx", "workflow_instance_id": "xxx", "query_type": "xxx", "table_name": "xxx", "query_date": "YYYY-MM-DD"}}"""
 
     try:
         headers = {

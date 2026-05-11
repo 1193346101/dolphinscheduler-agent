@@ -1,4 +1,858 @@
 {
-  "generated_at": "2026-05-08T19:02:56.524494",
-  "workflow_tasks": {}
+  "generated_at": "2026-05-11T19:48:24.276485",
+  "workflow_tasks": {
+    "11598178397184": {
+      "tasks": [
+        "11598178397189",
+        "11598178397190",
+        "11598178397191",
+        "11598178397192",
+        "13544161066753",
+        "13544164738305",
+        "13544168717697",
+        "13544172264449"
+      ],
+      "task_names": {
+        "11598178397189": "ad_monitor.ads_ak_spot_county_freq_total_report",
+        "11598178397190": "ad_monitor.ads_ak_spot_freq_total_report",
+        "11598178397191": "ad_monitor.ads_ak_spot_county_freq_day_report",
+        "11598178397192": "ad_monitor.ads_ak_spot_freq_day_report",
+        "13544161066753": "datax 同步 ad_monitor.ads_ak_spot_freq_day_report_1mt",
+        "13544164738305": "datax 同步 ad_monitor.ads_ak_spot_freq_day_report_2jl_6d9",
+        "13544168717697": "datax 同步 ad_monitor.ads_ak_spot_freq_day_report_3f1_5w6",
+        "13544172264449": "datax 同步 ad_monitor.ads_ak_spot_county_freq_total_report_2o6"
+      },
+      "task_types": {
+        "11598178397189": "SPARK",
+        "11598178397190": "SPARK",
+        "11598178397191": "SPARK",
+        "11598178397192": "SPARK",
+        "13544161066753": "DATAX",
+        "13544164738305": "DATAX",
+        "13544168717697": "DATAX",
+        "13544172264449": "DATAX"
+      },
+      "spark_classes": {
+        "11598178397189": "tv.huan.ad.monitor.ads.spot.AkSpotCountyFreqTotalReport",
+        "11598178397190": "tv.huan.ad.monitor.ads.spot.AkSpotFreqTotalReport",
+        "11598178397191": "tv.huan.ad.monitor.ads.spot.AkSpotCountyFreqDayReport",
+        "11598178397192": "tv.huan.ad.monitor.ads.spot.AkSpotFreqDayReport"
+      }
+    },
+    "11598179392256": {
+      "tasks": [
+        "11598179392259",
+        "11598179392260",
+        "13544193152769",
+        "13544203232513"
+      ],
+      "task_names": {
+        "11598179392259": "ad_monitor.ads_ak_spot_monitor_county_day_report",
+        "11598179392260": "ad_monitor.ads_ak_spot_monitor_day_report",
+        "13544193152769": "datax 同步 ad_monitor.ads_ak_spot_monitor_day_report_7e5",
+        "13544203232513": "datax 同步 ad_monitor.ads_ak_spot_monitor_county_day_report_6i9"
+      },
+      "task_types": {
+        "11598179392259": "SPARK",
+        "11598179392260": "SPARK",
+        "13544193152769": "DATAX",
+        "13544203232513": "DATAX"
+      },
+      "spark_classes": {
+        "11598179392259": "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorcCountyReport",
+        "11598179392260": "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorDayReport"
+      }
+    },
+    "11598180699776": {
+      "tasks": [
+        "11598180699905",
+        "11598180699906",
+        "13544181607297",
+        "13544185146113"
+      ],
+      "task_names": {
+        "11598180699905": "ad_monitor.ads_ak_adid_monitor_county_day_report",
+        "11598180699906": "ad_monitor.ads_ak_adid_monitor_day_report",
+        "13544181607297": "datax 同步 ad_monitor.ads_ak_adid_monitor_day_report_15y",
+        "13544185146113": "datax 同步 ad_monitor.ads_ak_adid_monitor_county_day_report_61k"
+      },
+      "task_types": {
+        "11598180699905": "SPARK",
+        "11598180699906": "SPARK",
+        "13544181607297": "DATAX",
+        "13544185146113": "DATAX"
+      },
+      "spark_classes": {
+        "11598180699905": "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorcCountyReport",
+        "11598180699906": "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorDayReport"
+      }
+    },
+    "11598184562432": {
+      "tasks": [
+        "11598184562435",
+        "11598184562436",
+        "11598184562437",
+        "13544147133313",
+        "13544151483008"
+      ],
+      "task_names": {
+        "11598184562435": "ad_monitor.ads_ak_adid_req_day_report",
+        "11598184562436": "ad_monitor.ads_ak_spot_req_day_report",
+        "11598184562437": "前置依赖",
+        "13544147133313": "datax同步ck impression_mark_freq_day_report_l5",
+        "13544151483008": "datax同步ck ads_ak_adid_req_day_report_p3"
+      },
+      "task_types": {
+        "11598184562435": "SPARK",
+        "11598184562436": "SPARK",
+        "11598184562437": "DEPENDENT",
+        "13544147133313": "DATAX",
+        "13544151483008": "DATAX"
+      },
+      "spark_classes": {
+        "11598184562435": "tv.huan.ad.monitor.ads.adid.AdsAkAdidReqDayReport",
+        "11598184562436": "tv.huan.ad.monitor.ads.spot.AdsAkSpotReqDayReport"
+      }
+    },
+    "11598186765568": {
+      "tasks": [
+        "11598186765569",
+        "11598186765570",
+        "11598186765571",
+        "11598186765572"
+      ],
+      "task_names": {
+        "11598186765569": "ad_monitor.middle_log",
+        "11598186765570": "ad_monitor.middle_log_pre",
+        "11598186765571": "添加分区 ad_monitor.huan_ad_monitor_middle_log",
+        "11598186765572": "ad_monitor.huan_ad_monitor_middle_log_orc"
+      },
+      "task_types": {
+        "11598186765569": "SPARK",
+        "11598186765570": "SPARK",
+        "11598186765571": "SPARK",
+        "11598186765572": "SPARK"
+      },
+      "spark_classes": {
+        "11598186765569": "tv.huan.ad.monitor.upgrade.MiddleLog ",
+        "11598186765570": "tv.huan.ad.monitor.upgrade.MiddleLogPre ",
+        "11598186765571": "tv.huan.hive.AddPartition",
+        "11598186765572": "tv.huan.ad.monitor.upgrade.MiddleLogOrc "
+      }
+    },
+    "11598188089984": {
+      "tasks": [
+        "11598188089985",
+        "11598188089986",
+        "11598188089987",
+        "11598188089988"
+      ],
+      "task_names": {
+        "11598188089985": "ad_monitor.click_log",
+        "11598188089986": "ad_monitor.click_log_pre",
+        "11598188089987": "添加分区 ad_monitor.huan_ad_monitor_click_log",
+        "11598188089988": "ad_monitor.huan_ad_monitor_click_log_orc"
+      },
+      "task_types": {
+        "11598188089985": "SPARK",
+        "11598188089986": "SPARK",
+        "11598188089987": "SPARK",
+        "11598188089988": "SPARK"
+      },
+      "spark_classes": {
+        "11598188089985": "tv.huan.ad.monitor.upgrade.ClickLog ",
+        "11598188089986": "tv.huan.ad.monitor.upgrade.ClickLogPre",
+        "11598188089987": "tv.huan.hive.AddPartition",
+        "11598188089988": "tv.huan.ad.monitor.upgrade.ClickLogOrc "
+      }
+    },
+    "11598189672192": {
+      "tasks": [
+        "11598189672193",
+        "11598189672194",
+        "11598189672195",
+        "11598189672196",
+        "11598189672197",
+        "11598189672198"
+      ],
+      "task_names": {
+        "11598189672193": "添加分区 ad_monitor.ak_ad_resp_sample_log",
+        "11598189672194": "ad_monitor.impression_log",
+        "11598189672195": "添加分区 ad_monitor.huan_ad_monitor_impression_log",
+        "11598189672196": "ad_monitor.huan_ad_monitor_impression_log_orc",
+        "11598189672197": "ad_monitor.impression_log_pre",
+        "11598189672198": "ad_monitor.huan_ad_monitor_impression_log_statistics"
+      },
+      "task_types": {
+        "11598189672193": "SPARK",
+        "11598189672194": "SPARK",
+        "11598189672195": "SPARK",
+        "11598189672196": "SPARK",
+        "11598189672197": "SPARK",
+        "11598189672198": "SPARK"
+      },
+      "spark_classes": {
+        "11598189672193": "tv.huan.hive.AddPartition",
+        "11598189672194": "tv.huan.ad.monitor.upgrade.ImpressionLog",
+        "11598189672195": "tv.huan.hive.AddPartition",
+        "11598189672196": "tv.huan.ad.monitor.upgrade.ImpressionLogOrc",
+        "11598189672197": "tv.huan.ad.monitor.upgrade.ImpressionLogPre",
+        "11598189672198": "tv.huan.ad.monitor.dmp.HuanAdMonitorImpressionLogStatistics"
+      }
+    },
+    "11599818692992": {
+      "tasks": [
+        "11599818692993",
+        "11599818692994",
+        "11599818692995",
+        "11599818692997"
+      ],
+      "task_names": {
+        "11599818692993": "ad_monitor.dwd_huan_ad_monitor_access_log_pretreat",
+        "11599818692994": "添加分区 ad_monitor.huan_ad_monitor_access_log",
+        "11599818692995": "ad_monitor.huan_ad_monitor_access_log_orc",
+        "11599818692997": "ad_monitor.ad_monitor_access_log_diff_period_0520"
+      },
+      "task_types": {
+        "11599818692993": "SPARK",
+        "11599818692994": "SPARK",
+        "11599818692995": "SPARK",
+        "11599818692997": "SPARK"
+      },
+      "spark_classes": {
+        "11599818692993": "tv.huan.ad.monitor.dwd.DwdHuanAdMonitorAccessLogPretreat",
+        "11599818692994": "tv.huan.hive.AddPartition",
+        "11599818692995": "tv.huan.ad.monitor.ods.huan_ad_monitor_access_log_orc",
+        "11599818692997": "tv.huan.ad.monitor.ads.AdMonitorAccessLogDiffPeriod0520"
+      }
+    },
+    "11599819950336": {
+      "tasks": [
+        "11599819950339",
+        "11599819950343",
+        "13544219227777",
+        "13544224252544"
+      ],
+      "task_names": {
+        "11599819950339": "ad_monitor.ipip_base_report",
+        "11599819950343": "ad_monitor.base_report",
+        "13544219227777": "datax同步ck ad_monitor.base_report_bn",
+        "13544224252544": "datax同步ck ipip_base_report_40h"
+      },
+      "task_types": {
+        "11599819950339": "SPARK",
+        "11599819950343": "SPARK",
+        "13544219227777": "DATAX",
+        "13544224252544": "DATAX"
+      },
+      "spark_classes": {
+        "11599819950339": "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport",
+        "11599819950343": "tv.huan.ad.monitor.upgrade.BaseReport"
+      }
+    },
+    "11599821572608": {
+      "tasks": [
+        "11599821572615",
+        "11599821572616",
+        "11599821572617",
+        "11599821572620",
+        "11599821572621",
+        "13544004969345",
+        "13544015764992",
+        "13544020113920",
+        "13544023176320",
+        "13544028079616"
+      ],
+      "task_names": {
+        "11599821572615": "ad_monitor.impression_mark_total_report",
+        "11599821572616": "ad_monitor.impression_province_total_report",
+        "11599821572617": "ad_monitor.impression_media_total_report",
+        "11599821572620": "ad_monitor.ak_deal_screen_size_report",
+        "11599821572621": "ad_monitor.ak_monitor_freq_total_report",
+        "13544004969345": "datax同步ck ad_monitor.impression_mark_total_report_5sy",
+        "13544015764992": "datax同步ck impression_province_total_report_3d",
+        "13544020113920": "datax同步ck ak_monitor_freq_total_report_74d",
+        "13544023176320": "datax同步ck ad_monitor.impression_media_total_report_1kf",
+        "13544028079616": "datax同步ck ak_deal_screen_size_report_dd"
+      },
+      "task_types": {
+        "11599821572615": "SPARK",
+        "11599821572616": "SPARK",
+        "11599821572617": "SPARK",
+        "11599821572620": "SPARK",
+        "11599821572621": "SPARK",
+        "13544004969345": "DATAX",
+        "13544015764992": "DATAX",
+        "13544020113920": "DATAX",
+        "13544023176320": "DATAX",
+        "13544028079616": "DATAX"
+      },
+      "spark_classes": {
+        "11599821572615": "tv.huan.ad.monitor.upgrade.ImpressionMarkTotalReport",
+        "11599821572616": "tv.huan.ad.monitor.upgrade.ImpressionProvinceTotalReport",
+        "11599821572617": "tv.huan.ad.monitor.upgrade.ImpressionMediaTotalReport",
+        "11599821572620": "tv.huan.ad.monitor.upgrade.AkDealScreenSizeReport",
+        "11599821572621": "tv.huan.ad.monitor.upgrade.AkMonitorFreqTotalReport"
+      }
+    },
+    "11599823357440": {
+      "tasks": [
+        "11599823357446",
+        "11599823357447",
+        "11599823357448",
+        "11599823357449",
+        "11599823357450",
+        "13543944649729",
+        "13543960695809",
+        "13543964440833",
+        "13543973511424",
+        "14936514111904",
+        "14936515045025"
+      ],
+      "task_names": {
+        "11599823357446": "ad_monitor.impression_mark_freq_total_report",
+        "11599823357447": "ad_monitor.impression_province_freq_total_report",
+        "11599823357448": "ad_monitor.impression_media_freq_total_report",
+        "11599823357449": "ad_monitor.ak_monitor_county_freq_total_report",
+        "11599823357450": "ad_monitor.huan_ad_terminal_day_pv_report",
+        "13543944649729": "datax同步ck impression_mark_freq_total_report_1n5",
+        "13543960695809": "datax同步ck impression_media_freq_total_report_1g",
+        "13543964440833": "datax同步ck impression_province_freq_total_report_o8",
+        "13543973511424": "datax同步ck ak_monitor_county_freq_total_report_5sf",
+        "14936514111904": "ad_monitor.ads_middle_terminal_day_pv_report",
+        "14936515045025": "ad_monitor.ads_click_terminal_day_pv_report"
+      },
+      "task_types": {
+        "11599823357446": "SPARK",
+        "11599823357447": "SPARK",
+        "11599823357448": "SPARK",
+        "11599823357449": "SPARK",
+        "11599823357450": "SPARK",
+        "13543944649729": "DATAX",
+        "13543960695809": "DATAX",
+        "13543964440833": "DATAX",
+        "13543973511424": "DATAX",
+        "14936514111904": "SPARK",
+        "14936515045025": "SPARK"
+      },
+      "spark_classes": {
+        "11599823357446": "tv.huan.ad.monitor.ipipCounty.ImpressionMarkFreqTotalReport",
+        "11599823357447": "tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqTotalReport",
+        "11599823357448": "tv.huan.ad.monitor.ipipCounty.ImpressionMediaFreqTotalReport",
+        "11599823357449": "tv.huan.ad.monitor.ipipCounty.AkMonitorCountyFreqTotalReport",
+        "11599823357450": "tv.huan.ad.monitor.HuanAdTerminalDayPvReport",
+        "14936514111904": "tv.huan.ad.monitor.ads.AdsMiddleTerminalDayPvReport",
+        "14936515045025": "tv.huan.ad.monitor.ads.AdsClickTerminalDayPvReport"
+      }
+    },
+    "11599826665344": {
+      "tasks": [
+        "11599826665352",
+        "11599826665353",
+        "11599826665354",
+        "11599826665357",
+        "11599826665358",
+        "11599826665359",
+        "13544044622337",
+        "13544048142977",
+        "13544051090945",
+        "13544058807041",
+        "13544061752448",
+        "13544065527041"
+      ],
+      "task_names": {
+        "11599826665352": "ad_monitor.impression_mark_day_report",
+        "11599826665353": "ad_monitor.impression_media_day_report",
+        "11599826665354": "ad_monitor.impression_province_day_report",
+        "11599826665357": "ad_monitor.ak_plan_freq_week_report",
+        "11599826665358": "ad_monitor.ak_deal_freq_week_report",
+        "11599826665359": "ak_monitor_freq_week_report",
+        "13544044622337": "datax 同步ck ad_monitor.impression_mark_day_report_24j",
+        "13544048142977": "datax 同-ck impression_province_day_report_583",
+        "13544051090945": "datax 同-ck ak_plan_freq_week_report_1xq",
+        "13544058807041": "datax 同-ck ak_deal_freq_week_report_1tb",
+        "13544061752448": "datax 同ck impression_media_day_report_k8",
+        "13544065527041": "datax 同-ck ak_monitor_freq_week_report_1l3"
+      },
+      "task_types": {
+        "11599826665352": "SPARK",
+        "11599826665353": "SPARK",
+        "11599826665354": "SPARK",
+        "11599826665357": "SPARK",
+        "11599826665358": "SPARK",
+        "11599826665359": "SPARK",
+        "13544044622337": "DATAX",
+        "13544048142977": "DATAX",
+        "13544051090945": "DATAX",
+        "13544058807041": "DATAX",
+        "13544061752448": "DATAX",
+        "13544065527041": "DATAX"
+      },
+      "spark_classes": {
+        "11599826665352": "tv.huan.ad.monitor.upgrade.ImpressionMarkDayReport",
+        "11599826665353": "tv.huan.ad.monitor.upgrade.ImpressionMediaDayReport",
+        "11599826665354": "tv.huan.ad.monitor.upgrade.ImpressionProvinceDayReport",
+        "11599826665357": "tv.huan.ad.monitor.upgrade.AkPlanFreqWeekReport",
+        "11599826665358": "tv.huan.ad.monitor.upgrade.AkDealFreqWeekReport",
+        "11599826665359": "tv.huan.ad.monitor.upgrade.AkMonitorFreqWeekReport"
+      }
+    },
+    "11599829976320": {
+      "tasks": [
+        "11599829976321",
+        "11599829976322",
+        "11599829976323",
+        "11599829976324"
+      ],
+      "task_names": {
+        "11599829976321": "曝光",
+        "11599829976322": "点击",
+        "11599829976323": "中间",
+        "11599829976324": "计算任务"
+      },
+      "task_types": {
+        "11599829976321": "SUB_PROCESS",
+        "11599829976322": "SUB_PROCESS",
+        "11599829976323": "SUB_PROCESS",
+        "11599829976324": "DEPENDENT"
+      },
+      "spark_classes": {}
+    },
+    "11599832730112": {
+      "tasks": [
+        "11599832730113"
+      ],
+      "task_names": {
+        "11599832730113": "添加当日分区 ad_monitor.huan_ad_monitor_impression_log"
+      },
+      "task_types": {
+        "11599832730113": "SPARK"
+      },
+      "spark_classes": {
+        "11599832730113": "tv.huan.hive.AddPartition"
+      }
+    },
+    "11599834736896": {
+      "tasks": [
+        "11599834736898",
+        "11599834736899",
+        "11599834736900",
+        "11599834736901"
+      ],
+      "task_names": {
+        "11599834736898": "ad_monitor.impression_collide_report",
+        "11599834736899": "ad_monitor.impression_county_collide_report",
+        "11599834736900": "数据统计-ad_monitor.impression_collide_report",
+        "11599834736901": "数据统计-ad_monitor.impression_county_collide_report"
+      },
+      "task_types": {
+        "11599834736898": "SPARK",
+        "11599834736899": "SPARK",
+        "11599834736900": "DATAX",
+        "11599834736901": "DATAX"
+      },
+      "spark_classes": {
+        "11599834736898": "tv.huan.ad.monitor.upgrade.ImpressionCollideReport",
+        "11599834736899": "tv.huan.ad.monitor.ipipCounty.ImpressionCountyCollideReport"
+      }
+    },
+    "11599837063296": {
+      "tasks": [
+        "11599837063297",
+        "11599837063298",
+        "11599837063299",
+        "11599837063300"
+      ],
+      "task_names": {
+        "11599837063297": "数据统计-ad_monitor.huan_ad_monitor_impression_log",
+        "11599837063298": "数据统计-ad_monitor.impression_log_pre",
+        "11599837063299": "数据统计-ad_monitor.huan_ad_monitor_impression_log_orc",
+        "11599837063300": "数据统计-ad_monitor.impression_log"
+      },
+      "task_types": {
+        "11599837063297": "DATAX",
+        "11599837063298": "DATAX",
+        "11599837063299": "DATAX",
+        "11599837063300": "DATAX"
+      },
+      "spark_classes": {}
+    },
+    "11599837995904": {
+      "tasks": [
+        "11599837995905",
+        "11599837995906",
+        "11599837995907"
+      ],
+      "task_names": {
+        "11599837995905": "数据统计-ad_monitor.huan_ad_monitor_click_log",
+        "11599837995906": "数据统计-ad_monitor.click_log",
+        "11599837995907": "数据统计-ad_monitor.click_log_pre"
+      },
+      "task_types": {
+        "11599837995905": "DATAX",
+        "11599837995906": "DATAX",
+        "11599837995907": "DATAX"
+      },
+      "spark_classes": {}
+    },
+    "11599839174784": {
+      "tasks": [
+        "11599839174785",
+        "11599839174786",
+        "11599839174787"
+      ],
+      "task_names": {
+        "11599839174785": "数据统计-ad_monitor.huan_ad_monitor_middle_log",
+        "11599839174786": "数据统计-ad_monitor.middle_log",
+        "11599839174787": "数据统计-ad_monitor.middle_log_pre"
+      },
+      "task_types": {
+        "11599839174785": "DATAX",
+        "11599839174786": "DATAX",
+        "11599839174787": "DATAX"
+      },
+      "spark_classes": {}
+    },
+    "11599840142464": {
+      "tasks": [
+        "11599840142465",
+        "11599840142466",
+        "11599840142467",
+        "11599840142468",
+        "13544117220737",
+        "13544123700865",
+        "13544127869569",
+        "13544130692992"
+      ],
+      "task_names": {
+        "11599840142465": "ad_monitor.impression_mark_freq_day_report",
+        "11599840142466": "ad_monitor.impression_media_freq_day_report",
+        "11599840142467": "ad_monitor.impression_province_freq_day_report",
+        "11599840142468": "ad_monitor.ak_monitor_county_freq_week_report",
+        "13544117220737": "datax同步ck impression_mark_freq_day_report_7b9",
+        "13544123700865": "datax同步ck impression_media_freq_day_report_54h",
+        "13544127869569": "datax同步ck impression_province_freq_day_report_4of",
+        "13544130692992": "datax同步ck ak_monitor_county_freq_week_report_de"
+      },
+      "task_types": {
+        "11599840142465": "SPARK",
+        "11599840142466": "SPARK",
+        "11599840142467": "SPARK",
+        "11599840142468": "SPARK",
+        "13544117220737": "DATAX",
+        "13544123700865": "DATAX",
+        "13544127869569": "DATAX",
+        "13544130692992": "DATAX"
+      },
+      "spark_classes": {
+        "11599840142465": "tv.huan.ad.monitor.ipipCounty.ImpressionMarkFreqDayReport",
+        "11599840142466": "tv.huan.ad.monitor.ipipCounty.ImpressionMediaFreqDayReport",
+        "11599840142467": "tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqDayReport",
+        "11599840142468": "tv.huan.ad.monitor.ipipCounty.AkMonitorCountyFreqWeekReport"
+      }
+    },
+    "11600006534922": {
+      "tasks": [
+        "11600006534913",
+        "11600006534914",
+        "11600006534915",
+        "11600006534916",
+        "11600006534920",
+        "11600006534921"
+      ],
+      "task_names": {
+        "11600006534913": "ad_monitor.dwd_impression_multi_dim_distinct_mac",
+        "11600006534914": "ad_monitor.dws_ak_platform_traffice_style_imp_view_report",
+        "11600006534915": "ad_monitor.dws_ak_platform_imp_view_report",
+        "11600006534916": "ad_monitor.dws_ak_platform_city_imp_view_report",
+        "11600006534920": "ad_monitor.dwd_impression_filter_flatmap_hadid",
+        "11600006534921": "ad_monitor.dwd_impression_multi_dim_count"
+      },
+      "task_types": {
+        "11600006534913": "SPARK",
+        "11600006534914": "SPARK",
+        "11600006534915": "SPARK",
+        "11600006534916": "SPARK",
+        "11600006534920": "SPARK",
+        "11600006534921": "SPARK"
+      },
+      "spark_classes": {
+        "11600006534913": "tv.huan.ad.monitor.dwd.DwdImpressionMultiDimDistinctMac",
+        "11600006534914": "tv.huan.ad.monitor.dws.DwsAkPlatformTrafficeStyleImpViewReport",
+        "11600006534915": "tv.huan.ad.monitor.dws.DwsAkPlatformImpViewReport",
+        "11600006534916": "tv.huan.ad.monitor.dws.DwsAkPlatformCityImpViewReport",
+        "11600006534920": "tv.huan.ad.monitor.dwd.DwdImpressionFilterFlatmapHadid",
+        "11600006534921": "tv.huan.ad.monitor.dwd.DwdImpressionMultiDimCount"
+      }
+    },
+    "11605998818432": {
+      "tasks": [
+        "11605998818433",
+        "11605998818434",
+        "11605998818435",
+        "11605998818436",
+        "11605998818437",
+        "11605998818438",
+        "11605998818439",
+        "11605998818440",
+        "11605998818441",
+        "11606033970177",
+        "11606036821121",
+        "11606040045185",
+        "11852681099137"
+      ],
+      "task_names": {
+        "11605998818433": "曝光日志处理",
+        "11605998818434": "设备更新",
+        "11605998818435": "日报表",
+        "11605998818436": "累计报表",
+        "11605998818437": "点击日志",
+        "11605998818438": "中间日志",
+        "11605998818439": "汇总报表",
+        "11605998818440": "日报表-区县",
+        "11605998818441": "累计报表-区县",
+        "11606033970177": "广告位监测报表",
+        "11606036821121": "交易监测报表",
+        "11606040045185": "交易频次报表",
+        "11852681099137": "平台分组中间表"
+      },
+      "task_types": {
+        "11605998818433": "SUB_PROCESS",
+        "11605998818434": "SUB_PROCESS",
+        "11605998818435": "SUB_PROCESS",
+        "11605998818436": "SUB_PROCESS",
+        "11605998818437": "SUB_PROCESS",
+        "11605998818438": "SUB_PROCESS",
+        "11605998818439": "SUB_PROCESS",
+        "11605998818440": "SUB_PROCESS",
+        "11605998818441": "SUB_PROCESS",
+        "11606033970177": "SUB_PROCESS",
+        "11606036821121": "SUB_PROCESS",
+        "11606040045185": "SUB_PROCESS",
+        "11852681099137": "SUB_PROCESS"
+      },
+      "spark_classes": {}
+    },
+    "14936257423904": {
+      "tasks": [
+        "14936257423905",
+        "14936257423906",
+        "14936257423907"
+      ],
+      "task_names": {
+        "14936257423905": "ad_monitor.huan_ad_terminal_day_pv_report",
+        "14936257423906": "ad_monitor.ads_click_terminal_day_pv_report",
+        "14936257423907": "ad_monitor.ads_middle_terminal_day_pv_report"
+      },
+      "task_types": {
+        "14936257423905": "SPARK",
+        "14936257423906": "SPARK",
+        "14936257423907": "SPARK"
+      },
+      "spark_classes": {
+        "14936257423905": "tv.huan.ad.monitor.ads.AdsImpTerminalDayPvReport",
+        "14936257423906": "tv.huan.ad.monitor.ads.AdsClickTerminalDayPvReport",
+        "14936257423907": "tv.huan.ad.monitor.ads.AdsMiddleTerminalDayPvReport"
+      }
+    },
+    "17647007721632": {
+      "tasks": [
+        "17647003140513",
+        "17691897461409"
+      ],
+      "task_names": {
+        "17647003140513": "Seatunnel",
+        "17691897461409": "Datax"
+      },
+      "task_types": {
+        "17647003140513": "SEATUNNEL",
+        "17691897461409": "DATAX"
+      },
+      "spark_classes": {}
+    },
+    "20354293498922": {
+      "tasks": [
+        "20354293498912"
+      ],
+      "task_names": {
+        "20354293498912": "ad_monitor.huan_ad_terminal_day_pv_report_test"
+      },
+      "task_types": {
+        "20354293498912": "SPARK"
+      },
+      "spark_classes": {
+        "20354293498912": "tv.huan.ad.monitor.HuanAdTerminalDayPvReport"
+      }
+    },
+    "20876668664870": {
+      "tasks": [
+        "20876668664867"
+      ],
+      "task_names": {
+        "20876668664867": "ad_monitor.huan_ad_monitor_impression_log_orc"
+      },
+      "task_types": {
+        "20876668664867": "SPARK"
+      },
+      "spark_classes": {
+        "20876668664867": "tv.huan.ad.monitor.upgrade.ImpressionLogOrc"
+      }
+    },
+    "20941254587937": {
+      "tasks": [
+        "20941254587936"
+      ],
+      "task_names": {
+        "20941254587936": "ad_monitor.huan_ad_monitor_impression_log_orc"
+      },
+      "task_types": {
+        "20941254587936": "SPARK"
+      },
+      "spark_classes": {
+        "20941254587936": "tv.huan.ad.monitor.upgrade.ImpressionLogOrc"
+      }
+    },
+    "21098229252384": {
+      "tasks": [
+        "21098119668641",
+        "21098130970529",
+        "21098133519521",
+        "21098135953696",
+        "21098139967905",
+        "21098142413217",
+        "21098147555745",
+        "21098149141025",
+        "21098151355296",
+        "21098153551009",
+        "21098159728801",
+        "21098164516769",
+        "21098167206560",
+        "21098169330465",
+        "21098172228640",
+        "21098179390369",
+        "21098181383968",
+        "21098183810208",
+        "21098185202465",
+        "21098194882849",
+        "21098198561824",
+        "21098204717345",
+        "21098206804640",
+        "21098210508065",
+        "21098211739937",
+        "21098215415969",
+        "21098217401633",
+        "21098218831777",
+        "21098221600288"
+      ],
+      "task_names": {
+        "21098119668641": "datax 同步ck ad_monitor.impression_mark_day_report_24j",
+        "21098130970529": "datax 同-ck impression_province_day_report_583",
+        "21098133519521": "datax 同-ck ak_plan_freq_week_report_1xq",
+        "21098135953696": "datax 同-ck ak_deal_freq_week_report_1tb",
+        "21098139967905": "datax 同ck impression_media_day_report_k8",
+        "21098142413217": "datax 同-ck ak_monitor_freq_week_report_1l3",
+        "21098147555745": "datax同步ck impression_mark_freq_day_report_7b9",
+        "21098149141025": "datax同步ck impression_media_freq_day_report_54h",
+        "21098151355296": "datax同步ck impression_province_freq_day_report_4of",
+        "21098153551009": "datax同步ck ak_monitor_county_freq_week_report_de",
+        "21098159728801": "datax同步ck ad_monitor.impression_mark_total_report_5sy",
+        "21098164516769": "datax同步ck impression_province_total_report_3d",
+        "21098167206560": "datax同步ck ak_monitor_freq_total_report_74d",
+        "21098169330465": "datax同步ck ad_monitor.impression_media_total_report_1kf",
+        "21098172228640": "datax同步ck ak_deal_screen_size_report_dd",
+        "21098179390369": "datax同步ck impression_mark_freq_total_report_1n5",
+        "21098181383968": "datax同步ck impression_media_freq_total_report_1g",
+        "21098183810208": "datax同步ck impression_province_freq_total_report_o8",
+        "21098185202465": "datax同步ck ak_monitor_county_freq_total_report_5sf",
+        "21098194882849": "datax同步ck ad_monitor.base_report_bn",
+        "21098198561824": "datax同步ck ipip_base_report_40h",
+        "21098204717345": "datax 同步 ad_monitor.ads_ak_adid_monitor_day_report_15y",
+        "21098206804640": "datax 同步 ad_monitor.ads_ak_adid_monitor_county_day_report_61k",
+        "21098210508065": "datax 同步 ad_monitor.ads_ak_spot_monitor_day_report_7e5",
+        "21098211739937": "datax 同步 ad_monitor.ads_ak_spot_monitor_county_day_report_6i9",
+        "21098215415969": "datax 同步 ad_monitor.ads_ak_spot_freq_day_report_1mt",
+        "21098217401633": "datax 同步 ad_monitor.ads_ak_spot_freq_day_report_2jl_6d9",
+        "21098218831777": "datax 同步 ad_monitor.ads_ak_spot_freq_day_report_3f1_5w6",
+        "21098221600288": "datax 同步 ad_monitor.ads_ak_spot_county_freq_total_report_2o6"
+      },
+      "task_types": {
+        "21098119668641": "DATAX",
+        "21098130970529": "DATAX",
+        "21098133519521": "DATAX",
+        "21098135953696": "DATAX",
+        "21098139967905": "DATAX",
+        "21098142413217": "DATAX",
+        "21098147555745": "DATAX",
+        "21098149141025": "DATAX",
+        "21098151355296": "DATAX",
+        "21098153551009": "DATAX",
+        "21098159728801": "DATAX",
+        "21098164516769": "DATAX",
+        "21098167206560": "DATAX",
+        "21098169330465": "DATAX",
+        "21098172228640": "DATAX",
+        "21098179390369": "DATAX",
+        "21098181383968": "DATAX",
+        "21098183810208": "DATAX",
+        "21098185202465": "DATAX",
+        "21098194882849": "DATAX",
+        "21098198561824": "DATAX",
+        "21098204717345": "DATAX",
+        "21098206804640": "DATAX",
+        "21098210508065": "DATAX",
+        "21098211739937": "DATAX",
+        "21098215415969": "DATAX",
+        "21098217401633": "DATAX",
+        "21098218831777": "DATAX",
+        "21098221600288": "DATAX"
+      },
+      "spark_classes": {}
+    },
+    "21451302002208": {
+      "tasks": [
+        "21451298573345"
+      ],
+      "task_names": {
+        "21451298573345": "test-shell"
+      },
+      "task_types": {
+        "21451298573345": "SHELL"
+      },
+      "spark_classes": {}
+    },
+    "21614073121702": {
+      "tasks": [
+        "21614073121696",
+        "21614073121697",
+        "21614073121698",
+        "21614073121699",
+        "21614073121700",
+        "21614073121701"
+      ],
+      "task_names": {
+        "21614073121696": "添加分区 ad_monitor.ak_ad_resp_sample_log",
+        "21614073121697": "ad_monitor.impression_log",
+        "21614073121698": "添加分区 ad_monitor.huan_ad_monitor_impression_log",
+        "21614073121699": "ad_monitor.huan_ad_monitor_impression_log_orc",
+        "21614073121700": "ad_monitor.impression_log_pre",
+        "21614073121701": "ad_monitor.huan_ad_monitor_impression_log_statistics"
+      },
+      "task_types": {
+        "21614073121696": "SPARK",
+        "21614073121697": "SPARK",
+        "21614073121698": "SPARK",
+        "21614073121699": "SPARK",
+        "21614073121700": "SPARK",
+        "21614073121701": "SPARK"
+      },
+      "spark_classes": {
+        "21614073121696": "tv.huan.hive.AddPartition",
+        "21614073121697": "tv.huan.ad.monitor.upgrade.ImpressionLog",
+        "21614073121698": "tv.huan.hive.AddPartition",
+        "21614073121699": "tv.huan.ad.monitor.upgrade.ImpressionLogOrc",
+        "21614073121700": "tv.huan.ad.monitor.upgrade.ImpressionLogPre",
+        "21614073121701": "tv.huan.ad.monitor.dmp.HuanAdMonitorImpressionLogStatistics"
+      }
+    }
+  }
 }
