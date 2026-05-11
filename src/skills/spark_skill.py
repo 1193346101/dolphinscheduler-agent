@@ -306,8 +306,205 @@ class SparkSkill(BaseSkill):
         "schema_mismatch": "检查数据 Schema 是否匹配",
     }
 
+    def _get_scripts_dir(self) -> Optional[Path]:
+        """获取 spark-error-analyzer scripts 目录"""
+        scripts_dir = Path(__file__).parent / "spark-error-analyzer" / "scripts"
+        if scripts_dir.exists():
+            return scripts_dir
+        # 检查 underscore variant
+        scripts_dir = Path(__file__).parent / "spark_error_analyzer" / "scripts"
+        if scripts_dir.exists():
+            return scripts_dir
+        return None
+
+    def _get_patterns_file(self) -> Optional[Path]:
+        """获取 spark_patterns.md 文件路径"""
+        skill_dir = Path(__file__).parent / "spark-error-analyzer"
+        patterns_file = skill_dir / "spark_patterns.md"
+        if patterns_file.exists():
+            return patterns_file
+        return None
+
+    def _call_script(self, script_name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        调用脚本并返回结果
+
+        Args:
+            script_name: 脚本文件名 (如 match_error.py, build_fix.py)
+            args: 脚本参数
+
+        Returns:
+            脚本输出的 JSON 解析结果
+        """
+        scripts_dir = self._get_scripts_dir()
+        if not scripts_dir:
+            return {"error": "scripts_dir_not_found"}
+
+        script_path = scripts_dir / script_name
+        if not script_path.exists():
+            return {"error": "script_not_found"}
+
+        try:
+            # 使用 subprocess 调用脚本
+            cmd = ["python", str(script_path)]
+            for key, value in args.items():
+                cmd.extend([f"--{key}", str(value)])
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            if result.returncode != 0:
+                return {"error": "script_failed", "stderr": result.stderr}
+
+            return json.loads(result.stdout)
+        except subprocess.TimeoutExpired:
+            return {"error": "timeout"}
+        except json.JSONDecodeError:
+            return {"error": "invalid_json", "stdout": result.stdout}
+        except Exception as e:
+            return {"error": str(e)}
+
     def analyze(self, log_content: str, context: AlertContext) -> ErrorAnalysis:
-        """分析 Spark 任务错误"""
+        """分析 Spark 任务错误 - 使用脚本化流程"""
+        # 1. 日志预处理
+        preprocessed = preprocess_log(log_content, task_type="spark")
+        error_blocks = preprocessed.get("error_blocks", [])
+        app_info = preprocessed.get("app_info", {})
+        data_metrics = preprocessed.get("data_metrics", {})
+
+        if not error_blocks:
+            # 没有错误块，使用 fallback
+            return self._legacy_analyze(log_content, context)
+
+        # 合并错误块
+        error_text = "\n".join(error_blocks)
+
+        # 2. 尝试使用 match_error.py 脚本
+        scripts_dir = self._get_scripts_dir()
+        if scripts_dir:
+            # 动态导入 match_error
+            try:
+                import importlib.util
+                match_error_path = scripts_dir / "match_error.py"
+                if match_error_path.exists():
+                    spec = importlib.util.spec_from_file_location(
+                        "match_error",
+                        match_error_path
+                    )
+                    match_error_module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(match_error_module)
+
+                    patterns_file = self._get_patterns_file()
+                    if patterns_file:
+                        match_result = match_error_module.match_error(error_text, str(patterns_file))
+
+                        if match_result.get("error_type") != "unknown":
+                            category = ErrorCategory(match_result["category"])
+
+                            # 3. 如果是 AUTO_FIXABLE，尝试调用 build_fix.py
+                            quick_fix = None
+                            if category == ErrorCategory.AUTO_FIXABLE:
+                                # 动态导入 build_fix
+                                build_fix_path = scripts_dir / "build_fix.py"
+                                if build_fix_path.exists():
+                                    spec = importlib.util.spec_from_file_location(
+                                        "build_fix",
+                                        build_fix_path
+                                    )
+                                    build_fix_module = importlib.util.module_from_spec(spec)
+                                    spec.loader.exec_module(build_fix_module)
+
+                                    # 构建当前配置（从预处理中提取）
+                                    current_config = {}
+                                    for line in preprocessed.get("config_lines", []):
+                                        # 解析 spark.xxx=value 格式
+                                        if "=" in line:
+                                            key, value = line.split("=", 1)
+                                            key = key.strip()
+                                            value = value.strip()
+                                            if key.startswith("spark."):
+                                                current_config[key] = value
+
+                                    fix_result = build_fix_module.build_fix(
+                                        match_result["error_type"],
+                                        current_config,
+                                        {},  # cluster_limit - 需要从 context 获取
+                                        None  # historical_file
+                                    )
+                                    if fix_result.get("status") == "success":
+                                        quick_fix = {
+                                            "action_type": "modify_config",
+                                            "config_changes": fix_result.get("config_changes", {}),
+                                        }
+                                else:
+                                    # 如果没有 build_fix.py，使用 extra 字段作为 fix_action
+                                    extra = match_result.get("extra", "")
+                                    if extra and extra.startswith("{"):
+                                        # extra 是 JSON 格式的 config_changes
+                                        try:
+                                            config_changes = json.loads(extra)
+                                            quick_fix = {
+                                                "action_type": "modify_config",
+                                                "config_changes": config_changes,
+                                            }
+                                        except json.JSONDecodeError:
+                                            pass
+
+                            # 构建透明化分析报告
+                            original_log_error = error_blocks[0] if error_blocks else error_text[:300]
+
+                            analysis_process_parts = []
+                            if preprocessed.get("config_lines"):
+                                analysis_process_parts.append(f"提取配置项 {len(preprocessed['config_lines'])} 条")
+                            if error_blocks:
+                                analysis_process_parts.append(f"提取错误块 {len(error_blocks)} 个")
+                            if app_info.get("app_id"):
+                                analysis_process_parts.append(f"识别 AppId: {app_info['app_id']}")
+                            if match_result.get("matched_pattern"):
+                                analysis_process_parts.append(f"匹配模式: {match_result['matched_pattern']}")
+                            analysis_process = "，".join(analysis_process_parts) if analysis_process_parts else "通过错误模式库匹配"
+
+                            reasoning = ""
+                            if category == ErrorCategory.AUTO_FIXABLE:
+                                if fix_result:
+                                    reasoning = fix_result.get("message", "")
+                                    source = fix_result.get("source", "default")
+                                    if source == "historical":
+                                        reasoning += "（基于历史成功配置）"
+                                    elif source == "limited":
+                                        reasoning += "（受集群资源限制调整）"
+                                else:
+                                    reasoning = "根据错误模式匹配结果，提供标准修复方案"
+                            elif category == ErrorCategory.KNOWN_NEEDS_LLM:
+                                reasoning = match_result.get("extra", "") or "已知错误类型，需进一步分析具体原因"
+                            else:
+                                reasoning = "未知错误类型，建议人工分析或查阅相关文档"
+
+                            return ErrorAnalysis(
+                                error_type=match_result["error_type"],
+                                category=category,
+                                error_message=match_result.get("error_message", error_text[:500]),
+                                matched_pattern=match_result.get("matched_pattern", ""),
+                                llm_hint=match_result.get("extra", "") if category == ErrorCategory.KNOWN_NEEDS_LLM else "",
+                                quick_fix=quick_fix,
+                                original_log_error=original_log_error,
+                                analysis_process=analysis_process,
+                                reasoning=reasoning,
+                                spark_app_id=app_info.get("app_id"),
+                                data_metrics=data_metrics,
+                            )
+            except Exception:
+                pass  # Fallback to legacy
+
+        # 4. Fallback: 使用 legacy 分析
+        return self._legacy_analyze(log_content, context)
+
+    def _legacy_analyze(self, log_content: str, context: AlertContext) -> ErrorAnalysis:
+        """Legacy 分析方法 - 作为 fallback"""
         # 遍历错误模式
         for error_type, (pattern, category, llm_hint) in self.error_patterns.items():
             # 使用 re.DOTALL (re.S) 让 .* 匹配换行符，处理跨行日志
@@ -321,9 +518,11 @@ class SparkSkill(BaseSkill):
                         error_type=error_type,
                         category=ErrorCategory.AUTO_FIXABLE,
                         error_message=error_message,
-                        confidence=0.95,
                         matched_pattern=pattern,
                         quick_fix=quick_fix,
+                        original_log_error=error_message,
+                        analysis_process=f"通过内置模式库匹配: {error_type}",
+                        reasoning="根据错误模式匹配结果，提供标准修复方案",
                         spark_app_id=self._extract_app_id(log_content),
                     )
 
@@ -334,6 +533,9 @@ class SparkSkill(BaseSkill):
                     error_message=error_message,
                     matched_pattern=pattern,
                     llm_hint=llm_hint,
+                    original_log_error=error_message,
+                    analysis_process=f"通过内置模式库匹配: {error_type}",
+                    reasoning=llm_hint or "已知错误类型，需进一步分析具体原因",
                     spark_app_id=self._extract_app_id(log_content),
                 )
 
@@ -342,6 +544,9 @@ class SparkSkill(BaseSkill):
             error_type="unknown",
             category=ErrorCategory.UNKNOWN,
             error_message=log_content[:500],
+            original_log_error=log_content[:300],
+            analysis_process="无匹配错误模式",
+            reasoning="未知错误类型，建议人工分析或查阅相关文档",
         )
 
     def _build_quick_fix(self, error_type: str) -> Optional[Dict]:
