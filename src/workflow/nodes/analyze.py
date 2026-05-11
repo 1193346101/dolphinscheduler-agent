@@ -375,16 +375,16 @@ def _get_skill_for_task_type(task_type: str):
     """Get Skill based on task type"""
     try:
         if task_type == "SPARK":
-            from ...skills.spark_skill import SparkSkill
+            from ...skills.spark.skill import SparkSkill
             return SparkSkill()
         elif task_type == "SHELL":
-            from ...skills.shell_skill import ShellSkill
+            from ...skills.shell.skill import ShellSkill
             return ShellSkill()
         elif task_type == "PYTHON":
-            from ...skills.python_skill import PythonSkill
+            from ...skills.python.skill import PythonSkill
             return PythonSkill()
         elif task_type == "DATAX":
-            from ...skills.datax_skill import DataXSkill
+            from ...skills.datax.skill import DataXSkill
             return DataXSkill()
     except ImportError:
         return None

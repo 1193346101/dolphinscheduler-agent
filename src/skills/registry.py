@@ -21,11 +21,11 @@ from typing import Optional, Dict, List, Any
 from dataclasses import dataclass, field
 
 from .base import BaseSkill
-from .spark_skill import SparkSkill
-from .shell_skill import ShellSkill
-from .python_skill import PythonSkill
-from .datax_skill import DataXSkill
-from ..models.analysis import ErrorAnalysis
+from .spark.skill import SparkSkill
+from .shell.skill import ShellSkill
+from .python.skill import PythonSkill
+from .datax.skill import DataXSkill
+from ..models.analysis import ErrorAnalysis, ErrorCategory
 from ..models.alert import AlertContext
 
 
@@ -67,11 +67,11 @@ class SkillRegistry:
 
     # task_type -> skill_name 映射
     task_skill_map: Dict[str, str] = {
-        "SPARK": "spark-error-analyzer",
-        "SPARK_STREAMING": "spark-error-analyzer",
-        "SHELL": "shell-error-analyzer",
-        "PYTHON": "python-error-analyzer",
-        "DATAX": "datax-error-analyzer",
+        "SPARK": "spark",
+        "SPARK_STREAMING": "spark",
+        "SHELL": "shell",
+        "PYTHON": "python",
+        "DATAX": "datax",
     }
 
     def __init__(self, skills_dir: Optional[Path] = None):
@@ -336,12 +336,14 @@ class DefaultSkill(BaseSkill):
     }
 
     def analyze(self, log_content: str, context: AlertContext) -> ErrorAnalysis:
-        """默认分析"""
+        """默认分析 - 返回 UNKNOWN，触发 LLM 分析"""
         return ErrorAnalysis(
             error_type="unknown",
             error_message=log_content[:500],
-            can_auto_fix=False,
-            confidence=0.3,
+            category=ErrorCategory.UNKNOWN,
+            original_log_error=log_content[:300],
+            analysis_process="无匹配 Skill，交给 LLM 分析",
+            reasoning="任务类型未匹配到预定义 Skill，需要 LLM 进行深度分析",
         )
 
 

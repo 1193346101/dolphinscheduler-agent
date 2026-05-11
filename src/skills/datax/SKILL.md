@@ -36,7 +36,7 @@ result = preprocess_log(log_content, task_type="datax")
 ```python
 from skills.datax_error_analyzer.scripts.match_error import match_error
 
-match = match_error(error_blocks, patterns_file="datax_patterns.md")
+match = match_error(error_blocks, patterns_file="patterns.md")
 # 返回: error_type, category, pattern, llm_hint
 ```
 
@@ -115,13 +115,13 @@ DataX 错误大多需要 LLM 进一步分析：
 | config_error | `Configuration error` | 配置错误，检查 JSON 格式 |
 | speed_limit | `speed limit exceeded` | 速度限制，检查流量控制 |
 
-完整模式定义见 [datax_patterns.md](./datax_patterns.md)
+完整模式定义见 [patterns.md](./patterns.md)
 
 ## Dependencies
 
 - `skills/common/preprocess_log.py` - 日志预处理
 - `skills/datax-error-analyzer/scripts/match_error.py` - 模式匹配
-- `skills/datax-error-analyzer/datax_patterns.md` - 错误模式表
+- `skills/datax-error-analyzer/patterns.md` - 错误模式表
 
 ## Examples
 

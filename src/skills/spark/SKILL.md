@@ -40,7 +40,7 @@ spec = importlib.util.spec_from_file_location("match_error", scripts_dir / "matc
 match_error_module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(match_error_module)
 
-match = match_error_module.match_error(error_blocks, patterns_file="spark_patterns.md")
+match = match_error_module.match_error(error_blocks, patterns_file="patterns.md")
 # 返回: error_type, category, pattern, fix_action
 ```
 
@@ -158,13 +158,13 @@ if fix:
 | hdfs_not_found | `does not exist\|FileNotFound` | 检查输入路径是否正确 |
 | schema_mismatch | `Schema mismatch\|cannot resolve` | 分析数据结构问题 |
 
-完整模式定义见 [spark_patterns.md](./spark_patterns.md)
+完整模式定义见 [patterns.md](./patterns.md)
 
 ## Dependencies
 
 - `skills/common/preprocess_log.py` - 日志预处理
 - `skills/spark-error-analyzer/scripts/match_error.py` - 模式匹配
-- `skills/spark-error-analyzer/spark_patterns.md` - 错误模式表
+- `skills/spark-error-analyzer/patterns.md` - 错误模式表
 
 ## Examples
 

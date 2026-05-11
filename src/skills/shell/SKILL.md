@@ -21,7 +21,7 @@ python skills/common/preprocess_log.py --log "<日志内容>" --task-type SHELL
 ### 步骤 2：匹配错误模式
 
 ```bash
-python scripts/match_error.py --patterns shell_patterns.md --log "<error_blocks>"
+python scripts/match_error.py --patterns patterns.md --log "<error_blocks>"
 ```
 
 ### 步骤 3：增强上下文（连接/文件错误时）

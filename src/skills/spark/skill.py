@@ -15,11 +15,11 @@ import json
 import subprocess
 from pathlib import Path
 from typing import Optional, Dict, Tuple, Any
-from ..models.analysis import ErrorAnalysis, ErrorCategory
-from ..models.risk import RiskLevel, AutoFixAction
-from ..models.alert import AlertContext
-from .base import BaseSkill
-from .common.preprocess_log import preprocess_log
+from ...models.analysis import ErrorAnalysis, ErrorCategory
+from ...models.risk import RiskLevel, AutoFixAction
+from ...models.alert import AlertContext
+from ..base import BaseSkill
+from ..common.preprocess_log import preprocess_log
 
 
 class SparkSkill(BaseSkill):
@@ -307,16 +307,15 @@ class SparkSkill(BaseSkill):
     }
 
     def _get_scripts_dir(self) -> Optional[Path]:
-        """获取 spark-error-analyzer scripts 目录"""
-        scripts_dir = Path(__file__).parent / "spark-error-analyzer" / "scripts"
+        """获取 scripts 目录"""
+        scripts_dir = Path(__file__).parent / "scripts"
         if scripts_dir.exists():
             return scripts_dir
         return None
 
     def _get_patterns_file(self) -> Optional[Path]:
-        """获取 spark_patterns.md 文件路径"""
-        skill_dir = Path(__file__).parent / "spark-error-analyzer"
-        patterns_file = skill_dir / "spark_patterns.md"
+        """获取 patterns.md 文件路径"""
+        patterns_file = Path(__file__).parent / "patterns.md"
         if patterns_file.exists():
             return patterns_file
         return None
