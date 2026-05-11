@@ -61,6 +61,9 @@ class ErrorAnalysis:
     executor_count: Optional[int] = None
     data_metrics: Optional[Dict] = None  # 数据量指标
 
+    # OSS 验证结果（智能触发）
+    oss_validation: Optional[Dict] = None  # {"path": {"exists": bool, "files": []}}
+
 
 @dataclass
 class AnalysisResult:

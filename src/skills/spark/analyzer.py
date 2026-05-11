@@ -501,6 +501,49 @@ class SparkSkill(BaseSkill):
                             else:
                                 reasoning = "未知错误类型，建议人工分析或查阅相关文档"
 
+                            # === 智能 OSS 验证 ===
+                            # 路径相关错误类型，自动验证 OSS/HDFS 路径
+                            PATH_ERROR_TYPES = [
+                                "hdfs_not_found", "file_not_found", "partition_not_found",
+                                "path_not_found", "input_path_error", "output_path_error",
+                            ]
+
+                            oss_validation = None
+                            if match_result.get("error_type") in PATH_ERROR_TYPES:
+                                # 从预处理结果获取 OSS 路径
+                                oss_paths = preprocessed.get("oss_paths", [])
+                                if oss_paths:
+                                    print(f"  >> OSS paths detected: {oss_paths}")
+                                    # 验证第一个路径（最主要的）
+                                    oss_validation = {}
+                                    for path in oss_paths[:2]:  # 最多验证2个
+                                        result = self.check_oss_path(path)
+                                        oss_validation[path] = {
+                                            "exists": result.exists if result else None,
+                                            "files": result.files[:3] if result and result.files else [],
+                                            "error": result.error if result else None,
+                                        }
+                                        print(f"  >> OSS validation: {path} -> exists={result.exists if result else 'N/A'}")
+
+                                    # 根据验证结果调整判断
+                                    if oss_validation:
+                                        first_path = oss_paths[0]
+                                        first_result = oss_validation[first_path]
+                                        if first_result.get("exists") == True:
+                                            # 文件存在，可能是路径拼写问题 → 改为 AUTO_FIXABLE
+                                            category = ErrorCategory.AUTO_FIXABLE
+                                            reasoning = f"ossutil 验证：文件存在于 {first_path}，可能是路径配置错误"
+                                            quick_fix = {
+                                                "action_type": "path_verification",
+                                                "verified_path": first_path,
+                                                "suggestion": "请检查任务配置中的路径是否与此路径一致",
+                                            }
+                                        elif first_result.get("exists") == False:
+                                            # 文件不存在，数据缺失
+                                            reasoning = f"ossutil 验证：文件不存在于 {first_path}，数据确实缺失"
+                                            if category == ErrorCategory.KNOWN_NEEDS_LLM:
+                                                reasoning += "，请检查数据生成流程"
+
                             return ErrorAnalysis(
                                 error_type=match_result["error_type"],
                                 category=category,
@@ -514,6 +557,7 @@ class SparkSkill(BaseSkill):
                                 reasoning=reasoning,
                                 spark_app_id=app_info.get("app_id"),
                                 data_metrics=data_metrics,
+                                oss_validation=oss_validation,
                             )
             except Exception:
                 pass  # Fallback to legacy

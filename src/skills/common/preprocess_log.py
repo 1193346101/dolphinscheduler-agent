@@ -271,6 +271,7 @@ def preprocess_log(log_content: str, task_type: str = None) -> Dict[str, Any]:
     2. Extract error blocks
     3. Extract application ID
     4. Extract data metrics
+    5. Extract OSS/HDFS paths (用于 ossutil 验证)
 
     Args:
         log_content: The raw log content to process
@@ -284,6 +285,7 @@ def preprocess_log(log_content: str, task_type: str = None) -> Dict[str, Any]:
         - data_metrics: Dictionary with input_bytes, shuffle_read_bytes,
                        shuffle_write_bytes, memory_spilled
         - resource_stats: List of resource statistics (empty for now)
+        - oss_paths: List of OSS/HDFS paths found in log
     """
     return {
         "config_lines": extract_config_lines(log_content),
@@ -291,7 +293,72 @@ def preprocess_log(log_content: str, task_type: str = None) -> Dict[str, Any]:
         "app_info": {"app_id": extract_app_id(log_content)},
         "data_metrics": _extract_spark_metrics(log_content),
         "resource_stats": [],
+        "oss_paths": extract_oss_paths(log_content),
     }
+
+
+def extract_oss_paths(log_content: str) -> List[str]:
+    """
+    Extract OSS/HDFS paths from log content.
+
+    匹配多种路径格式：
+    - oss://bucket/path/file.parquet
+    - hdfs://namenode/path/file
+    - /user/hive/warehouse/table/partition=xxx
+    - file:///path/to/file
+
+    Args:
+        log_content: The raw log content to process
+
+    Returns:
+        List of paths found in log (最多 5 个)
+    """
+    if not log_content:
+        return []
+
+    paths = []
+
+    # OSS 路径: oss://bucket/path
+    oss_pattern = r'oss://[a-zA-Z0-9\-_.]+(?:/[a-zA-Z0-9\-_.//]+)?'
+    for match in re.finditer(oss_pattern, log_content):
+        paths.append(match.group(0))
+
+    # HDFS 路径: hdfs://namenode/path 或 hdfs:///path
+    hdfs_pattern = r'hdfs://(?:[a-zA-Z0-9\-_.:]+)?(?:/[a-zA-Z0-9\-_.//]+)?'
+    for match in re.finditer(hdfs_pattern, log_content):
+        path = match.group(0)
+        if path not in paths:
+            paths.append(path)
+
+    # 本地/HDFS 路径（无协议）: /user/hive/warehouse/xxx 或 /path/to/file
+    # 只匹配看起来像数据路径的（包含 warehouse、data、partition 等）
+    local_path_pattern = r'/(?:user|data|warehouse|hive|tmp|output)[/[a-zA-Z0-9\-_.=/]+'
+    for match in re.finditer(local_path_pattern, log_content):
+        path = match.group(0)
+        if path not in paths and len(path) > 10:  # 避免太短的路径
+            paths.append(path)
+
+    # 带分区的路径: partition=xxx 或 /dt=xxx/
+    partition_pattern = r'[a-zA-Z_]+=[a-zA-Z0-9\-_.]+'
+    partition_matches = re.findall(partition_pattern, log_content)
+    # 如果找到分区，尝试构建完整路径
+    if partition_matches:
+        # 在分区前面找可能的父路径
+        for part in partition_matches[:3]:
+            # 找包含这个分区的路径
+            part_pattern = rf'[^\s\'"]*{re.escape(part)}[^\s\'"]*'
+            for match in re.finditer(part_pattern, log_content):
+                path = match.group(0).strip()
+                if path.startswith('/') or path.startswith('oss://') or path.startswith('hdfs://'):
+                    if path not in paths:
+                        paths.append(path)
+
+    # 去重并限制数量
+    unique_paths = list(set(paths))
+    # 按长度排序，优先保留完整路径
+    unique_paths.sort(key=lambda x: len(x), reverse=True)
+
+    return unique_paths[:5]
 
 
 __all__ = [
@@ -300,4 +367,5 @@ __all__ = [
     "extract_app_id",
     "validate_extraction",
     "preprocess_log",
+    "extract_oss_paths",
 ]
