@@ -35,9 +35,14 @@ class YARNLogTool:
         self.password = password
         self.auth = HTTPBasicAuth(username, password) if username and password else None
 
+        # 初始化安全模块
+        from ..security import CommandGuard, AuditLogger
+        self.guard = CommandGuard()
+        self.audit = AuditLogger()
+
     def fetch_logs(self, application_id: str) -> Dict[str, str]:
         """
-        获取 YARN 应用信息
+        获取 YARN 应用信息（增加安全检查）
 
         Args:
             application_id: YARN 应用 ID
@@ -45,10 +50,21 @@ class YARNLogTool:
         Returns:
             应用信息字典 {"app_name", "state", "diagnostics", ...}
         """
+        url = f"{self.gateway_url}/ws/v1/cluster/apps/{application_id}"
+
+        # 安全检查
+        guard_result = self.guard.check_http_request("GET", url)
+
+        if guard_result.blocked:
+            self.audit.log_blocked(
+                operation_type="http",
+                operation_detail=guard_result.operation_detail,
+                reason=guard_result.reason,
+            )
+            return {"error": guard_result.reason}
+
         try:
             # 获取应用详情
-            url = f"{self.gateway_url}/ws/v1/cluster/apps/{application_id}"
-
             response = requests.get(
                 url,
                 auth=self.auth,
@@ -57,6 +73,11 @@ class YARNLogTool:
             )
 
             if response.status_code != 200:
+                self.audit.log_failed(
+                    operation_type="http",
+                    operation_detail=f"GET {url}",
+                    error=f"HTTP {response.status_code}",
+                )
                 return {"error": f"HTTP {response.status_code}", "url": url}
 
             app_data = response.json().get("app", {})
@@ -83,9 +104,21 @@ class YARNLogTool:
             logs["allocated_memory_mb"] = app_data.get("allocatedMB", 0)
             logs["running_containers"] = app_data.get("runningContainers", 0)
 
+            # 记录审计
+            self.audit.log_success(
+                operation_type="http",
+                operation_detail=f"GET {url}",
+                risk_level="LOW",
+            )
+
             return logs
 
         except requests.RequestException as e:
+            self.audit.log_failed(
+                operation_type="http",
+                operation_detail=f"GET {url}",
+                error=str(e),
+            )
             return {"error": str(e)}
 
     def get_app_attempts(self, application_id: str) -> Dict:
