@@ -43,8 +43,42 @@ class DSCLIClient:
         self.api_token = api_token or os.environ.get("DS_API_TOKEN", "")
         self.version = version
 
+        # 初始化安全模块
+        from ..security import CommandGuard, AuditLogger, SecurityAlert
+        self.guard = CommandGuard()
+        self.audit = AuditLogger()
+        self.alert = SecurityAlert()
+
     def _run_command(self, args: list, timeout: int = 30) -> CLIResult:
-        """执行 dsctl 命令"""
+        """执行 dsctl 命令（增加安全检查）"""
+        import time
+
+        # 1. 安全检查
+        guard_result = self.guard.check_cli_command(args)
+
+        if guard_result.blocked:
+            # 记录拦截日志
+            self.audit.log_blocked(
+                operation_type="dsctl",
+                operation_detail=guard_result.operation_detail,
+                reason=guard_result.reason,
+                risk_level=guard_result.risk_level,
+            )
+            # 发送拦截告警
+            self.alert.send_blocked_alert(
+                operation_type="dsctl",
+                operation_detail=guard_result.operation_detail,
+                reason=guard_result.reason,
+            )
+            # 返回错误结果
+            return CLIResult(
+                success=False,
+                stdout="",
+                stderr=guard_result.reason,
+                returncode=-1,
+            )
+
+        # 2. 执行命令
         env = os.environ.copy()
         env["DS_API_URL"] = self.api_url
         env["DS_API_TOKEN"] = self.api_token
@@ -52,6 +86,7 @@ class DSCLIClient:
 
         cmd = ["python", "-m", "dsctl"] + args
 
+        start_time = time.time()
         try:
             result = subprocess.run(
                 cmd,
@@ -60,14 +95,45 @@ class DSCLIClient:
                 timeout=timeout,
                 env=env
             )
+            elapsed_ms = int((time.time() - start_time) * 1000)
 
-            return CLIResult(
+            cli_result = CLIResult(
                 success=result.returncode == 0,
                 stdout=result.stdout,
                 stderr=result.stderr,
                 returncode=result.returncode
             )
+
+            # 3. 记录审计日志
+            self.audit.log(
+                operation_type="dsctl",
+                operation_detail=guard_result.operation_detail,
+                result="success" if cli_result.success else "failed",
+                result_detail=cli_result.stderr[:200] if cli_result.stderr else "",
+                risk_level=guard_result.risk_level,
+                duration_ms=elapsed_ms,
+            )
+
+            # 4. 高风险操作发送告警
+            if guard_result.risk_level == "HIGH":
+                self.alert.send_high_risk_execution_alert(
+                    operation_type="dsctl",
+                    operation_detail=guard_result.operation_detail,
+                    result="success" if cli_result.success else "failed",
+                    error=cli_result.stderr if not cli_result.success else None,
+                )
+
+            return cli_result
+
         except subprocess.TimeoutExpired:
+            elapsed_ms = int((time.time() - start_time) * 1000)
+            self.audit.log_failed(
+                operation_type="dsctl",
+                operation_detail=guard_result.operation_detail,
+                error="Command timed out",
+                risk_level=guard_result.risk_level,
+                duration_ms=elapsed_ms,
+            )
             return CLIResult(
                 success=False,
                 stdout="",
