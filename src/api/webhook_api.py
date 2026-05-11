@@ -81,15 +81,20 @@ class ApprovalActionRequest(BaseModel):
 @app.post("/webhook")
 async def webhook_alert(request: Request):
     """
-    接收 DolphinScheduler 告警 Webhook
+    统一 Webhook 端点 - 接收 DolphinScheduler 告警和钉钉对话
 
-    使用 LangGraph 状态机执行完整处理流程:
+    根据消息格式自动区分处理：
+
+    1. 钉钉对话格式: {"msgtype": "text", "text": {"content": "..."}, ...}
+       → 跳转到对话处理流程
+
+    2. DolphinScheduler 告警格式: {"alerts": "[{\"projectCode\":..., ...}]"}
+       → 使用 LangGraph 状态机执行告警处理流程
+
+    DS 告警处理流程:
     解析告警 -> 验证项目 -> 获取日志 -> 分析错误
     -> 查询知识库 -> 风险评估 -> 审批/自动修复
     -> 钉钉通知 -> 存储结果
-
-    DS 告警格式: {"alerts": "[{\"projectCode\":..., ...}]"}
-    其中 alerts 是 JSON 字符串，需要解析
     """
     try:
         payload = await request.json()
@@ -97,71 +102,171 @@ async def webhook_alert(request: Request):
         # 打印原始 payload 用于调试
         print(f"[webhook] Received payload: {payload}")
 
-        # 立即发送原始告警到钉钉
-        from ..tools.dingtalk_progress import get_notifier_from_settings
-        notifier = get_notifier_from_settings()
+        # === 判断消息类型 ===
 
-        # 发送原始JSON
-        import json as json_module
-        raw_json_str = json_module.dumps(payload, indent=2, ensure_ascii=False)
-        notifier.send_text(f"[原始告警]\n{raw_json_str}")
+        # 钉钉对话消息：有 msgtype 字段
+        if "msgtype" in payload:
+            return await handle_dingtalk_chat(payload)
 
-        # 解析 DolphinScheduler 的 alerts 字段
-        if "alerts" in payload:
-            alerts_str = payload.get("alerts", "")
-            import json
-            alerts_list = json.loads(alerts_str)
-            # 处理每个告警
-            results = []
-            for alert in alerts_list:
-                # 转换字段名以匹配 Agent 预期格式
-                normalized = {
-                    "projectCode": alert.get("projectCode", 0),
-                    "processDefinitionCode": alert.get("processDefinitionCode", 0),
-                    "processInstanceId": alert.get("processId", 0),
-                    "taskCode": alert.get("taskCode", 0),
-                    "taskInstanceId": alert.get("taskInstanceId", 0),  # 修复：使用真实值
-                    "taskType": alert.get("taskType", "UNKNOWN"),
-                    "state": alert.get("taskState", "FAILURE"),
-                    "host": alert.get("taskHost"),
-                    "projectName": alert.get("projectName"),
-                    "processName": alert.get("processName"),
-                    "taskName": alert.get("taskName"),
-                    "workerGroup": alert.get("workerGroup"),
-                    "logPath": alert.get("logPath"),
-                    "taskEndTime": alert.get("taskEndTime"),  # 任务结束时间
-                }
-                print(f"[webhook] Normalized alert: {normalized}")
+        # DolphinScheduler 告警：有 alerts 字段或告警特征字段
+        return await handle_ds_alert(payload)
 
-                # Execute LangGraph workflow
-                result = workflow.run(normalized)
-                results.append({
-                    "project_valid": result.get("project_valid"),
-                    "risk_level": result.get("risk_level"),
-                    "approval_required": result.get("approval_required"),
-                    "execution_success": result.get("execution_success"),
-                })
-
-            # 返回所有告警的处理结果
-            return JSONResponse(content={
-                "status": "processed",
-                "count": len(results),
-                "results": results,
-            })
-
-        # 如果没有 alerts 字段，直接处理
-        result = workflow.run(payload)
-        return JSONResponse(content={
-            "status": "processed",
-            "project_valid": result.get("project_valid"),
-            "risk_level": result.get("risk_level"),
-            "approval_required": result.get("approval_required"),
-            "execution_success": result.get("execution_success"),
-        })
     except Exception as e:
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+async def handle_dingtalk_chat(payload: dict) -> JSONResponse:
+    """
+    处理钉钉对话消息
+
+    通过 LangGraph 流程执行查询意图
+    """
+    from ..chat.graph import get_chat_graph
+    from ..chat.state import create_chat_state
+
+    # 提取消息内容
+    msgtype = payload.get("msgtype", "text")
+    content = extract_dingtalk_content(payload, msgtype)
+
+    if not content or not content.strip():
+        return JSONResponse(content={
+            "msgtype": "text",
+            "text": {"content": "请输入有效消息"}
+        })
+
+    # 提取用户和会话信息
+    user_id = payload.get("senderId", "unknown")
+    conversation_id = payload.get("conversationId", "unknown")
+
+    # 创建初始状态
+    state = create_chat_state(
+        message=content,
+        user_id=user_id,
+        conversation_id=conversation_id,
+    )
+
+    # 设置 project_code (从会话标题或配置中获取)
+    project_code = extract_project_code_from_dingtalk(payload)
+    state["project_code"] = project_code
+
+    # 通过 LangGraph 流程图执行
+    graph = get_chat_graph()
+    result_state = graph.invoke(state)
+
+    # 构建钉钉响应
+    response_content = result_state.get("response_content", "处理完成")
+
+    return JSONResponse(content={
+        "msgtype": "markdown",
+        "markdown": {
+            "title": "查询结果",
+            "text": response_content
+        }
+    })
+
+
+def extract_dingtalk_content(payload: dict, msgtype: str) -> str:
+    """从钉钉消息中提取消息内容"""
+    if msgtype == "text":
+        text_data = payload.get("text", {})
+        return text_data.get("content", "")
+    elif msgtype == "markdown":
+        markdown_data = payload.get("markdown", {})
+        return markdown_data.get("text", "") or markdown_data.get("title", "")
+    else:
+        return payload.get("text", {}).get("content", "")
+
+
+def extract_project_code_from_dingtalk(payload: dict) -> str:
+    """从钉钉请求中提取项目代码"""
+    from ..config import settings
+    import re
+
+    conversation_title = payload.get("conversationTitle", "")
+
+    # 从会话标题解析项目代码 (如: "项目-proj_001-告警群")
+    if conversation_title:
+        match = re.search(r'项目[^\w]*([a-zA-Z0-9_]+)', conversation_title)
+        if match:
+            return match.group(1)
+
+    # 从配置中获取默认项目
+    default_project = settings.DEFAULT_PROJECT_CODE
+    if default_project:
+        return default_project
+
+    return "default_project"
+
+
+async def handle_ds_alert(payload: dict) -> JSONResponse:
+    """
+    处理 DolphinScheduler 告警
+
+    使用 LangGraph 状态机执行完整处理流程
+    """
+    # 立即发送原始告警到钉钉
+    from ..tools.dingtalk_progress import get_notifier_from_settings
+    notifier = get_notifier_from_settings()
+
+    # 发送原始JSON
+    import json as json_module
+    raw_json_str = json_module.dumps(payload, indent=2, ensure_ascii=False)
+    notifier.send_text(f"[原始告警]\n{raw_json_str}")
+
+    # 解析 DolphinScheduler 的 alerts 字段
+    if "alerts" in payload:
+        alerts_str = payload.get("alerts", "")
+        import json
+        alerts_list = json.loads(alerts_str)
+        # 处理每个告警
+        results = []
+        for alert in alerts_list:
+            # 转换字段名以匹配 Agent 预期格式
+            normalized = {
+                "projectCode": alert.get("projectCode", 0),
+                "processDefinitionCode": alert.get("processDefinitionCode", 0),
+                "processInstanceId": alert.get("processId", 0),
+                "taskCode": alert.get("taskCode", 0),
+                "taskInstanceId": alert.get("taskInstanceId", 0),
+                "taskType": alert.get("taskType", "UNKNOWN"),
+                "state": alert.get("taskState", "FAILURE"),
+                "host": alert.get("taskHost"),
+                "projectName": alert.get("projectName"),
+                "processName": alert.get("processName"),
+                "taskName": alert.get("taskName"),
+                "workerGroup": alert.get("workerGroup"),
+                "logPath": alert.get("logPath"),
+                "taskEndTime": alert.get("taskEndTime"),
+            }
+            print(f"[webhook] Normalized alert: {normalized}")
+
+            # Execute LangGraph workflow
+            result = workflow.run(normalized)
+            results.append({
+                "project_valid": result.get("project_valid"),
+                "risk_level": result.get("risk_level"),
+                "approval_required": result.get("approval_required"),
+                "execution_success": result.get("execution_success"),
+            })
+
+        # 返回所有告警的处理结果
+        return JSONResponse(content={
+            "status": "processed",
+            "count": len(results),
+            "results": results,
+        })
+
+    # 如果没有 alerts 字段，直接处理
+    result = workflow.run(payload)
+    return JSONResponse(content={
+        "status": "processed",
+        "project_valid": result.get("project_valid"),
+        "risk_level": result.get("risk_level"),
+        "approval_required": result.get("approval_required"),
+        "execution_success": result.get("execution_success"),
+    })
 
 
 @app.post("/chat")
