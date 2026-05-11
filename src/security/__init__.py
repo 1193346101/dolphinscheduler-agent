@@ -3,5 +3,6 @@
 """
 
 from .approval import ApprovalRequest, ApprovalWorkflow
+from .audit import AuditRecord, AuditLogger
 
-__all__ = ["ApprovalRequest", "ApprovalWorkflow"]
+__all__ = ["ApprovalRequest", "ApprovalWorkflow", "AuditRecord", "AuditLogger"]
