@@ -228,7 +228,7 @@ def _extract_spark_metrics(log_content: str) -> Dict[str, int]:
     return metrics
 
 
-def validate_extraction(original: str, extracted: Dict[str, Any]) -> Dict[str, Any]:
+def validate_extraction(original: str, extracted: Dict[str, Any]) -> bool:
     """
     Validate extraction completeness and quality.
 
@@ -236,46 +236,30 @@ def validate_extraction(original: str, extracted: Dict[str, Any]) -> Dict[str, A
     - Whether config lines were found
     - Whether error blocks were found
     - Whether app ID was found
-    - Overall extraction validity
+    - Whether data metrics were found
 
     Args:
         original: The original log content
         extracted: Dictionary containing extraction results
 
     Returns:
-        Dictionary with:
-        - is_valid: Boolean indicating if extraction is usable
-        - warnings: List of warning messages for missing items
+        True if extraction is usable (at least one piece of useful info found),
+        False otherwise
     """
-    warnings = []
-
-    if not extracted.get("config_lines"):
-        warnings.append("No configuration lines found")
-
-    if not extracted.get("error_blocks"):
-        warnings.append("No error blocks found")
+    if not extracted:
+        return False
 
     app_info = extracted.get("app_info", {})
-    if not app_info.get("app_id"):
-        warnings.append("No application ID found")
-
     data_metrics = extracted.get("data_metrics", {})
     total_metrics = sum(data_metrics.values()) if data_metrics else 0
-    if total_metrics == 0:
-        warnings.append("No data metrics found")
 
     # Extraction is valid if at least one piece of useful info was found
-    is_valid = bool(
+    return bool(
         extracted.get("config_lines") or
         extracted.get("error_blocks") or
         app_info.get("app_id") or
         total_metrics > 0
     )
-
-    return {
-        "is_valid": is_valid,
-        "warnings": warnings
-    }
 
 
 def preprocess_log(log_content: str, task_type: str = None) -> Dict[str, Any]:

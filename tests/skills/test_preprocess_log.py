@@ -280,6 +280,30 @@ Regular log without JSON metrics
 class TestValidateExtraction:
     """Tests for extraction validation"""
 
+    def test_validate_extraction(self):
+        """Test validate_extraction returns True for valid extraction, False otherwise"""
+        original = "some log content"
+
+        # Test valid extraction with config lines
+        extracted_with_config = {
+            "config_lines": ["spark.driver.memory=4g"],
+            "error_blocks": [],
+            "app_info": {"app_id": None},
+            "data_metrics": {},
+            "resource_stats": []
+        }
+        assert validate_extraction(original, extracted_with_config) is True
+
+        # Test invalid extraction (empty)
+        extracted_empty = {
+            "config_lines": [],
+            "error_blocks": [],
+            "app_info": {"app_id": None},
+            "data_metrics": {},
+            "resource_stats": []
+        }
+        assert validate_extraction(original, extracted_empty) is False
+
     def test_validate_extraction_complete(self):
         """Test validation with complete extraction"""
         original = "some log content"
@@ -298,8 +322,7 @@ class TestValidateExtraction:
 
         result = validate_extraction(original, extracted)
 
-        assert result["is_valid"] is True
-        assert len(result["warnings"]) == 0
+        assert result is True
 
     def test_validate_extraction_missing_config_lines(self):
         """Test validation with missing config lines"""
@@ -319,8 +342,7 @@ class TestValidateExtraction:
 
         result = validate_extraction(original, extracted)
 
-        assert result["is_valid"] is True
-        assert "No configuration lines found" in result["warnings"]
+        assert result is True
 
     def test_validate_extraction_missing_error_blocks(self):
         """Test validation with missing error blocks"""
@@ -340,8 +362,7 @@ class TestValidateExtraction:
 
         result = validate_extraction(original, extracted)
 
-        assert result["is_valid"] is True
-        assert "No error blocks found" in result["warnings"]
+        assert result is True
 
     def test_validate_extraction_missing_app_id(self):
         """Test validation with missing app ID"""
@@ -361,8 +382,7 @@ class TestValidateExtraction:
 
         result = validate_extraction(original, extracted)
 
-        assert result["is_valid"] is True
-        assert "No application ID found" in result["warnings"]
+        assert result is True
 
     def test_validate_extraction_empty(self):
         """Test validation with empty extraction"""
@@ -382,8 +402,7 @@ class TestValidateExtraction:
 
         result = validate_extraction(original, extracted)
 
-        assert result["is_valid"] is False
-        assert len(result["warnings"]) >= 3
+        assert result is False
 
 
 class TestPreprocessLog:
