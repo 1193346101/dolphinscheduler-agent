@@ -452,8 +452,164 @@ def build_fix(
     }
 
 
+def build_resource_suggestion(
+    error_type: str,
+    current_config: Dict[str, Any],
+    data_metrics: Dict[str, Any],
+    app_info: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    Build intelligent resource suggestion based on data metrics.
+
+    结合数据量智能计算资源建议：
+    - 根据输入数据量计算 executor 内存需求
+    - 根据 shuffle 数据量计算 shuffle 相关配置
+    - 返回合理的建议和计算理由
+
+    Args:
+        error_type: Type of error (e.g., "oom_executor", "gc_overhead")
+        current_config: Current Spark configuration dict
+        data_metrics: Data metrics from preprocess_log:
+            - input_bytes: Input data size in bytes
+            - shuffle_read_bytes: Shuffle read size in bytes
+            - shuffle_write_bytes: Shuffle Write size in bytes
+            - memory_spilled: Memory spilled in bytes
+        app_info: Application info from preprocess_log
+
+    Returns:
+        Dict with keys:
+            - status: "success" or "no_suggestion"
+            - config_changes: Dict of suggested config changes
+            - reasoning: Human-readable explanation of the calculation
+            - data_analysis: Dict showing the data analysis
+            - files_created: Always empty
+            - commit_sha: Always None
+    """
+    # 提取数据量指标（转换为 GB）
+    input_bytes = data_metrics.get("input_bytes", 0)
+    shuffle_read_bytes = data_metrics.get("shuffle_read_bytes", 0)
+    shuffle_write_bytes = data_metrics.get("shuffle_write_bytes", 0)
+    memory_spilled = data_metrics.get("memory_spilled", 0)
+
+    input_gb = input_bytes / (1024 ** 3) if input_bytes else 0
+    shuffle_read_gb = shuffle_read_bytes / (1024 ** 3) if shuffle_read_bytes else 0
+    shuffle_write_gb = shuffle_write_bytes / (1024 ** 3) if shuffle_write_bytes else 0
+    spilled_gb = memory_spilled / (1024 ** 3) if memory_spilled else 0
+
+    # 获取当前配置
+    current_executor_mem = _get_current_memory(current_config, "spark.executor.memory", 1024)
+    current_driver_mem = _get_current_memory(current_config, "spark.driver.memory", 512)
+
+    config_changes = {}
+    reasoning_parts = []
+    data_analysis = {
+        "input_gb": round(input_gb, 2),
+        "shuffle_read_gb": round(shuffle_read_gb, 2),
+        "shuffle_write_gb": round(shuffle_write_gb, 2),
+        "spilled_gb": round(spilled_gb, 2),
+        "current_executor_mb": current_executor_mem,
+        "current_driver_mb": current_driver_mem,
+    }
+
+    # 根据错误类型和数据量计算建议
+    if error_type in ("oom_executor", "container_killed_memory", "executor_memory_insufficient", "gc_overhead"):
+        # Executor 内存计算
+        # 规则：内存至少为数据量的 60%，如果有 shuffle 则需要更多
+        base_need = max(input_gb * 0.6, current_executor_mem / 1024)  # GB
+
+        # Shuffle 数据需要额外内存
+        shuffle_need = shuffle_read_gb * 0.3
+
+        # 如果有 spill，说明内存确实不够
+        if spilled_gb > 0:
+            spill_factor = 1.5  # 需要 50% 额外内存来避免 spill
+            base_need *= spill_factor
+            reasoning_parts.append(f"检测到内存 spill {round(spilled_gb, 2)}GB，需要增加内存避免溢出")
+
+        suggested_mem_gb = base_need + shuffle_need
+        suggested_mem_mb = int(suggested_mem_gb * 1024)
+
+        # 确保至少是当前内存的 1.5 倍（避免频繁调整）
+        min_suggested = int(current_executor_mem * 1.5)
+        suggested_mem_mb = max(suggested_mem_mb, min_suggested)
+
+        # 格式化内存值
+        config_changes["spark.executor.memory"] = format_memory(suggested_mem_mb)
+        config_changes["spark.executor.memoryOverhead"] = format_memory(max(suggested_mem_mb // 4, 256))
+
+        reasoning_parts.append(f"输入数据量 {round(input_gb, 2)}GB，建议 executor 内存 {round(suggested_mem_gb, 2)}GB")
+        if shuffle_read_gb > 0:
+            reasoning_parts.append(f"Shuffle 数据量 {round(shuffle_read_gb, 2)}GB，额外需要 {round(shuffle_need, 2)}GB")
+
+    elif error_type in ("oom_driver", "driver_memory_insufficient"):
+        # Driver 内存计算
+        # 规则：Driver 需要处理结果收集，shuffle write 大时需要更多
+        base_need = max(2, current_driver_mem / 1024)  # 至少 2GB
+
+        # 如果 shuffle write 大，driver 需要更多内存
+        if shuffle_write_gb > 1:
+            driver_need = shuffle_write_gb * 0.2 + base_need
+        else:
+            driver_need = base_need
+
+        suggested_mem_mb = int(driver_need * 1024)
+        suggested_mem_mb = max(suggested_mem_mb, int(current_driver_mem * 1.5))
+
+        config_changes["spark.driver.memory"] = format_memory(suggested_mem_mb)
+        config_changes["spark.driver.maxResultSize"] = format_memory(min(suggested_mem_mb // 2, 2048))
+
+        reasoning_parts.append(f"建议 driver 内存 {round(driver_need, 2)}GB")
+        if shuffle_write_gb > 1:
+            reasoning_parts.append(f"Shuffle write {round(shuffle_write_gb, 2)}GB，需要更多 driver 内存")
+
+    elif error_type == "oom_offheap":
+        config_changes["spark.memory.offHeap.enabled"] = "true"
+        # OffHeap 大小根据 shuffle 数据计算
+        offheap_gb = max(2, shuffle_read_gb * 0.2)
+        config_changes["spark.memory.offHeap.size"] = format_memory(int(offheap_gb * 1024))
+        reasoning_parts.append(f"启用 OffHeap 内存 {round(offheap_gb, 2)}GB 以处理 Shuffle")
+
+    elif error_type == "oom_storage":
+        config_changes["spark.memory.storageFraction"] = "0.3"
+        reasoning_parts.append("降低 storage 比例，给 execution 更多空间")
+
+    elif error_type in ("shuffle_timeout", "network_timeout", "rpc_timeout"):
+        # 超时类：根据数据量调整
+        if shuffle_read_gb > 10:
+            config_changes["spark.shuffle.io.timeout"] = "300s"
+            config_changes["spark.network.timeout"] = "600s"
+            reasoning_parts.append(f"Shuffle 数据量大 ({round(shuffle_read_gb, 2)}GB)，增加超时时间")
+        else:
+            config_changes["spark.shuffle.io.timeout"] = "120s"
+            config_changes["spark.network.timeout"] = "300s"
+            reasoning_parts.append("数据量适中，适度增加超时")
+
+    elif error_type == "executor_lost_heartbeat":
+        config_changes["spark.executor.heartbeatInterval"] = "60s"
+        config_changes["spark.network.timeout"] = "300s"
+        reasoning_parts.append("调整心跳间隔和超时配置")
+
+    else:
+        # 默认处理：简单翻倍（fallback）
+        config_changes["spark.executor.memory"] = format_memory(current_executor_mem * 2)
+        config_changes["spark.executor.memoryOverhead"] = format_memory(current_executor_mem // 2)
+        reasoning_parts.append("未知资源问题类型，采用保守策略")
+
+    reasoning = "，".join(reasoning_parts) if reasoning_parts else "根据数据量智能计算"
+
+    return {
+        "status": "success",
+        "config_changes": config_changes,
+        "reasoning": reasoning,
+        "data_analysis": data_analysis,
+        "files_created": [],
+        "commit_sha": None,
+    }
+
+
 __all__ = [
     "parse_memory",
     "format_memory",
     "build_fix",
+    "build_resource_suggestion",
 ]

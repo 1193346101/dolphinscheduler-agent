@@ -4,24 +4,31 @@
 
 ## AUTO_FIXABLE
 
-可自动修复的错误，通过配置调整即可解决。
+可直接修复的简单问题（拼写错误、配置项缺失等）。
 
 | error_type | pattern | fix_action |
 |------------|---------|------------|
-| oom_executor | `java\.lang\.OutOfMemoryError:\s*Java heap space` | `{"spark.executor.memory": "4g", "spark.executor.memoryOverhead": "1g"}` |
-| oom_driver | `OutOfMemoryError:\s*unable to create new native thread` | `{"spark.driver.memory": "2g", "spark.driver.maxResultSize": "2g"}` |
-| oom_driver_direct | `OutOfMemoryError:\s*Container memory exceeded` | `{"spark.driver.maxResultSize": "2g"}` |
-| oom_offheap | `OutOfMemoryError:\s*offheap` | `{"spark.memory.offHeap.enabled": "true", "spark.memory.offHeap.size": "2g"}` |
-| oom_storage | `OutOfMemoryError:\s*Storage memory` | `{"spark.memory.storageFraction": "0.3"}` |
-| container_killed_memory | `Container killed due to memory\|exceeding memory limits\|memory limits` | `{"spark.executor.memory": "4g", "spark.executor.memoryOverhead": "1g", "spark.driver.memory": "2g"}` |
-| gc_overhead | `GC overhead limit exceeded` | `{"spark.executor.memory": "8g", "spark.executor.memoryOverhead": "2g", "spark.driver.memory": "4g"}` |
 | broadcast_timeout | `BroadcastHashJoin.*timeout\|broadcast.*timeout` | `{"spark.sql.autoBroadcastJoinThreshold": "-1"}` |
-| shuffle_timeout | `shuffle.*timeout` | `{"spark.shuffle.io.timeout": "120s"}` |
-| network_timeout | `spark\.network\.timeout` | `{"spark.network.timeout": "300s"}` |
-| rpc_timeout | `RPC timeout` | `{"spark.rpc.timeout": "300s"}` |
-| executor_lost_heartbeat | `Executor heartbeat timeout` | `{"spark.executor.heartbeatInterval": "60s", "spark.network.timeout": "300s"}` |
-| driver_memory_insufficient | `System memory.*must be at least.*increase heap size.*driver-memory` | `{"spark.driver.memory": "512m", "spark.driver.memoryOverhead": "128m"}` |
-| executor_memory_insufficient | `Executor memory.*must be at least` | `{"spark.executor.memory": "1g", "spark.executor.memoryOverhead": "256m"}` |
+
+## RESOURCE_SUGGESTED
+
+资源类问题，Skill智能计算初步建议 + LLM验证补充。
+
+| error_type | pattern | skill_hint |
+|------------|---------|------------|
+| oom_executor | `java\.lang\.OutOfMemoryError:\s*Java heap space` | Executor OOM，结合数据量和当前配置计算合理内存 |
+| oom_driver | `OutOfMemoryError:\s*unable to create new native thread` | Driver OOM，结合任务复杂度计算合理内存 |
+| oom_driver_direct | `OutOfMemoryError:\s*Container memory exceeded` | Driver 内存超限，调整 maxResultSize |
+| oom_offheap | `OutOfMemoryError:\s*offheap` | OffHeap OOM，启用并配置堆外内存 |
+| oom_storage | `OutOfMemoryError:\s*Storage memory` | Storage OOM，调整存储比例 |
+| container_killed_memory | `Container killed due to memory\|exceeding memory limits\|memory limits` | Container被YARN终止，结合YARN日志分析资源需求 |
+| gc_overhead | `GC overhead limit exceeded` | GC开销过大，结合内存使用情况调整 |
+| shuffle_timeout | `shuffle.*timeout` | Shuffle超时，结合网络状况调整 |
+| network_timeout | `spark\.network\.timeout` | 网络超时，结合任务复杂度调整 |
+| rpc_timeout | `RPC timeout` | RPC超时，调整通信超时 |
+| executor_lost_heartbeat | `Executor heartbeat timeout` | Executor心跳超时，调整心跳间隔 |
+| driver_memory_insufficient | `System memory.*must be at least.*increase heap size.*driver-memory` | Driver内存不足，结合任务需求计算 |
+| executor_memory_insufficient | `Executor memory.*must be at least` | Executor内存不足，结合数据量计算 |
 
 ## KNOWN_NEEDS_LLM
 

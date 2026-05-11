@@ -1,8 +1,9 @@
 """
 错误分析模型
 
-分析结果分三类:
+分析结果分四类:
 - AUTO_FIXABLE: 已知且可直接修复（拼写错误等）
+- RESOURCE_SUGGESTED: 资源类问题，Skill智能计算初步建议 + LLM验证补充
 - KNOWN_NEEDS_LLM: 已知类型但需 LLM 深度分析（语法错误位置、具体原因）
 - UNKNOWN: 无匹配模式，完全交给 LLM 分析
 """
@@ -14,9 +15,10 @@ from enum import Enum
 
 class ErrorCategory(Enum):
     """错误分析类别"""
-    AUTO_FIXABLE = "AUTO_FIXABLE"       # Skill 可直接修复
-    KNOWN_NEEDS_LLM = "KNOWN_NEEDS_LLM"  # 已知类型，需 LLM 分析
-    UNKNOWN = "UNKNOWN"                  # 未知错误，完全交给 LLM
+    AUTO_FIXABLE = "AUTO_FIXABLE"           # Skill 可直接修复（拼写错误等）
+    RESOURCE_SUGGESTED = "RESOURCE_SUGGESTED"  # 资源问题，Skill计算+LLM验证
+    KNOWN_NEEDS_LLM = "KNOWN_NEEDS_LLM"      # 已知类型，需 LLM 分析
+    UNKNOWN = "UNKNOWN"                      # 未知错误，完全交给 LLM
 
 
 @dataclass
@@ -27,7 +29,7 @@ class ErrorAnalysis:
     error_type: str                      # oom_executor, syntax_error, command_not_found...
 
     # 分析类别（核心）
-    category: ErrorCategory              # AUTO_FIXABLE / KNOWN_NEEDS_LLM / UNKNOWN
+    category: ErrorCategory              # AUTO_FIXABLE / RESOURCE_SUGGESTED / KNOWN_NEEDS_LLM / UNKNOWN
 
     # 错误消息片段
     error_message: str                   # 日志片段（用于 LLM 分析）
@@ -37,6 +39,9 @@ class ErrorAnalysis:
 
     # 快速修复方案（仅 AUTO_FIXABLE 有）
     quick_fix: Optional[Dict] = None     # {"action_type": "modify_script", "script_changes": {"ech": "echo"}}
+
+    # Skill 计算的初步建议（仅 RESOURCE_SUGGESTED 有）
+    skill_suggestion: Optional[Dict] = None  # {"config_changes": {...}, "reasoning": "根据数据量10GB计算"}
 
     # 给 LLM 的提示（仅 KNOWN_NEEDS_LLM 有）
     llm_hint: Optional[str] = None       # 如 "语法错误，请定位具体位置和原因"
@@ -54,6 +59,7 @@ class ErrorAnalysis:
     # 任务类型特有信息
     spark_app_id: Optional[str] = None
     executor_count: Optional[int] = None
+    data_metrics: Optional[Dict] = None  # 数据量指标
 
 
 @dataclass

@@ -400,35 +400,33 @@ class SparkSkill(BaseSkill):
                         if match_result.get("error_type") != "unknown":
                             category = ErrorCategory(match_result["category"])
 
-                            # 3. 如果是 AUTO_FIXABLE，尝试调用 build_fix.py
+                            # 构建当前配置（从预处理中提取）
+                            current_config = {}
+                            for line in preprocessed.get("config_lines", []):
+                                if "=" in line:
+                                    key, value = line.split("=", 1)
+                                    key = key.strip()
+                                    value = value.strip()
+                                    if key.startswith("spark."):
+                                        current_config[key] = value
+
                             quick_fix = None
+                            skill_suggestion = None
+                            fix_result = None
+
+                            # 3. 如果是 AUTO_FIXABLE，直接构建修复方案
                             if category == ErrorCategory.AUTO_FIXABLE:
-                                # 动态导入 build_fix
                                 build_fix_path = scripts_dir / "build_fix.py"
                                 if build_fix_path.exists():
-                                    spec = importlib.util.spec_from_file_location(
-                                        "build_fix",
-                                        build_fix_path
-                                    )
+                                    spec = importlib.util.spec_from_file_location("build_fix", build_fix_path)
                                     build_fix_module = importlib.util.module_from_spec(spec)
                                     spec.loader.exec_module(build_fix_module)
-
-                                    # 构建当前配置（从预处理中提取）
-                                    current_config = {}
-                                    for line in preprocessed.get("config_lines", []):
-                                        # 解析 spark.xxx=value 格式
-                                        if "=" in line:
-                                            key, value = line.split("=", 1)
-                                            key = key.strip()
-                                            value = value.strip()
-                                            if key.startswith("spark."):
-                                                current_config[key] = value
 
                                     fix_result = build_fix_module.build_fix(
                                         match_result["error_type"],
                                         current_config,
-                                        {},  # cluster_limit - 需要从 context 获取
-                                        None  # historical_file
+                                        {},
+                                        None
                                     )
                                     if fix_result.get("status") == "success":
                                         quick_fix = {
@@ -436,10 +434,8 @@ class SparkSkill(BaseSkill):
                                             "config_changes": fix_result.get("config_changes", {}),
                                         }
                                 else:
-                                    # 如果没有 build_fix.py，使用 extra 字段作为 fix_action
                                     extra = match_result.get("extra", "")
                                     if extra and extra.startswith("{"):
-                                        # extra 是 JSON 格式的 config_changes
                                         try:
                                             config_changes = json.loads(extra)
                                             quick_fix = {
@@ -448,6 +444,28 @@ class SparkSkill(BaseSkill):
                                             }
                                         except json.JSONDecodeError:
                                             pass
+
+                            # 4. 如果是 RESOURCE_SUGGESTED，智能计算初步建议
+                            elif category == ErrorCategory.RESOURCE_SUGGESTED:
+                                build_fix_path = scripts_dir / "build_fix.py"
+                                if build_fix_path.exists():
+                                    spec = importlib.util.spec_from_file_location("build_fix", build_fix_path)
+                                    build_fix_module = importlib.util.module_from_spec(spec)
+                                    spec.loader.exec_module(build_fix_module)
+
+                                    # 调用增强版的资源计算（传入数据量）
+                                    fix_result = build_fix_module.build_resource_suggestion(
+                                        match_result["error_type"],
+                                        current_config,
+                                        data_metrics,  # 传入数据量指标
+                                        app_info,
+                                    )
+                                    if fix_result.get("status") == "success":
+                                        skill_suggestion = {
+                                            "config_changes": fix_result.get("config_changes", {}),
+                                            "reasoning": fix_result.get("reasoning", ""),
+                                            "data_analysis": fix_result.get("data_analysis", {}),
+                                        }
 
                             # 构建透明化分析报告
                             original_log_error = error_blocks[0] if error_blocks else error_text[:300]
@@ -474,6 +492,11 @@ class SparkSkill(BaseSkill):
                                         reasoning += "（受集群资源限制调整）"
                                 else:
                                     reasoning = "根据错误模式匹配结果，提供标准修复方案"
+                            elif category == ErrorCategory.RESOURCE_SUGGESTED:
+                                if skill_suggestion:
+                                    reasoning = skill_suggestion.get("reasoning", "根据数据量和配置智能计算")
+                                else:
+                                    reasoning = match_result.get("extra", "") or "资源类问题，需结合数据量分析"
                             elif category == ErrorCategory.KNOWN_NEEDS_LLM:
                                 reasoning = match_result.get("extra", "") or "已知错误类型，需进一步分析具体原因"
                             else:
@@ -484,8 +507,9 @@ class SparkSkill(BaseSkill):
                                 category=category,
                                 error_message=match_result.get("error_message", error_text[:500]),
                                 matched_pattern=match_result.get("matched_pattern", ""),
-                                llm_hint=match_result.get("extra", "") if category == ErrorCategory.KNOWN_NEEDS_LLM else "",
+                                llm_hint=match_result.get("extra", "") if category in [ErrorCategory.KNOWN_NEEDS_LLM, ErrorCategory.RESOURCE_SUGGESTED] else "",
                                 quick_fix=quick_fix,
+                                skill_suggestion=skill_suggestion,
                                 original_log_error=original_log_error,
                                 analysis_process=analysis_process,
                                 reasoning=reasoning,

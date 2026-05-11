@@ -129,14 +129,84 @@ def analyze_error(state: AgentState) -> AgentState:
             error_patterns = [skill_result.error_type]
             error_category = _map_error_category(skill_result.error_type)
             suggested_actions = _build_actions_from_skill(skill, skill_result)
-            confidence_score = skill_result.confidence
 
             error_analysis = {
                 "error_type": skill_result.error_type,
                 "error_message": skill_result.error_message[:500] if skill_result.error_message else "",
                 "category": "AUTO_FIXABLE",
                 "quick_fix": skill_result.quick_fix,
+                "analysis_process": skill_result.analysis_process,
+                "reasoning": skill_result.reasoning,
             }
+
+        elif skill_result.category == ErrorCategory.RESOURCE_SUGGESTED:
+            # Skill 已智能计算初步建议，调用 LLM 验证和补充
+            print(f"[INFO] RESOURCE_SUGGESTED - Skill calculated, LLM validates")
+            skill_suggestion = skill_result.skill_suggestion or {}
+            print(f"  >> Skill suggestion: {skill_suggestion.get('config_changes', {})}")
+            print(f"  >> Skill reasoning: {skill_suggestion.get('reasoning', '')}")
+
+            llm_client = LLMClient()
+            llm_result = llm_client.analyze(
+                log_excerpt=logs[:2000],
+                task_type=task_type,
+                skill_result={
+                    "error_type": skill_result.error_type,
+                    "error_message": skill_result.error_message[:500] if skill_result.error_message else "",
+                    "llm_hint": f"资源类问题，Skill 已计算初步建议：{skill_suggestion.get('reasoning', '')}，请验证并补充优化建议",
+                    # Skill 计算的初步建议
+                    "skill_suggestion": skill_suggestion,
+                    # 传递预处理结果
+                    "config_lines": config_lines[:10],
+                    "error_blocks": error_blocks[:2],
+                    "data_metrics": data_metrics,
+                    "app_info": app_info,
+                }
+            )
+
+            if llm_result.get("confidence", 0) > 0:
+                print(f"  >> LLM validated: {llm_result.get('error_description', '')[:100]}")
+                error_patterns = [skill_result.error_type]
+                error_category = "RESOURCE"
+
+                # 合并 Skill 建议和 LLM 补充
+                suggested_actions = llm_result.get("suggested_actions", [])
+                if skill_suggestion.get("config_changes"):
+                    suggested_actions.append({
+                        "action_type": "modify_config",
+                        "description": skill_suggestion.get("reasoning", "Skill 智能计算"),
+                        "config_changes": skill_suggestion.get("config_changes"),
+                        "source": "skill_calculated",
+                    })
+
+                error_analysis = {
+                    "error_type": skill_result.error_type,
+                    "error_message": llm_result.get("error_description", skill_result.error_message[:200] if skill_result.error_message else ""),
+                    "category": "RESOURCE_SUGGESTED",
+                    "skill_suggestion": skill_suggestion,
+                    "llm_validation": llm_result,
+                    "analysis_process": skill_result.analysis_process,
+                    "reasoning": f"Skill计算: {skill_suggestion.get('reasoning', '')}，LLM验证: {llm_result.get('error_description', '')[:100]}",
+                }
+            else:
+                # LLM 验证失败，使用 Skill 建议
+                print("[WARN] LLM validation failed, use Skill suggestion")
+                error_patterns = [skill_result.error_type]
+                error_category = "RESOURCE"
+                suggested_actions = [{
+                    "action_type": "modify_config",
+                    "description": skill_suggestion.get("reasoning", "Skill 智能计算（LLM验证失败）"),
+                    "config_changes": skill_suggestion.get("config_changes", {}),
+                }]
+
+                error_analysis = {
+                    "error_type": skill_result.error_type,
+                    "error_message": skill_result.error_message[:500] if skill_result.error_message else "",
+                    "category": "RESOURCE_SUGGESTED",
+                    "skill_suggestion": skill_suggestion,
+                    "analysis_process": skill_result.analysis_process,
+                    "reasoning": skill_suggestion.get("reasoning", ""),
+                }
 
         elif skill_result.category == ErrorCategory.KNOWN_NEEDS_LLM:
             # Known type, needs LLM deep analysis
