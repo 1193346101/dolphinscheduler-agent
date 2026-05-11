@@ -6,19 +6,29 @@ Skill 是快速预判器:
 - AUTO_FIXABLE: 拼写错误，直接返回修复方案
 - KNOWN_NEEDS_LLM: 已知类型（语法错误等），给 LLM 提供提示
 - UNKNOWN: 无匹配，完全交给 LLM
+
+改进: 使用 SKILL.md 脚本进行预处理和模式匹配
 """
 
 import re
-from typing import Optional, Dict, Tuple
+import json
+import subprocess
+from pathlib import Path
+from typing import Optional, Dict, Tuple, Any
 from ..models.analysis import ErrorAnalysis, ErrorCategory
 from ..models.risk import RiskLevel, AutoFixAction
 from ..models.alert import AlertContext
 from .base import BaseSkill
+from .common.preprocess_log import preprocess_log
 
 
 class ShellSkill(BaseSkill):
     """
     Shell 任务分析 Skill
+
+    使用脚本化流程:
+    1. preprocess_log.py - 提取关键信息
+    2. match_error.py - 匹配错误模式
     """
 
     skill_name = "shell"
@@ -373,74 +383,97 @@ class ShellSkill(BaseSkill):
         ),
     }
 
-    # 常见命令拼写错误映射
-    common_spell_errors = {
-        # echo
-        "ech": "echo", "ecoh": "echo", "ehco": "echo", "echoh": "echo",
-        # git
-        "giit": "git", "gti": "git", "gut": "git", "gitt": "git",
-        # python
-        "pyton": "python", "pyhton": "python", "pthon": "python",
-        "pytho": "python", "pythn": "python",
-        # pip
-        "piip": "pip", "ppi": "pip", "pi": "pip",
-        # npm
-        "npmi": "npm", "npn": "npm", "nppm": "npm",
-        # cat
-        "catt": "cat", "cta": "cat", "act": "cat",
-        # ls
-        "lsr": "ls", "sl": "ls", "lsl": "ls",
-        # cd
-        "cdl": "cd", "dc": "cd", "cdd": "cd",
-        # mkdir
-        "mdkir": "mkdir", "mkdr": "mkdir", "mkdi": "mkdir", "mkdri": "mkdir",
-        # rm
-        "rmm": "rm", "mr": "rm", "rem": "rm",
-        # mv
-        "mvv": "mv", "vm": "mv",
-        # cp
-        "cpp": "cp", "pc": "cp", "copy": "cp",
-        # grep
-        "greep": "grep", "gerp": "grep", "grpe": "grep", "gree": "grep",
-        # sed
-        "seed": "sed", "sde": "sed", "seedd": "sed",
-        # awk
-        "akw": "awk", "wak": "awk", "aawk": "awk",
-        # find
-        "fin": "find", "fnd": "find", "fidn": "find",
-        # chmod
-        "chomd": "chmod", "chmd": "chmod", "chmodd": "chmod",
-        # chown
-        "chwon": "chown", "chonw": "chown",
-        # tar
-        "tarr": "tar", "tra": "tar",
-        # curl
-        "curlr": "curl", "crul": "curl", "crl": "curl",
-        # wget
-        "wgett": "wget", "wgt": "wget", "weget": "wget",
-        # docker
-        "dockr": "docker", "docke": "docker", "dockerr": "docker",
-        # kubectl
-        "kubctl": "kubectl", "kubect": "kubectl", "kubectll": "kubectl",
-        # ssh
-        "sssh": "ssh", "ss": "ssh",
-        # scp
-        "sccp": "scp", "spp": "scp",
-    }
+    def _get_scripts_dir(self) -> Optional[Path]:
+        """获取 shell-error-analyzer scripts 目录"""
+        scripts_dir = Path(__file__).parent / "shell-error-analyzer" / "scripts"
+        if scripts_dir.exists():
+            return scripts_dir
+        return None
 
-    # 常见参数拼写错误
-    common_arg_errors = {
-        "-hlep": "-help", "-hlepme": "-help",
-        "-versoin": "-version", "-verison": "-version",
-        "-qeuit": "-quit",
-        "-instal": "-install", "-instll": "-install",
-        "--versoin": "--version", "--verison": "--version",
-        "--instal": "--install", "--instll": "--install",
-        "--hlep": "--help", "--hlepme": "--help",
-    }
+    def _get_patterns_file(self) -> Optional[Path]:
+        """获取 shell_patterns.md 文件路径"""
+        skill_dir = Path(__file__).parent / "shell-error-analyzer"
+        patterns_file = skill_dir / "shell_patterns.md"
+        if patterns_file.exists():
+            return patterns_file
+        return None
+
+    def _call_script(self, script_name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        调用脚本并返回结果
+
+        Args:
+            script_name: 脚本文件名 (如 match_error.py)
+            args: 脚本参数
+
+        Returns:
+            脚本输出的 JSON 解析结果
+        """
+        scripts_dir = self._get_scripts_dir()
+        if not scripts_dir:
+            return {"error": "scripts_dir_not_found"}
+
+        script_path = scripts_dir / script_name
+        if not script_path.exists():
+            return {"error": "script_not_found"}
+
+        try:
+            # 使用 subprocess 调用脚本
+            cmd = ["python", str(script_path)]
+            for key, value in args.items():
+                cmd.extend([f"--{key}", str(value)])
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            if result.returncode != 0:
+                return {"error": "script_failed", "stderr": result.stderr}
+
+            return json.loads(result.stdout)
+        except subprocess.TimeoutExpired:
+            return {"error": "timeout"}
+        except json.JSONDecodeError:
+            return {"error": "invalid_json", "stdout": result.stdout}
+        except Exception as e:
+            return {"error": str(e)}
 
     def analyze(self, log_content: str, context: AlertContext) -> ErrorAnalysis:
-        """分析 Shell 脚本错误"""
+        """分析 Shell 脚本错误 - 使用脚本化流程"""
+        # 1. 日志预处理
+        preprocessed = preprocess_log(log_content, task_type="shell")
+        error_blocks = preprocessed.get("error_blocks", [])
+        if not error_blocks:
+            # 没有错误块，使用 fallback
+            return self._legacy_analyze(log_content, context)
+
+        # 合并错误块
+        error_text = "\n".join(error_blocks)
+
+        # 2. 尝试使用 match_error.py 脚本
+        patterns_file = self._get_patterns_file()
+        if patterns_file:
+            from .shell_error_analyzer.scripts.match_error import match_error
+            match_result = match_error(error_text, str(patterns_file))
+
+            if match_result.get("error_type") != "unknown":
+                return ErrorAnalysis(
+                    error_type=match_result["error_type"],
+                    category=ErrorCategory(match_result["category"]),
+                    error_message=match_result.get("error_message", error_text[:500]),
+                    matched_pattern=match_result.get("matched_pattern", ""),
+                    llm_hint=match_result.get("extra", ""),
+                    confidence=0.85,
+                )
+
+        # 3. Fallback: 使用 legacy 分析
+        return self._legacy_analyze(log_content, context)
+
+    def _legacy_analyze(self, log_content: str, context: AlertContext) -> ErrorAnalysis:
+        """Legacy 分析方法 - 作为 fallback"""
         log_lower = log_content.lower()
 
         # 遍历错误模式
@@ -487,23 +520,14 @@ class ShellSkill(BaseSkill):
         )
 
     def _try_build_quick_fix(self, log_content: str, error_type: str) -> Optional[Dict]:
-        """尝试构建快速修复方案"""
+        """尝试构建快速修复方案 - Shell 命令很少可自动修复"""
+        # Shell 命令拼写错误的自动修复已移至 match_error.py 脚本
+        # 这里只保留 command_not_found 的基本处理
         if error_type == "command_not_found":
             wrong_cmd = self._extract_wrong_command(log_content)
-            if wrong_cmd and wrong_cmd in self.common_spell_errors:
-                correct_cmd = self.common_spell_errors[wrong_cmd]
-                return {
-                    "action_type": "modify_script",
-                    "script_changes": {wrong_cmd: correct_cmd},
-                }
-
-            # 检查参数拼写错误
-            for wrong_arg, correct_arg in self.common_arg_errors.items():
-                if wrong_arg in log_content:
-                    return {
-                        "action_type": "modify_script",
-                        "script_changes": {wrong_arg: correct_arg},
-                    }
+            if wrong_cmd:
+                # 返回提示信息，让 LLM 分析正确的命令
+                return None  # Shell 拼写错误需要人工确认
 
         return None
 

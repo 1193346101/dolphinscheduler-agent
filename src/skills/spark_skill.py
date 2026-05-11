@@ -6,19 +6,30 @@ Skill 是快速预判器:
 - AUTO_FIXABLE: OOM、Broadcast timeout 等，直接返回配置调整方案
 - KNOWN_NEEDS_LLM: ClassNotFound、Shuffle 失败等，给 LLM 提供提示
 - UNKNOWN: 无匹配，完全交给 LLM
+
+改进: 使用 SKILL.md 脚本进行预处理、模式匹配和修复构建
 """
 
 import re
-from typing import Optional, Dict, Tuple
+import json
+import subprocess
+from pathlib import Path
+from typing import Optional, Dict, Tuple, Any
 from ..models.analysis import ErrorAnalysis, ErrorCategory
 from ..models.risk import RiskLevel, AutoFixAction
 from ..models.alert import AlertContext
 from .base import BaseSkill
+from .common.preprocess_log import preprocess_log
 
 
 class SparkSkill(BaseSkill):
     """
     Spark 任务分析 Skill
+
+    使用脚本化流程:
+    1. preprocess_log.py - 提取关键信息
+    2. match_error.py - 匹配错误模式
+    3. build_fix.py - 构建修复方案 (AUTO_FIXABLE)
     """
 
     skill_name = "spark"
