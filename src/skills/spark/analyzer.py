@@ -37,77 +37,74 @@ class SparkSkill(BaseSkill):
 
     # 错误模式: (pattern, category, llm_hint)
     error_patterns: Dict[str, Tuple[str, str, str]] = {
-        # === 可自动修复（配置调整） ===
+        # === 资源类问题：智能计算 + LLM 验证 ===
         "oom_executor": (
             "java.lang.OutOfMemoryError: Java heap space",
-            ErrorCategory.AUTO_FIXABLE,
-            ""
+            ErrorCategory.RESOURCE_SUGGESTED,
+            "Executor OOM，结合数据量和当前配置计算合理内存"
         ),
         "oom_driver": (
             "OutOfMemoryError: unable to create new native thread",
-            ErrorCategory.AUTO_FIXABLE,
-            ""
+            ErrorCategory.RESOURCE_SUGGESTED,
+            "Driver OOM，结合任务复杂度计算合理内存"
         ),
         "oom_driver_direct": (
             "OutOfMemoryError: Container memory exceeded",
-            ErrorCategory.AUTO_FIXABLE,
-            ""
+            ErrorCategory.RESOURCE_SUGGESTED,
+            "Driver 内存超限，调整 maxResultSize"
         ),
         "oom_offheap": (
             "OutOfMemoryError: offheap",
-            ErrorCategory.AUTO_FIXABLE,
-            ""
+            ErrorCategory.RESOURCE_SUGGESTED,
+            "OffHeap OOM，启用并配置堆外内存"
         ),
         "oom_storage": (
             "OutOfMemoryError: Storage memory",
-            ErrorCategory.AUTO_FIXABLE,
-            ""
+            ErrorCategory.RESOURCE_SUGGESTED,
+            "Storage OOM，调整存储比例"
         ),
-        # Driver memory insufficient
         "driver_memory_insufficient": (
             "System memory.*must be at least.*increase heap size.*driver-memory",
-            ErrorCategory.AUTO_FIXABLE,
-            "Spark Driver 内存配置不足，需要增加 driver-memory"
+            ErrorCategory.RESOURCE_SUGGESTED,
+            "Driver 内存配置不足，结合任务需求计算"
         ),
-        # Executor memory insufficient (common case)
         "executor_memory_insufficient": (
             "Executor memory.*must be at least",
-            ErrorCategory.AUTO_FIXABLE,
-            "Spark Executor 内存配置不足，需要增加 executor-memory"
-        ),
-        "broadcast_timeout": (
-            "BroadcastHashJoin.*timeout|broadcast.*timeout",
-            ErrorCategory.AUTO_FIXABLE,
-            ""
+            ErrorCategory.RESOURCE_SUGGESTED,
+            "Executor 内存配置不足，结合数据量计算"
         ),
         "shuffle_timeout": (
             "shuffle.*timeout",
-            ErrorCategory.AUTO_FIXABLE,
-            ""
+            ErrorCategory.RESOURCE_SUGGESTED,
+            "Shuffle 超时，结合网络状况调整"
         ),
         "network_timeout": (
             "spark.network.timeout",
-            ErrorCategory.AUTO_FIXABLE,
-            ""
+            ErrorCategory.RESOURCE_SUGGESTED,
+            "网络超时，结合任务复杂度调整"
         ),
         "rpc_timeout": (
             "RPC timeout",
-            ErrorCategory.AUTO_FIXABLE,
-            ""
+            ErrorCategory.RESOURCE_SUGGESTED,
+            "RPC 超时，调整通信超时"
         ),
         "executor_lost_heartbeat": (
             "Executor heartbeat timeout",
-            ErrorCategory.AUTO_FIXABLE,
-            ""
+            ErrorCategory.RESOURCE_SUGGESTED,
+            "Executor 心跳超时，调整心跳间隔"
         ),
         "gc_overhead": (
             "GC overhead limit exceeded",
-            ErrorCategory.AUTO_FIXABLE,
-            ""
+            ErrorCategory.RESOURCE_SUGGESTED,
+            "GC 开销过大，结合内存使用情况调整"
         ),
 
         # === 已知类型，需 LLM 分析 ===
-        # Config errors
+        "broadcast_timeout": (
+            "BroadcastHashJoin.*timeout|broadcast.*timeout|Could not broadcast",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "广播超时，请分析是否数据量变化或网络拥堵导致，对比历史执行情况给出合理建议"
+        ),
         "class_not_found": (
             "ClassNotFoundException",
             ErrorCategory.KNOWN_NEEDS_LLM,

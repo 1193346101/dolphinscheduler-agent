@@ -6,9 +6,7 @@
 
 可直接修复的简单问题（拼写错误、配置项缺失等）。
 
-| error_type | pattern | fix_action |
-|------------|---------|------------|
-| broadcast_timeout | `BroadcastHashJoin.*timeout\|broadcast.*timeout` | `{"spark.sql.autoBroadcastJoinThreshold": "-1"}` |
+目前无 AUTO_FIXABLE 类型。所有资源类问题走 RESOURCE_SUGGESTED，其他问题走 KNOWN_NEEDS_LLM。
 
 ## RESOURCE_SUGGESTED
 
@@ -36,6 +34,7 @@
 
 | error_type | pattern | llm_hint |
 |------------|---------|----------|
+| broadcast_timeout | `BroadcastHashJoin.*timeout\|broadcast.*timeout\|Could not broadcast` | Spark 广播超时，请分析是否数据量变化或网络拥堵导致，对比历史执行情况给出合理建议 |
 | class_not_found | `ClassNotFoundException` | Spark 类找不到，请分析缺失的类名和需要的依赖包 |
 | no_class_def | `NoClassDefFoundError` | Spark 类定义找不到，请分析类名和依赖加载问题 |
 | jar_not_found | `jar not found\|could not find jar` | Spark Jar 包找不到，请检查 Jar 包路径 |
