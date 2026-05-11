@@ -144,6 +144,7 @@ def match_intent(message: str) -> Dict:
     matchers = [
         match_help,
         match_recover,
+        match_query_workflow_instances,  # 新增：优先匹配实例查询
         match_scan_graph,
         match_visualize,
         match_table_lineage,
@@ -244,6 +245,40 @@ def match_query_workflows(message: str) -> Dict:
         return None
     project = extract_project(message)
     return {"intent_type": "query_workflow", "project_name": project or ""}
+
+
+def match_query_workflow_instances(message: str) -> Dict:
+    """匹配工作流实例查询（运行记录）"""
+    # 关键词：实例、执行、运行、今天、昨天
+    instance_words = ["实例", "执行了", "运行记录", "运行情况", "任务执行"]
+    time_words = ["今天", "今日", "昨天", "昨日"]
+
+    has_instance_context = any(word in message for word in instance_words)
+    has_time_context = any(word in message for word in time_words)
+
+    # 必须有实例关键词或时间关键词
+    if not (has_instance_context or has_time_context):
+        return None
+
+    # 提取项目名
+    project = extract_project(message)
+    if not project:
+        return None
+
+    # 提取日期
+    query_date = None
+    if "今天" in message or "今日" in message:
+        from datetime import date
+        query_date = date.today().strftime("%Y-%m-%d")
+    elif "昨天" in message or "昨日" in message:
+        from datetime import date, timedelta
+        query_date = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+
+    return {
+        "intent_type": "query_workflow_instances",
+        "project_name": project,
+        "query_date": query_date,
+    }
 
 
 def extract_project(message: str) -> str:
