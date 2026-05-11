@@ -60,6 +60,12 @@ class OSSValidator:
         if self._config:
             self._init_ossutil_config()
 
+        # 初始化安全模块
+        from ...security import CommandGuard, AuditLogger, SecurityAlert
+        self.guard = CommandGuard()
+        self.audit = AuditLogger()
+        self.alert = SecurityAlert()
+
     def _load_config_from_env(self) -> Optional[OSSConfig]:
         """从环境变量加载 OSS 配置"""
         endpoint = os.getenv("OSS_ENDPOINT")
@@ -98,7 +104,7 @@ accessKeySecret={self._config.access_key_secret}
 
     def _run_ossutil(self, args: List[str], timeout: int = 30) -> subprocess.CompletedProcess:
         """
-        执行 ossutil 命令
+        执行 ossutil 命令（增加安全检查）
 
         Args:
             args: 命令参数列表
@@ -107,6 +113,28 @@ accessKeySecret={self._config.access_key_secret}
         Returns:
             subprocess.CompletedProcess 结果
         """
+        # 安全检查
+        guard_result = self.guard.check_oss_command(args)
+
+        if guard_result.blocked:
+            self.audit.log_blocked(
+                operation_type="ossutil",
+                operation_detail=guard_result.operation_detail,
+                reason=guard_result.reason,
+                risk_level=guard_result.risk_level,
+            )
+            self.alert.send_blocked_alert(
+                operation_type="ossutil",
+                operation_detail=guard_result.operation_detail,
+                reason=guard_result.reason,
+            )
+            return subprocess.CompletedProcess(
+                args=["ossutil"] + args,
+                returncode=-1,
+                stdout="",
+                stderr=guard_result.reason,
+            )
+
         cmd = ["ossutil"]
 
         # 使用指定的配置文件
@@ -116,13 +144,28 @@ accessKeySecret={self._config.access_key_secret}
         cmd.extend(args)
 
         try:
-            return subprocess.run(
+            result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
                 timeout=timeout,
             )
+
+            # 记录审计
+            self.audit.log_success(
+                operation_type="ossutil",
+                operation_detail="ossutil " + " ".join(args),
+                risk_level="LOW",
+            )
+
+            return result
+
         except subprocess.TimeoutExpired:
+            self.audit.log_failed(
+                operation_type="ossutil",
+                operation_detail="ossutil " + " ".join(args),
+                error="ossutil command timeout",
+            )
             return subprocess.CompletedProcess(
                 args=cmd,
                 returncode=-1,
@@ -130,6 +173,11 @@ accessKeySecret={self._config.access_key_secret}
                 stderr="ossutil command timeout",
             )
         except FileNotFoundError:
+            self.audit.log_failed(
+                operation_type="ossutil",
+                operation_detail="ossutil " + " ".join(args),
+                error="ossutil not installed",
+            )
             return subprocess.CompletedProcess(
                 args=cmd,
                 returncode=-2,
