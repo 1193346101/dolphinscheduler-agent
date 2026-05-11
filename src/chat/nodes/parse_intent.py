@@ -1,11 +1,14 @@
 """
 Parse Intent Node - 智能意图解析
 
-使用关键词+规则匹配，不依赖 LLM
+使用关键词匹配，LLM 备用
 """
 
 import re
-from typing import Dict, Any, List, Tuple
+import json
+import os
+import requests
+from typing import Dict, Any
 
 from ..state import ChatState
 
@@ -35,8 +38,14 @@ def parse_intent_node(state: ChatState) -> ChatState:
     message = message.strip()
     print(f"[parse_intent] 解析消息: {message}")
 
-    # 智能意图匹配
+    # 先用规则匹配（快速）
     result = match_intent(message)
+
+    # 如果规则匹配失败，尝试 LLM
+    if result.get("intent_type") == "unknown":
+        llm_result = parse_with_llm(message)
+        if llm_result and llm_result.get("intent_type") != "unknown":
+            result = llm_result
 
     print(f"[parse_intent] 解析结果: {result}")
 
@@ -51,13 +60,84 @@ def parse_intent_node(state: ChatState) -> ChatState:
     }
 
 
-def match_intent(message: str) -> Dict:
+def parse_with_llm(message: str) -> Dict:
     """
-    智能匹配意图
+    使用 LLM 解析意图（HTTP 直接调用）
+    """
+    api_url = os.environ.get("LLM_API_URL", "")
+    api_token = os.environ.get("LLM_API_KEY", "") or os.environ.get("ANTHROPIC_API_KEY", "")
+    model = os.environ.get("LLM_MODEL", "glm-5")
 
-    使用关键词识别 + 参数提取，比正则更灵活
-    """
-    # 按优先级匹配意图
+    if not api_url or not api_token:
+        return {"intent_type": "unknown"}
+
+    prompt = f"""分析用户消息，提取意图类型和参数，返回 JSON 格式。
+
+支持的意图类型：
+- query_workflow: 查询项目工作流列表，参数 project_name
+- query_status: 查询工作流状态，参数 workflow_code
+- query_logs: 查看日志，参数 workflow_code
+- recover_failure: 恢复失败工作流，参数 workflow_code
+- lineage_query: 血缘查询，参数 query_type(downstream/upstream/table_consumer/table_producer), workflow_code/table_name
+- scan_graph: 扫描项目图谱，参数 project_name
+- visualize_lineage: 可视化血缘链路，参数 workflow_code
+- help: 帮助
+- unknown: 未知意图
+
+用户消息：{message}
+
+返回 JSON：{{"intent_type": "xxx", "project_name": "xxx", "workflow_code": "xxx", "query_type": "xxx", "table_name": "xxx"}}"""
+
+    try:
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_token}",
+            "x-api-key": api_token,
+        }
+
+        payload = {
+            "model": model,
+            "max_tokens": 256,
+            "messages": [{"role": "user", "content": prompt}]
+        }
+
+        print(f"[parse_intent] Calling LLM: {api_url}/v1/messages")
+
+        response = requests.post(
+            f"{api_url}/v1/messages",
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
+
+        if response.status_code != 200:
+            print(f"[parse_intent] LLM error: {response.status_code}")
+            return {"intent_type": "unknown"}
+
+        data = response.json()
+        content = data.get("content", [])
+        text = ""
+        for item in content:
+            if item.get("type") == "text":
+                text = item.get("text", "")
+                break
+
+        # 解析 JSON
+        json_start = text.find("{")
+        json_end = text.rfind("}") + 1
+        if json_start >= 0 and json_end > json_start:
+            parsed = json.loads(text[json_start:json_end])
+            print(f"[parse_intent] LLM result: {parsed}")
+            return parsed
+
+    except Exception as e:
+        print(f"[parse_intent] LLM exception: {e}")
+
+    return {"intent_type": "unknown"}
+
+
+def match_intent(message: str) -> Dict:
+    """智能匹配意图"""
     matchers = [
         match_help,
         match_recover,
@@ -79,7 +159,6 @@ def match_intent(message: str) -> Dict:
 
 
 def match_help(message: str) -> Dict:
-    """匹配帮助意图"""
     help_words = ["帮助", "help", "怎么用", "使用方法", "指令", "命令"]
     if any(word in message.lower() for word in help_words):
         return {"intent_type": "help"}
@@ -87,58 +166,34 @@ def match_help(message: str) -> Dict:
 
 
 def match_recover(message: str) -> Dict:
-    """匹配恢复失败意图"""
     recover_words = ["恢复", "重跑", "重新运行", "retry"]
     if not any(word in message for word in recover_words):
         return None
-
-    # 提取工作流
     workflow = extract_workflow(message)
-    if workflow:
-        return {"intent_type": "recover_failure", "workflow_code": workflow}
-    return {"intent_type": "recover_failure"}
+    return {"intent_type": "recover_failure", "workflow_code": workflow or ""}
 
 
 def match_scan_graph(message: str) -> Dict:
-    """匹配扫描图谱意图"""
     if "图谱" not in message:
         return None
-
-    scan_words = ["扫描", "更新", "刷新", "重建"]
-    if not any(word in message for word in scan_words):
-        # 检查 "项目xxx图谱"
-        project = extract_project(message)
-        if project:
-            return {"intent_type": "scan_graph", "project_name": project}
-        return None
-
     project = extract_project(message)
-    if project:
-        return {"intent_type": "scan_graph", "project_name": project}
-    return {"intent_type": "scan_graph"}
+    return {"intent_type": "scan_graph", "project_name": project or ""}
 
 
 def match_visualize(message: str) -> Dict:
-    """匹配可视化意图"""
     viz_words = ["展示", "可视化", "影响链路", "链路图", "依赖图"]
     if not any(word in message for word in viz_words):
         return None
-
     workflow = extract_workflow(message)
-    if workflow:
-        return {"intent_type": "visualize_lineage", "workflow_code": workflow}
-    return {"intent_type": "visualize_lineage"}
+    return {"intent_type": "visualize_lineage", "workflow_code": workflow or ""}
 
 
 def match_table_lineage(message: str) -> Dict:
-    """匹配表血缘查询"""
     if "表" not in message:
         return None
-
     table_name = extract_table(message)
     if not table_name:
         return None
-
     if "消费" in message or "使用" in message:
         return {"intent_type": "lineage_query", "query_type": "table_consumer", "table_name": table_name}
     if "产出" in message or "生产" in message:
@@ -147,14 +202,11 @@ def match_table_lineage(message: str) -> Dict:
 
 
 def match_workflow_lineage(message: str) -> Dict:
-    """匹配工作流血缘查询"""
     if "工作流" not in message:
         return None
-
     workflow = extract_workflow(message)
     if not workflow:
         return None
-
     if "下游" in message:
         return {"intent_type": "lineage_query", "query_type": "downstream", "workflow_code": workflow}
     if "上游" in message or "依赖" in message:
@@ -165,90 +217,59 @@ def match_workflow_lineage(message: str) -> Dict:
 
 
 def match_workflow_status(message: str) -> Dict:
-    """匹配查询状态意图"""
     status_words = ["状态", "运行情况", "进度", "执行情况"]
     if not any(word in message for word in status_words):
         return None
-
     workflow = extract_workflow(message)
-    if workflow:
-        return {"intent_type": "query_status", "workflow_code": workflow}
-    return {"intent_type": "query_status"}
+    return {"intent_type": "query_status", "workflow_code": workflow or ""}
 
 
 def match_workflow_logs(message: str) -> Dict:
-    """匹配查询日志意图"""
     log_words = ["日志", "log", "输出", "报错信息"]
     if not any(word in message for word in log_words):
         return None
-
     workflow = extract_workflow(message)
-    if workflow:
-        return {"intent_type": "query_logs", "workflow_code": workflow}
-    return {"intent_type": "query_logs"}
+    return {"intent_type": "query_logs", "workflow_code": workflow or ""}
 
 
 def match_query_workflows(message: str) -> Dict:
-    """匹配查询项目工作流意图"""
     workflow_words = ["工作流", "有哪些", "列表", "workflow"]
     project_words = ["项目"]
-
     has_workflow_context = any(word in message for word in workflow_words)
     has_project_context = any(word in message for word in project_words)
-
     if not (has_workflow_context and has_project_context):
         return None
-
     project = extract_project(message)
-    if project:
-        return {"intent_type": "query_workflow", "project_name": project}
-    return {"intent_type": "query_workflow"}
+    return {"intent_type": "query_workflow", "project_name": project or ""}
 
-
-# ============ 参数提取函数 ============
 
 def extract_project(message: str) -> str:
-    """从消息中提取项目名"""
-    # 移除常见干扰词
     clean_msg = message
     for word in ["查询", "项目", "的", "下", "有哪些", "工作流", "图谱", "扫描"]:
         clean_msg = clean_msg.replace(word, " ")
-
-    # 提取连续的字母数字下划线
     matches = re.findall(r'[a-zA-Z_][a-zA-Z0-9_]*', clean_msg)
     if matches:
         return matches[0]
-
-    # 尝试提取中文项目名
     match = re.search(r'项目\s*(\S+)', message)
     if match:
         return match.group(1)
-
     return ""
 
 
 def extract_workflow(message: str) -> str:
-    """从消息中提取工作流"""
-    # 先匹配 "工作流 xxx"
     match = re.search(r'工作流\s+(\S+)', message)
     if match:
         return match.group(1)
-
-    # 匹配纯数字/代码
     match = re.search(r'(\d{5,})', message)
     if match:
         return match.group(1)
-
-    # 匹配字母数字组合
     match = re.search(r'[a-zA-Z_][a-zA-Z0-9_]{4,}', message)
     if match:
         return match.group(0)
-
     return ""
 
 
 def extract_table(message: str) -> str:
-    """从消息中提取表名"""
     match = re.search(r'表\s+(\S+)', message)
     if match:
         return match.group(1)
