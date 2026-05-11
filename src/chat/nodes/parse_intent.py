@@ -1,16 +1,15 @@
 """
 Parse Intent Node - 智能意图解析
 
-使用关键词匹配，LLM 备用
+使用关键词匹配，LLM 备用（统一使用 LLMClient）
 """
 
 import re
 import json
-import os
-import requests
 from typing import Dict, Any
 
 from ..state import ChatState
+from ...tools.llm_client import LLMClient
 
 
 def parse_intent_node(state: ChatState) -> ChatState:
@@ -62,14 +61,11 @@ def parse_intent_node(state: ChatState) -> ChatState:
 
 def parse_with_llm(message: str) -> Dict:
     """
-    使用 LLM 解析意图（HTTP 直接调用）
-    """
-    api_url = os.environ.get("LLM_API_URL", "")
-    api_token = os.environ.get("LLM_API_KEY", "") or os.environ.get("ANTHROPIC_API_KEY", "")
-    model = os.environ.get("LLM_MODEL", "glm-5")
+    使用 LLM 解析意图（统一使用 LLMClient）
 
-    if not api_url or not api_token:
-        return {"intent_type": "unknown"}
+    继承 LLMClient 的默认配置，无需单独配置环境变量
+    """
+    llm_client = LLMClient()
 
     prompt = f"""分析用户消息，提取意图类型和参数，返回 JSON 格式。
 
@@ -91,20 +87,22 @@ def parse_with_llm(message: str) -> Dict:
     try:
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_token}",
-            "x-api-key": api_token,
+            "Authorization": f"Bearer {llm_client.api_token}",
+            "x-api-key": llm_client.api_token,
         }
 
         payload = {
-            "model": model,
+            "model": llm_client.model,
             "max_tokens": 256,
             "messages": [{"role": "user", "content": prompt}]
         }
 
-        print(f"[parse_intent] Calling LLM: {api_url}/v1/messages")
+        print(f"[parse_intent] Calling LLM: {llm_client.api_url}/v1/messages")
+        print(f"[parse_intent] Model: {llm_client.model}")
 
+        import requests
         response = requests.post(
-            f"{api_url}/v1/messages",
+            f"{llm_client.api_url}/v1/messages",
             headers=headers,
             json=payload,
             timeout=30
