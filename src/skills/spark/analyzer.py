@@ -3,11 +3,12 @@ Spark Skill - Spark 任务错误分析专家
 
 Skill 是快速预判器:
 - 快速识别常见 Spark 错误模式
-- AUTO_FIXABLE: OOM、Broadcast timeout 等，直接返回配置调整方案
+- RESOURCE_SUGGESTED: OOM等资源问题，智能计算+LLM验证
 - KNOWN_NEEDS_LLM: ClassNotFound、Shuffle 失败等，给 LLM 提供提示
+- AUTO_FIXABLE: 路径验证（使用 ossutil 检查）
 - UNKNOWN: 无匹配，完全交给 LLM
 
-改进: 使用 SKILL.md 脚本进行预处理、模式匹配和修复构建
+改进: 使用 scripts 进行预处理、模式匹配和修复构建
 """
 
 import re
@@ -20,6 +21,7 @@ from ...models.risk import RiskLevel, AutoFixAction
 from ...models.alert import AlertContext
 from ..base import BaseSkill
 from ..common.preprocess_log import preprocess_log
+from ..common.oss_validator import OSSValidator, get_oss_validator
 
 
 class SparkSkill(BaseSkill):

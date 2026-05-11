@@ -4,9 +4,18 @@
 
 ## AUTO_FIXABLE
 
-可直接修复的简单问题（拼写错误、配置项缺失等）。
+可直接修复的简单问题。使用 ossutil 验证路径后给出确切结论。
 
-目前无 AUTO_FIXABLE 类型。所有资源类问题走 RESOURCE_SUGGESTED，其他问题走 KNOWN_NEEDS_LLM。
+| error_type | pattern | fix_action |
+|------------|---------|------------|
+| oss_path_verified_exists | `Path.*does not exist\|FileNotFoundException` | 使用 ossutil 验证路径，如果文件存在则提示路径拼写错误 |
+| oss_partition_verified_empty | `Partition.*not found\|partition.*empty` | 使用 ossutil 验证分区，如果存在但无数据文件则提示数据生成问题 |
+
+**验证流程：**
+1. 从日志提取 OSS 路径
+2. 调用 ossutil ls 验证
+3. 如果文件存在 → 路径拼写错误（AUTO_FIXABLE）
+4. 如果文件不存在 → 数据缺失（KNOWN_NEEDS_LLM）
 
 ## RESOURCE_SUGGESTED
 

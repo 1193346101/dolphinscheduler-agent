@@ -20,6 +20,12 @@ from .cluster_lookup import (
     parse_hosts_table,
     lookup_service,
 )
+from .oss_validator import (
+    OSSValidator,
+    OSSConfig,
+    OSSCheckResult,
+    get_oss_validator,
+)
 
 __all__ = [
     "extract_config_lines",
@@ -32,4 +38,8 @@ __all__ = [
     "extract_targets",
     "parse_hosts_table",
     "lookup_service",
+    "OSSValidator",
+    "OSSConfig",
+    "OSSCheckResult",
+    "get_oss_validator",
 ]
