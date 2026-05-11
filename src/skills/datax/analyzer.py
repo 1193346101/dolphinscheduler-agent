@@ -73,9 +73,24 @@ class DataXSkill(BaseSkill):
             "DataX 目标端数据库连接失败，请检查目标端连接配置"
         ),
         "connection_timeout": (
-            "Connection timed out",
+            "Connection timed out|connect timed out",
             ErrorCategory.KNOWN_NEEDS_LLM,
             "DataX 数据库连接超时，请检查网络和超时设置"
+        ),
+        "socket_timeout": (
+            "SocketTimeoutException|Read timed out",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "DataX Socket 超时，请检查网络延迟和超时配置，或调整 connectTimeout/readTimeout 参数"
+        ),
+        "connection_refused": (
+            "Communications link failure|Could not create connection",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "DataX 数据库连接被拒绝，请检查数据库服务是否运行、连接配置是否正确"
+        ),
+        "load_url_empty": (
+            "load_url cannot be empty|host cannot be connected",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "DataX Doris/SelectDB 连接失败，请检查 load_url 配置（FE 地址和端口）"
         ),
 
         # === 数据错误 ===
@@ -85,12 +100,12 @@ class DataXSkill(BaseSkill):
             "DataX 数据转换错误，请检查数据类型转换配置"
         ),
         "type_convert": (
-            "Type conversion error",
+            "Type conversion error|Data truncation|Data truncated",
             ErrorCategory.KNOWN_NEEDS_LLM,
             "DataX 类型转换失败，请分析源字段类型和目标字段类型"
         ),
         "column_not_match": (
-            "column not match",
+            "column not match|Unknown column",
             ErrorCategory.KNOWN_NEEDS_LLM,
             "DataX 列名不匹配，请检查源表和目标表的列名配置"
         ),
@@ -102,12 +117,12 @@ class DataXSkill(BaseSkill):
 
         # === 写入错误 ===
         "write_error": (
-            "Write error",
+            "Write error|Error writing",
             ErrorCategory.KNOWN_NEEDS_LLM,
             "DataX 写入错误，请检查写入权限和目标表结构"
         ),
         "batch_write_failed": (
-            "batch write failed",
+            "batch write failed|BatchUpdateException",
             ErrorCategory.KNOWN_NEEDS_LLM,
             "DataX 批量写入失败，请分析失败的具体批次和原因"
         ),
@@ -131,9 +146,14 @@ class DataXSkill(BaseSkill):
             "DataX 速度限制，请检查流量控制配置"
         ),
         "channel_error": (
-            "channel error",
+            "channel error|Channel closed",
             ErrorCategory.KNOWN_NEEDS_LLM,
             "DataX Channel 错误，请检查并发配置"
+        ),
+        "memory_error": (
+            "OutOfMemoryError|cannot allocate memory",
+            ErrorCategory.KNOWN_NEEDS_LLM,
+            "DataX 内存不足，请检查 JVM 内存配置"
         ),
     }
 
@@ -187,21 +207,24 @@ class DataXSkill(BaseSkill):
 
     def _legacy_analyze(self, log_content: str, context: AlertContext) -> ErrorAnalysis:
         """Legacy 分析方法 - 作为 fallback"""
-        log_lower = log_content.lower()
-
+        # 使用正则匹配，而不是简单的 in 检查
         for error_type, (pattern, category, llm_hint) in self.error_patterns.items():
-            if pattern.lower() in log_lower:
-                error_message = self._extract_error_message(log_content, pattern)
-                return ErrorAnalysis(
-                    error_type=error_type,
-                    category=ErrorCategory.KNOWN_NEEDS_LLM,
-                    error_message=error_message,
-                    matched_pattern=pattern,
-                    llm_hint=llm_hint,
-                    original_log_error=error_message,
-                    analysis_process=f"通过内置模式库匹配: {error_type}",
-                    reasoning=llm_hint or "已知错误类型，需进一步分析具体原因",
-                )
+            try:
+                if re.search(pattern, log_content, re.IGNORECASE):
+                    error_message = self._extract_error_message(log_content, pattern)
+                    return ErrorAnalysis(
+                        error_type=error_type,
+                        category=ErrorCategory.KNOWN_NEEDS_LLM,
+                        error_message=error_message,
+                        matched_pattern=pattern,
+                        llm_hint=llm_hint,
+                        original_log_error=error_message,
+                        analysis_process=f"通过内置模式库匹配: {error_type}",
+                        reasoning=llm_hint or "已知错误类型，需进一步分析具体原因",
+                    )
+            except re.error:
+                # 正则模式无效，跳过
+                continue
 
         return ErrorAnalysis(
             error_type="unknown",

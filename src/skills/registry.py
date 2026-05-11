@@ -25,6 +25,8 @@ from .spark.analyzer import SparkSkill
 from .shell.analyzer import ShellSkill
 from .python.analyzer import PythonSkill
 from .datax.analyzer import DataXSkill
+from .sub_process.analyzer import SubProcessSkill
+from .dependent.analyzer import DependentSkill
 from ..models.analysis import ErrorAnalysis, ErrorCategory
 from ..models.alert import AlertContext
 
@@ -72,6 +74,8 @@ class SkillRegistry:
         "SHELL": "shell",
         "PYTHON": "python",
         "DATAX": "datax",
+        "SUB_PROCESS": "sub_process",
+        "DEPENDENT": "dependent",
     }
 
     def __init__(self, skills_dir: Optional[Path] = None):
@@ -87,6 +91,8 @@ class SkillRegistry:
             "SHELL": ShellSkill(),
             "PYTHON": PythonSkill(),
             "DATAX": DataXSkill(),
+            "SUB_PROCESS": SubProcessSkill(),
+            "DEPENDENT": DependentSkill(),
         }
         self._default_skill = DefaultSkill()
         self._metadata: Dict[str, SkillMetadata] = {}
