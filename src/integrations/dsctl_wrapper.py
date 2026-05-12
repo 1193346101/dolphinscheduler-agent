@@ -217,36 +217,35 @@ class DSCLIClient:
     def list_workflow_instances(
         self,
         project_code: int,
-        workflow_code: int,
-        page_size: int = 20,
+        workflow_code: Optional[int] = None,
+        page_size: int = 100,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
         state: Optional[str] = None
     ) -> CLIResult:
         """
-        列出工作流的最近实例（支持时间范围过滤）
+        列出工作流实例（支持项目级别或工作流级别查询）
 
         Args:
             project_code: 项目编码
-            workflow_code: 工作流编码
-            page_size: 返回数量（默认20，建议不超过50）
+            workflow_code: 工作流编码（可选，不传则查询项目所有实例）
+            page_size: 返回数量（默认100）
             start_time: 开始时间下限，格式 'YYYY-MM-DD HH:MM:SS'
             end_time: 开始时间上限，格式 'YYYY-MM-DD HH:MM:SS'
             state: 状态过滤，如 'FAILURE', 'SUCCESS'
 
         Returns:
             CLIResult (stdout 是 JSON 格式的实例列表)
-
-        注意:
-        - 建议设置时间范围，避免查询全量数据
-        - 追踪子/依赖工作流时，建议使用告警时间前后1小时范围
         """
         args = [
             "workflow-instance", "list",
             "--project", str(project_code),
-            "--workflow", str(workflow_code),
             "--page-size", str(page_size)
         ]
+
+        # workflow_code 可选，不传则查询项目所有实例
+        if workflow_code:
+            args.extend(["--workflow", str(workflow_code)])
 
         if start_time:
             args.extend(["--start", start_time])

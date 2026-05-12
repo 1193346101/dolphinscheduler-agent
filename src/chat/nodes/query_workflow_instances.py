@@ -60,91 +60,48 @@ def query_workflow_instances_node(state: ChatState) -> ChatState:
     start_time = f"{query_date} 00:00:00"
     end_time = f"{query_date} 23:59:59"
 
-    # 调用 dsctl 查询工作流列表（先获取所有工作流定义）
+    # 调用 dsctl 直接查询项目所有实例
     client = DSCLIClient(
         api_url=settings.DS_API_URL,
         api_token=settings.DS_API_TOKEN,
         version=settings.DS_VERSION,
     )
 
-    # 1. 先获取工作流定义列表
-    workflows_result = client.list_workflows(project_code)
-    if not workflows_result.success:
+    all_instances = []
+    try:
+        instances_result = client.list_workflow_instances(
+            project_code=int(project_code),
+            page_size=100,
+            start_time=start_time,
+            end_time=end_time,
+        )
+
+        if instances_result.success:
+            instances_data = json.loads(instances_result.stdout)
+            if isinstance(instances_data, dict):
+                instance_list = instances_data.get("data", {}).get("totalList", [])
+            elif isinstance(instances_data, list):
+                instance_list = instances_data
+            else:
+                instance_list = []
+
+            for inst in instance_list:
+                if isinstance(inst, dict):
+                    wf_name = inst.get("workflowName", "未命名")
+                    all_instances.append({
+                        "workflow_name": wf_name,
+                        "workflow_code": inst.get("workflowCode", ""),
+                        "instance_id": inst.get("id"),
+                        "state": inst.get("state", "UNKNOWN"),
+                        "start_time": inst.get("startTime", ""),
+                        "end_time": inst.get("endTime", ""),
+                    })
+    except Exception as e:
         return {
             **state,
-            "error_message": workflows_result.stderr or "查询失败",
-            "response_content": f"查询工作流失败: {workflows_result.stderr or '未知错误'}",
+            "error_message": str(e),
+            "response_content": f"查询实例失败: {e}",
         }
-
-    # 解析工作流定义
-    try:
-        data = json.loads(workflows_result.stdout)
-        if isinstance(data, dict):
-            inner_data = data.get("data", [])
-            if isinstance(inner_data, dict):
-                workflows = inner_data.get("workflows", inner_data.get("list", []))
-            elif isinstance(inner_data, list):
-                workflows = inner_data
-            else:
-                workflows = []
-        elif isinstance(data, list):
-            workflows = data
-        else:
-            workflows = []
-    except json.JSONDecodeError:
-        workflows = []
-
-    # 构建工作流编码到名称的映射
-    workflow_map = {}
-    for wf in workflows:
-        if isinstance(wf, dict):
-            code = str(wf.get("code", ""))
-            name = wf.get("name", "未命名")
-            workflow_map[code] = name
-
-    # 2. 查询每个工作流今天的实例
-    all_instances = []
-    checked_count = 0
-    max_check = 10  # 只检查前10个工作流
-
-    for wf_code, wf_name in workflow_map.items():
-        if checked_count >= max_check:
-            break
-        checked_count += 1
-
-        try:
-            instances_result = client.list_workflow_instances(
-                project_code=int(project_code),
-                workflow_code=int(wf_code),
-                page_size=20,
-                start_time=start_time,
-                end_time=end_time,
-            )
-
-            if instances_result.success:
-                instances_data = json.loads(instances_result.stdout)
-                if isinstance(instances_data, dict):
-                    instance_list = instances_data.get("data", {}).get("totalList", [])
-                elif isinstance(instances_data, list):
-                    instance_list = instances_data
-                else:
-                    instance_list = []
-
-                for inst in instance_list:
-                    if isinstance(inst, dict):
-                        inst_id = inst.get("id")
-                        # 不去重，保留所有记录
-                        actual_wf_name = inst.get("workflowName", wf_name)
-                        all_instances.append({
-                            "workflow_name": actual_wf_name,
-                            "workflow_code": wf_code,
-                            "instance_id": inst_id,
-                            "state": inst.get("state", "UNKNOWN"),
-                            "start_time": inst.get("startTime", ""),
-                            "end_time": inst.get("endTime", ""),
-                        })
-        except Exception:
-            continue
 
     # 按开始时间排序（最新的在前）
     all_instances.sort(key=lambda x: x.get("start_time", ""), reverse=True)
