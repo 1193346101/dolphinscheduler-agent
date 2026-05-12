@@ -187,8 +187,8 @@ def extract_project_code(payload: Dict[str, Any]) -> Optional[str]:
     if default_project:
         return default_project
 
-    # 无默认配置时返回通用标识
-    return "default_project"
+    # 无默认配置时返回 None
+    return None
 
 
 __all__ = ["router", "handle_dingtalk_message"]

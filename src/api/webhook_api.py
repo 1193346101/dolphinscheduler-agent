@@ -197,7 +197,7 @@ def extract_project_code_from_dingtalk(payload: dict) -> str:
     if default_project:
         return default_project
 
-    return "default_project"
+    return None
 
 
 async def handle_ds_alert(payload: dict) -> JSONResponse:
