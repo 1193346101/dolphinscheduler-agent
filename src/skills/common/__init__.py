@@ -26,6 +26,16 @@ from .oss_validator import (
     OSSCheckResult,
     get_oss_validator,
 )
+from .pattern_matcher import (
+    PatternCategory,
+    PatternEntry,
+    MatchResult,
+    parse_patterns_file,
+    match_error,
+    extract_error_snippet,
+    PatternMatcher,
+    get_matcher_for_skill,
+)
 
 __all__ = [
     "extract_config_lines",
@@ -42,4 +52,13 @@ __all__ = [
     "OSSConfig",
     "OSSCheckResult",
     "get_oss_validator",
+    # Pattern Matcher
+    "PatternCategory",
+    "PatternEntry",
+    "MatchResult",
+    "parse_patterns_file",
+    "match_error",
+    "extract_error_snippet",
+    "PatternMatcher",
+    "get_matcher_for_skill",
 ]

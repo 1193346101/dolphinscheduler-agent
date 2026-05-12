@@ -508,6 +508,199 @@ async def health_check():
     }
 
 
+# ============ 图谱 API ============
+
+@app.get("/graph/viewer")
+async def graph_viewer():
+    """图谱 HTML 可视化页面"""
+    from fastapi.responses import FileResponse
+    graph_dir = os.environ.get("GRAPH_STORAGE_PATH", "data/graph")
+    viewer_path = os.path.join(graph_dir, "graph_viewer.html")
+    if os.path.exists(viewer_path):
+        return FileResponse(viewer_path)
+    return HTMLResponse(content="<h1>图谱未生成</h1><p>请先执行图谱扫描: POST /graph/scan</p>")
+
+
+@app.get("/graph/data")
+async def get_graph_data(project_code: Optional[str] = None):
+    """获取图谱数据 JSON"""
+    import json
+    graph_dir = os.environ.get("GRAPH_STORAGE_PATH", "data/graph")
+
+    # 查找图谱文件
+    if project_code:
+        graph_file = os.path.join(graph_dir, f"{project_code}_graph.json")
+    else:
+        # 返回第一个找到的图谱
+        import glob
+        graph_files = glob.glob(os.path.join(graph_dir, "*_graph.json"))
+        if graph_files:
+            graph_file = graph_files[0]
+        else:
+            return JSONResponse(content={"error": "No graph data found"})
+
+    if os.path.exists(graph_file):
+        with open(graph_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return JSONResponse(content=data)
+
+    return JSONResponse(content={"error": f"Graph not found for project {project_code}"})
+
+
+@app.post("/graph/scan")
+async def scan_graph(project_code: Optional[str] = None):
+    """
+    扫描项目图谱
+
+    Args:
+        project_code: 项目编码（可选，不传则扫描所有配置的项目）
+
+    Returns:
+        扫描结果统计
+    """
+    from ..graph.scanner import GraphScanner
+    from ..graph.storage import GraphStorage
+    from ..config.projects import projects_registry
+
+    # 配置
+    graph_dir = os.environ.get("GRAPH_STORAGE_PATH", "data/graph")
+    code_root = os.environ.get("CODE_ROOT_PATH", "/opt/spark-etl")
+    ds_api_url = settings.DS_API_URL
+    ds_api_token = settings.DS_API_TOKEN
+
+    # 初始化
+    storage = GraphStorage(graph_dir)
+    scanner = GraphScanner(storage, code_root)
+
+    results = []
+
+    if project_code:
+        # 扫描单个项目
+        project_config = projects_registry.get_by_code(project_code)
+        if not project_config:
+            return JSONResponse(content={"error": f"Project {project_code} not found"})
+
+        result = scanner.scan_project(
+            project_code=project_code,
+            project_name=project_config.name,
+            ds_api_url=project_config.ds_api_url or ds_api_url,
+            ds_api_token=ds_api_token,
+        )
+        results.append({"project": project_config.name, **result})
+    else:
+        # 扫描所有配置的项目
+        for project in projects_registry.projects:
+            try:
+                result = scanner.scan_project(
+                    project_code=project.code,
+                    project_name=project.name,
+                    ds_api_url=project.ds_api_url or ds_api_url,
+                    ds_api_token=ds_api_token,
+                )
+                results.append({"project": project.name, **result})
+            except Exception as e:
+                results.append({"project": project.name, "error": str(e)})
+
+    # 生成 graph_data.js 用于 HTML 可视化
+    generate_graph_js(graph_dir)
+
+    return JSONResponse(content={
+        "status": "success",
+        "scanned_at": datetime.now().isoformat(),
+        "results": results,
+    })
+
+
+def generate_graph_js(graph_dir: str):
+    """生成 graph_data.js 文件用于 HTML 可视化"""
+    import json
+    import glob
+
+    graph_files = glob.glob(os.path.join(graph_dir, "*_graph.json"))
+    if not graph_files:
+        return
+
+    # 合并所有图谱数据
+    all_workflows = []
+    all_tasks = []
+    all_tables = []
+    all_classes = []
+    all_edges = {
+        "workflow_contains_task": [],
+        "task_depends_task": [],
+        "workflow_calls_subworkflow": [],
+        "workflow_depends_workflow": [],
+        "task_consumes_table": [],
+        "task_produces_table": [],
+        "class_maps_to_task": [],
+    }
+
+    for graph_file in graph_files:
+        with open(graph_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        nodes = data.get("nodes", {})
+        edges = data.get("edges", {})
+
+        all_workflows.extend(nodes.get("workflows", []))
+        all_tasks.extend(nodes.get("tasks", []))
+        all_tables.extend(nodes.get("tables", []))
+        all_classes.extend(nodes.get("classes", []))
+
+        for key in all_edges:
+            all_edges[key].extend(edges.get(key, []))
+
+    # 写入 graph_data.js
+    graph_data = {
+        "nodes": {
+            "workflows": all_workflows,
+            "tasks": all_tasks,
+            "tables": all_tables,
+            "classes": all_classes,
+        },
+        "edges": all_edges,
+    }
+
+    js_content = f"const graphData = {json.dumps(graph_data, ensure_ascii=False)};"
+
+    js_file = os.path.join(graph_dir, "graph_data.js")
+    with open(js_file, "w", encoding="utf-8") as f:
+        f.write(js_content)
+
+    print(f"[graph] Generated graph_data.js with {len(all_workflows)} workflows, {len(all_tasks)} tasks")
+
+
+@app.get("/graph/projects")
+async def list_graph_projects():
+    """列出已扫描的项目"""
+    import glob
+    graph_dir = os.environ.get("GRAPH_STORAGE_PATH", "data/graph")
+    graph_files = glob.glob(os.path.join(graph_dir, "*_graph.json"))
+
+    projects = []
+    for f in graph_files:
+        # 提取项目编码
+        import os
+        filename = os.path.basename(f)
+        project_code = filename.replace("_graph.json", "")
+
+        # 获取扫描时间
+        import json
+        with open(f, "r", encoding="utf-8") as fp:
+            data = json.load(fp)
+            scanned_at = data.get("scanned_at", "unknown")
+            project_name = data.get("project_name", project_code)
+
+        projects.append({
+            "code": project_code,
+            "name": project_name,
+            "scanned_at": scanned_at,
+            "file": filename,
+        })
+
+    return JSONResponse(content={"projects": projects})
+
+
 def run_server():
     """启动 API 服务"""
     import uvicorn

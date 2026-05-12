@@ -142,7 +142,6 @@ def execute_action(state: AgentState) -> AgentState:
 
     # Get additional info for enhanced notification
     error_type = state.get("error_type") or state.get("skill_result", {}).get("error_type")
-    confidence = state.get("confidence_score") or state.get("skill_result", {}).get("confidence")
 
     # Get script_changes from executed actions
     script_changes = None
@@ -192,7 +191,6 @@ def execute_action(state: AgentState) -> AgentState:
         message=result_msg or "No executed actions",
         error_type=error_type,
         script_changes=script_changes,
-        confidence=confidence,
         action_type=action_type,
         knowledge_entry_id=knowledge_entry_id
     )

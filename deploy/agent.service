@@ -1,0 +1,17 @@
+[Unit]
+Description=DolphinScheduler Agent - Alert Automation
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/dolphinscheduler-agent
+Environment="PATH=/opt/dolphinscheduler-agent/venv/bin"
+ExecStart=/opt/dolphinscheduler-agent/venv/bin/python -m src all
+Restart=always
+RestartSec=10
+StandardOutput=append:/opt/dolphinscheduler-agent/logs/agent.log
+StandardError=append:/opt/dolphinscheduler-agent/logs/agent.log
+
+[Install]
+WantedBy=multi-user.target

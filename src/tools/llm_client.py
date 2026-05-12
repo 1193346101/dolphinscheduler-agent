@@ -116,55 +116,69 @@ class LLMClient:
         error_type = skill_result.get("error_type", "unknown")
         llm_hint = skill_result.get("llm_hint", "")
 
-        # JSON 示例（使用双花括号转义）
-        json_example = '''
-{
-  "error_category": "RESOURCE|NETWORK|DATA|CONFIG|EXECUTION",
-  "error_description": "具体描述错误原因",
-  "suggested_actions": [
-    {"action_type": "modify_script|modify_config|rerun|suggested", "description": "具体修复动作", "script_changes": {"wrong": "correct"}, "config_changes": {"key": "value"}}
-  ],
-  "can_auto_fix": true|false,
-  "confidence": 0.0-1.0
-}'''
-
         # 如果有 llm_hint，强调这是已知错误类型的深度分析
         if llm_hint:
-            return f"""深度分析以下错误日志。
+            return f"""分析以下错误日志，找出具体错误原因并提供修复建议。
 
-任务类型: {task_type}
-Skill 预判错误类型: {error_type}
+## 任务类型
+{task_type}
+
+## Skill 预判
+错误类型: {error_type}
 分析提示: {llm_hint}
 
-错误日志:
+## 错误日志
 {log_excerpt[:2000]}
 
-请根据提示深入分析，返回以下 JSON 格式（不要添加其他内容）:
-{json_example}
+## 分析要求
+1. 从日志中定位具体错误位置和原因
+2. 如果是脚本拼写错误，找出拼写错误的命令和正确命令
+3. 如果是语法错误（如引号不闭合），指出缺少的符号和位置
+4. 如果能自动修复，给出具体的修复内容
 
-注意：
-1. 如果能定位到具体位置（如缺少引号的位置），返回 modify_script 动作和 script_changes
-2. 如果是临时网络问题，返回 rerun 动作
-3. 如果无法自动修复，返回 suggested 动作和详细描述
-4. script_changes 是一个字典，key 是要替换的错误内容，value 是正确内容
-5. config_changes 是一个字典，key 是配置项名称，value 是建议的配置值
+## 输出格式（JSON）
+返回一个 JSON 对象，包含以下字段：
+- error_category: 错误类别（RESOURCE/NETWORK/DATA/CONFIG/EXECUTION）
+- error_description: 具体错误原因描述
+- suggested_actions: 修复动作列表
+  - action_type: 动作类型（modify_script/modify_config/rerun/suggested）
+  - description: 动作描述
+  - script_changes: 脚本修改内容（字典格式，key 是日志中实际出现的错误内容，value 是正确替换内容）
+    例如：脚本中有 "ech hello"，则 script_changes 为 {"ech hello": "echo hello"} 或 {"ech": "echo"}
+  - config_changes: 配置修改内容（字典格式）
+- can_auto_fix: 是否可以自动修复（true/false）
+- confidence: 分析置信度（0.0-1.0）
+
+注意：script_changes 的 key 必须是日志中实际出现的错误内容片段，value 是修正后的内容。不要使用占位符如 "wrong" 或 "correct"。
 """
         else:
             # UNKNOWN 类型，完全分析
             return f"""分析以下错误日志，识别错误原因并给出修复建议。
 
-任务类型: {task_type}
+## 任务类型
+{task_type}
 
-错误日志:
+## 错误日志
 {log_excerpt[:2000]}
 
-请分析并返回以下 JSON 格式（不要添加其他内容）:
-{json_example}
+## 分析要求
+1. 分析日志中的错误信息，识别错误类型
+2. 找出错误的具体位置和原因
+3. 如果能自动修复，给出具体的修复内容
 
-注意：
-1. 对于 Shell/Python 语法错误（如缺少引号），如果能确定具体位置，返回 modify_script 动作和 script_changes
-2. 对于临时网络错误，返回 rerun 动作
-3. 对于无法自动修复的错误，返回 suggested 动作和描述
+## 输出格式（JSON）
+返回一个 JSON 对象，包含以下字段：
+- error_category: 错误类别（RESOURCE/NETWORK/DATA/CONFIG/EXECUTION）
+- error_description: 具体错误原因描述
+- suggested_actions: 修复动作列表
+  - action_type: 动作类型（modify_script/modify_config/rerun/suggested）
+  - description: 动作描述
+  - script_changes: 脚本修改内容（字典格式，key 是日志中实际出现的错误内容，value 是正确替换内容）
+  - config_changes: 配置修改内容（字典格式）
+- can_auto_fix: 是否可以自动修复（true/false）
+- confidence: 分析置信度（0.0-1.0）
+
+注意：script_changes 的 key 必须是日志中实际出现的错误内容片段，value 是修正后的内容。不要使用占位符。
 """
 
     def _parse_response(self, text: str) -> Dict:

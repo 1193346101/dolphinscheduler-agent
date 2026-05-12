@@ -245,10 +245,36 @@ def analyze_error(state: AgentState) -> AgentState:
                 print("[WARN] LLM analysis failed, use Skill hint")
                 error_patterns = [skill_result.error_type]
                 error_category = _map_error_category(skill_result.error_type)
-                suggested_actions = [{
-                    "action_type": "suggested",
-                    "description": skill_result.llm_hint or "Please contact ops team",
-                }]
+
+                # 检查 skill_result.llm_hint 是否包含具体修复信息
+                # 如果 llm_hint 包含 "修改" 或具体命令，尝试提取 script_changes
+                llm_hint_text = skill_result.llm_hint or ""
+                script_changes = None
+
+                # 尝试从 llm_hint 中提取拼写修正（如 "ech -> echo"）
+                import re
+                fix_pattern = re.search(r"['\"](\w+)['\"]\s*(?:->|改为|修改为|应为)\s*['\"](\w+)['\"]", llm_hint_text)
+                if fix_pattern:
+                    wrong_cmd = fix_pattern.group(1)
+                    correct_cmd = fix_pattern.group(2)
+                    script_changes = {wrong_cmd: correct_cmd}
+                    print(f"  >> Extracted script fix from hint: {wrong_cmd} -> {correct_cmd}")
+
+                if script_changes:
+                    # 有具体的修复方案，生成 modify_script action
+                    suggested_actions = [{
+                        "action_type": "modify_script",
+                        "description": f"脚本拼写错误修正: {script_changes}",
+                        "script_changes": script_changes,
+                        "risk_level": "LOW",
+                    }]
+                else:
+                    # 无具体修复方案，只通知不执行
+                    suggested_actions = [{
+                        "action_type": "notify-only",
+                        "description": skill_result.llm_hint or "需要人工分析处理",
+                        "risk_level": "HIGH",
+                    }]
                 confidence_score = 0.6
 
                 error_analysis = {

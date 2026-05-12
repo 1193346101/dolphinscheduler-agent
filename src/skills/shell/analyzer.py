@@ -3,583 +3,193 @@ Shell Skill - Shell 任务错误分析专家
 
 Skill 是快速预判器:
 - 快速识别常见 Shell 错误模式
-- AUTO_FIXABLE: 拼写错误，直接返回修复方案
+- AUTO_FIXABLE: 路径验证、拼写错误（通过 ossutil）
 - KNOWN_NEEDS_LLM: 已知类型（语法错误等），给 LLM 提供提示
 - UNKNOWN: 无匹配，完全交给 LLM
 
-改进: 使用 SKILL.md 脚本进行预处理和模式匹配
+重构版: 使用公共 pattern_matcher 模块，移除硬编码模式表
+所有模式维护在 patterns.md 文件中，符合 anthropics/skills 规范
 """
 
-import re
 import json
-import subprocess
 from pathlib import Path
-from typing import Optional, Dict, Tuple, Any
+from typing import Optional, Dict, Any
+
 from ...models.analysis import ErrorAnalysis, ErrorCategory
-from ...models.risk import RiskLevel, AutoFixAction
+from ...models.risk import RiskLevel
 from ...models.alert import AlertContext
 from ..base import BaseSkill
 from ..common.preprocess_log import preprocess_log
+from ..common.oss_validator import get_oss_validator
+from ..common.pattern_matcher import PatternMatcher, MatchResult
 
 
 class ShellSkill(BaseSkill):
     """
-    Shell 任务分析 Skill
+    Shell 任务分析 Skill - 重构版
 
-    使用脚本化流程:
-    1. preprocess_log.py - 提取关键信息
-    2. match_error.py - 匹配错误模式
+    使用公共 pattern_matcher 模块进行模式匹配，移除硬编码模式表。
     """
 
     skill_name = "shell"
     task_types = ["SHELL"]
 
-    # 错误模式: (pattern, category, llm_hint)
-    # category: AUTO_FIXABLE / KNOWN_NEEDS_LLM
-    # llm_hint: 给 LLM 的分析提示
-    error_patterns: Dict[str, Tuple[str, str, str]] = {
-        # === 可自动修复 ===
-        "command_not_found": (
-            "command not found",
-            ErrorCategory.AUTO_FIXABLE,
-            ""
-        ),
+    # Pattern Matcher（延迟初始化）
+    _matcher: Optional[PatternMatcher] = None
 
-        # === 已知类型，需 LLM 分析 ===
-        "syntax_error": (
-            "syntax error",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 语法错误，请分析具体位置和原因（如引号不闭合、括号不匹配等）"
-        ),
-        "unexpected_eof": (
-            "unexpected EOF",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 文件意外结束，通常是引号或括号不闭合导致"
-        ),
-        "unexpected_eof_quote": (
-            "unexpected EOF while looking for matching",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 引号或括号不闭合，请定位具体位置"
-        ),
-        "unexpected_token": (
-            "unexpected token",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 出现意外符号，请分析原因"
-        ),
-        "unexpected_end": (
-            "unexpected end of file",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 文件意外结束，通常是结构不完整"
-        ),
-        "newline_unexpected": (
-            "newline unexpected",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 新行位置错误，请分析语法结构"
-        ),
-
-        # === 变量错误 ===
-        "variable_unset": (
-            "parameter null or not set",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 变量为空或未定义，请分析变量来源和赋值逻辑"
-        ),
-        "variable_not_found": (
-            "variable not found",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 变量未找到，请检查变量定义和使用"
-        ),
-        "bad_substitution": (
-            "bad substitution",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 变量替换语法错误，请检查 ${} 语法"
-        ),
-        "array_index_error": (
-            "array index",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 数组索引错误，请检查数组操作"
-        ),
-
-        # === 文件/路径错误 ===
-        "no_such_file": (
-            "No such file or directory",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 文件或目录不存在，请检查路径是否正确、文件是否存在"
-        ),
-        "file_not_found": (
-            "File not found",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 文件不存在，请检查文件路径"
-        ),
-        "directory_not_exist": (
-            "cannot access",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 无法访问路径，请检查路径和权限"
-        ),
-        "path_not_found": (
-            "path not found",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 路径不存在，请检查路径配置"
-        ),
-
-        # === 权限错误 ===
-        "permission_denied": (
-            "Permission denied",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 权限不足，请分析需要什么权限、如何获取"
-        ),
-        "access_denied": (
-            "Access denied",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 访问被拒绝，请检查权限配置"
-        ),
-        "cannot_execute": (
-            "cannot execute",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 无法执行，可能是权限或文件格式问题"
-        ),
-        "operation_not_permitted": (
-            "Operation not permitted",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 操作不被允许，请检查权限和系统限制"
-        ),
-
-        # === 参数/选项错误 ===
-        "invalid_option": (
-            "invalid option",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 命令参数无效，请检查参数格式和可用选项"
-        ),
-        "option_requires_arg": (
-            "option requires an argument",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 选项需要参数，请检查参数是否缺失"
-        ),
-        "missing_argument": (
-            "missing argument",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 缺少参数，请检查命令参数数量"
-        ),
-        "extra_argument": (
-            "too many arguments",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 参数过多，请检查命令参数数量"
-        ),
-
-        # === 管道/重定向错误 ===
-        "broken_pipe": (
-            "Broken pipe",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 管道断开，请分析管道进程状态"
-        ),
-        "pipe_failed": (
-            "pipe failed",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 管道创建失败，请检查系统资源"
-        ),
-        "redirect_error": (
-            "cannot redirect",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 重定向失败，请检查输出路径和权限"
-        ),
-        "input_output_error": (
-            "Input/output error",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell I/O 错误，可能是磁盘或文件问题"
-        ),
-
-        # === 进程/信号错误 ===
-        "process_killed": (
-            "Killed",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 进程被终止，可能是内存不足或信号终止"
-        ),
-        "process_terminated": (
-            "Terminated",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 进程被终止，请分析终止原因"
-        ),
-        "segfault": (
-            "Segmentation fault",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 程序段错误，通常是代码 bug 或内存问题"
-        ),
-        "exit_code_error": (
-            "exited with",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 命令异常退出，请分析退出原因和退出码"
-        ),
-        "fork_failed": (
-            "fork failed",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 创建子进程失败，可能是系统资源不足"
-        ),
-
-        # === 编码/环境错误 ===
-        "encoding_error": (
-            "encoding",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 编码问题，请检查字符编码设置"
-        ),
-        "locale_error": (
-            "locale",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 语言环境设置问题，请检查 locale 配置"
-        ),
-        "env_not_found": (
-            "environment variable",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 环境变量问题，请检查环境变量是否定义"
-        ),
-        "home_not_set": (
-            "HOME not set",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell HOME 环境变量未设置"
-        ),
-
-        # === 资源错误 ===
-        "memory_error": (
-            "cannot allocate",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 内存分配失败，可能是内存不足"
-        ),
-        "disk_full": (
-            "no space left",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 磁盘空间不足，请清理磁盘或更换路径"
-        ),
-        "quota_exceeded": (
-            "quota exceeded",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 资源配额超限，请检查配额设置"
-        ),
-        "resource_limit": (
-            "too many",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 资源限制，可能是进程或文件数超限"
-        ),
-
-        # === 网络/连接错误 ===
-        "connection_refused": (
-            "Connection refused",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 网络连接被拒绝，请检查目标服务是否运行"
-        ),
-        "connection_timeout": (
-            "Connection timed out",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 网络连接超时，请检查网络状态和超时设置"
-        ),
-        "host_unreachable": (
-            "Host unreachable",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 主机不可达，请检查网络连通性"
-        ),
-        "network_error": (
-            "network unreachable",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell 网络不可达，请检查网络配置"
-        ),
-        "dns_error": (
-            "unknown host",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Shell DNS 解析失败，请检查主机名和 DNS 配置"
-        ),
-
-        # === 工具特定错误 ===
-        "grep_error": (
-            "grep:",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "grep 命令错误，请检查 grep 参数和输入"
-        ),
-        "sed_error": (
-            "sed:",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "sed 命令错误，请检查 sed 语法和输入"
-        ),
-        "awk_error": (
-            "awk:",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "awk 命令错误，请检查 awk 语法和输入"
-        ),
-        "find_error": (
-            "find:",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "find 命令错误，请检查 find 参数和路径"
-        ),
-        "xargs_error": (
-            "xargs:",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "xargs 命令错误，请检查 xargs 参数和输入"
-        ),
-        "ssh_error": (
-            "ssh:",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "ssh 连接错误，请检查 SSH 配置和目标主机"
-        ),
-        "scp_error": (
-            "scp:",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "scp 传输错误，请检查 SCP 配置和文件路径"
-        ),
-        "curl_error": (
-            "curl:",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "curl 请求错误，请检查 URL 和参数"
-        ),
-        "wget_error": (
-            "wget:",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "wget 下载错误，请检查 URL 和网络"
-        ),
-        "tar_error": (
-            "tar:",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "tar 命令错误，请检查 tar 参数和文件"
-        ),
-        "zip_error": (
-            "zip:",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "zip 命令错误，请检查 zip 参数和文件"
-        ),
-        "chmod_error": (
-            "chmod:",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "chmod 命令错误，请检查权限模式和文件"
-        ),
-        "chown_error": (
-            "chown:",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "chown 命令错误，请检查用户组和文件"
-        ),
-        "rm_error": (
-            "cannot remove",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "rm 删除失败，请检查文件权限和是否存在"
-        ),
-        "mv_error": (
-            "cannot move",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "mv 移动失败，请检查源和目标路径权限"
-        ),
-        "cp_error": (
-            "cannot copy",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "cp 复制失败，请检查源和目标路径权限"
-        ),
-        "mkdir_error": (
-            "cannot create",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "mkdir 创建失败，请检查路径权限和父目录"
-        ),
-        "docker_error": (
-            "docker:",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "Docker 命令错误，请检查 Docker 配置和容器状态"
-        ),
-        "kubectl_error": (
-            "kubectl:",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "kubectl 命令错误，请检查 Kubernetes 配置和资源状态"
-        ),
-    }
-
-    def _get_scripts_dir(self) -> Optional[Path]:
-        """获取 scripts 目录"""
-        scripts_dir = Path(__file__).parent / "scripts"
-        if scripts_dir.exists():
-            return scripts_dir
-        return None
-
-    def _get_patterns_file(self) -> Optional[Path]:
-        """获取 patterns.md 文件路径"""
-        patterns_file = Path(__file__).parent / "patterns.md"
-        if patterns_file.exists():
-            return patterns_file
-        return None
-
-    def _call_script(self, script_name: str, args: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        调用脚本并返回结果
-
-        Args:
-            script_name: 脚本文件名 (如 match_error.py)
-            args: 脚本参数
-
-        Returns:
-            脚本输出的 JSON 解析结果
-        """
-        scripts_dir = self._get_scripts_dir()
-        if not scripts_dir:
-            return {"error": "scripts_dir_not_found"}
-
-        script_path = scripts_dir / script_name
-        if not script_path.exists():
-            return {"error": "script_not_found"}
-
-        try:
-            # 使用 subprocess 调用脚本
-            cmd = ["python", str(script_path)]
-            for key, value in args.items():
-                cmd.extend([f"--{key}", str(value)])
-
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-
-            if result.returncode != 0:
-                return {"error": "script_failed", "stderr": result.stderr}
-
-            return json.loads(result.stdout)
-        except subprocess.TimeoutExpired:
-            return {"error": "timeout"}
-        except json.JSONDecodeError:
-            return {"error": "invalid_json", "stdout": result.stdout}
-        except Exception as e:
-            return {"error": str(e)}
+    def _get_matcher(self) -> PatternMatcher:
+        """获取模式匹配器"""
+        if self._matcher is None:
+            patterns_file = str(Path(__file__).parent / "patterns.md")
+            self._matcher = PatternMatcher("shell", patterns_file)
+        return self._matcher
 
     def analyze(self, log_content: str, context: AlertContext) -> ErrorAnalysis:
-        """分析 Shell 脚本错误 - 使用脚本化流程"""
+        """
+        分析 Shell 脚本错误 - 使用公共 pattern_matcher
+
+        流程:
+        1. preprocess_log - 日志预处理
+        2. PatternMatcher.match - 模式匹配
+        3. _build_analysis - 构建 ErrorAnalysis
+        """
         # 1. 日志预处理
         preprocessed = preprocess_log(log_content, task_type="shell")
         error_blocks = preprocessed.get("error_blocks", [])
+
+        # 没有错误块时返回 UNKNOWN
         if not error_blocks:
-            # 没有错误块，使用 fallback
-            return self._legacy_analyze(log_content, context)
+            return ErrorAnalysis(
+                error_type="unknown",
+                category=ErrorCategory.UNKNOWN,
+                error_message=log_content[:500],
+                original_log_error=log_content[:300],
+                analysis_process="无错误块提取",
+                reasoning="日志预处理未发现错误信息，建议人工分析",
+            )
 
         # 合并错误块
         error_text = "\n".join(error_blocks)
 
-        # 2. 尝试使用 match_error.py 脚本
-        scripts_dir = self._get_scripts_dir()
-        if scripts_dir:
-            try:
-                import importlib.util
-                match_error_path = scripts_dir / "match_error.py"
-                if match_error_path.exists():
-                    spec = importlib.util.spec_from_file_location(
-                        "match_error",
-                        match_error_path
-                    )
-                    match_error_module = importlib.util.module_from_spec(spec)
-                    spec.loader.exec_module(match_error_module)
+        # 2. 使用 PatternMatcher 进行模式匹配
+        matcher = self._get_matcher()
+        match_result = matcher.match(error_text)
 
-                    patterns_file = self._get_patterns_file()
-                    if patterns_file:
-                        match_result = match_error_module.match_error(error_text, str(patterns_file))
-
-                        if match_result.get("error_type") != "unknown":
-                            category = ErrorCategory(match_result["category"])
-                            return ErrorAnalysis(
-                                error_type=match_result["error_type"],
-                                category=category,
-                                error_message=match_result.get("error_message", error_text[:500]),
-                                matched_pattern=match_result.get("matched_pattern", ""),
-                                llm_hint=match_result.get("extra", "") if category == ErrorCategory.KNOWN_NEEDS_LLM else "",
-                                original_log_error=error_text[:300],
-                                analysis_process=f"匹配模式: {match_result.get('matched_pattern', '')}",
-                                reasoning=match_result.get("extra", "") or "根据模式匹配结果分析",
-                            )
-            except Exception:
-                pass  # Fallback to legacy
-
-        # 3. Fallback: 使用 legacy 分析
-        return self._legacy_analyze(log_content, context)
-
-    def _legacy_analyze(self, log_content: str, context: AlertContext) -> ErrorAnalysis:
-        """Legacy 分析方法 - 作为 fallback"""
-        log_lower = log_content.lower()
-
-        # 遍历错误模式
-        for error_type, (pattern, category, llm_hint) in self.error_patterns.items():
-            if pattern.lower() in log_lower:
-                # 提取错误消息片段
-                error_message = self._extract_error_message(log_content, pattern)
-
-                # AUTO_FIXABLE 类型：检查是否真的可以修复
-                if category == ErrorCategory.AUTO_FIXABLE:
-                    quick_fix = self._try_build_quick_fix(log_content, error_type)
-                    if quick_fix:
-                        return ErrorAnalysis(
-                            error_type=error_type,
-                            category=ErrorCategory.AUTO_FIXABLE,
-                            error_message=error_message,
-                            matched_pattern=pattern,
-                            quick_fix=quick_fix,
-                            original_log_error=error_message,
-                            analysis_process=f"通过内置模式库匹配: {error_type}",
-                            reasoning="根据错误模式匹配结果，提供标准修复方案",
-                        )
-                    # 无法构建快速修复，降级为 KNOWN_NEEDS_LLM
-                    return ErrorAnalysis(
-                        error_type=error_type,
-                        category=ErrorCategory.KNOWN_NEEDS_LLM,
-                        error_message=error_message,
-                        matched_pattern=pattern,
-                        llm_hint="命令未找到，请分析具体原因",
-                        original_log_error=error_message,
-                        analysis_process=f"通过内置模式库匹配: {error_type}",
-                        reasoning="已知错误类型，但无法自动修复",
-                    )
-
-                # KNOWN_NEEDS_LLM 类型
-                return ErrorAnalysis(
-                    error_type=error_type,
-                    category=ErrorCategory.KNOWN_NEEDS_LLM,
-                    error_message=error_message,
-                    matched_pattern=pattern,
-                    llm_hint=llm_hint,
-                    original_log_error=error_message,
-                    analysis_process=f"通过内置模式库匹配: {error_type}",
-                    reasoning=llm_hint or "已知错误类型，需进一步分析具体原因",
-                )
-
-        # 未匹配任何模式
-        return ErrorAnalysis(
-            error_type="unknown",
-            category=ErrorCategory.UNKNOWN,
-            error_message=log_content[:500],
-            original_log_error=log_content[:300],
-            analysis_process="无匹配错误模式",
-            reasoning="未知错误类型，建议人工分析或查阅相关文档",
+        # 3. 构建 ErrorAnalysis
+        return self._build_analysis(
+            match_result,
+            preprocessed,
+            error_blocks[0] if error_blocks else error_text[:300],
         )
 
-    def _try_build_quick_fix(self, log_content: str, error_type: str) -> Optional[Dict]:
-        """尝试构建快速修复方案 - Shell 命令很少可自动修复"""
-        # Shell 命令拼写错误的自动修复已移至 match_error.py 脚本
-        # 这里只保留 command_not_found 的基本处理
-        if error_type == "command_not_found":
-            wrong_cmd = self._extract_wrong_command(log_content)
-            if wrong_cmd:
-                # 返回提示信息，让 LLM 分析正确的命令
-                return None  # Shell 拼写错误需要人工确认
+    def _build_analysis(
+        self,
+        match_result: MatchResult,
+        preprocessed: Dict[str, Any],
+        original_error: str,
+    ) -> ErrorAnalysis:
+        """
+        根据匹配结果构建 ErrorAnalysis
+
+        Args:
+            match_result: 模式匹配结果
+            preprocessed: 预处理结果
+            original_error: 原始错误片段
+
+        Returns:
+            ErrorAnalysis 完整分析结果
+        """
+        category = ErrorCategory(match_result.category)
+
+        # 构建分析过程说明
+        analysis_parts = []
+        if preprocessed.get("error_blocks"):
+            analysis_parts.append(f"提取错误块 {len(preprocessed['error_blocks'])} 个")
+        if match_result.matched_pattern:
+            analysis_parts.append(f"匹配模式: {match_result.error_type}")
+        analysis_process = ", ".join(analysis_parts) if analysis_parts else "通过错误模式库匹配"
+
+        # 根据 category 设置不同字段
+        quick_fix = None
+        llm_hint = None
+        reasoning = match_result.hint
+
+        if category == ErrorCategory.AUTO_FIXABLE:
+            # AUTO_FIXABLE: 直接返回修复方案
+            quick_fix = self._parse_fix_action(match_result.hint, match_result.extra_info)
+            reasoning = match_result.hint or "根据错误模式匹配结果，提供标准修复方案"
+
+        elif category == ErrorCategory.KNOWN_NEEDS_LLM:
+            # KNOWN_NEEDS_LLM: 给 LLM 提供提示
+            llm_hint = match_result.hint
+            reasoning = match_result.hint or "已知错误类型，需进一步分析具体原因"
+
+        else:
+            # UNKNOWN: 未知错误
+            reasoning = "未知错误类型，建议人工分析或查阅相关文档"
+
+        return ErrorAnalysis(
+            error_type=match_result.error_type,
+            category=category,
+            error_message=match_result.error_message,
+            matched_pattern=match_result.matched_pattern,
+            quick_fix=quick_fix,
+            llm_hint=llm_hint,
+            original_log_error=original_error,
+            analysis_process=analysis_process,
+            reasoning=reasoning,
+        )
+
+    def _parse_fix_action(
+        self,
+        hint: str,
+        extra_info: Optional[Dict] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        解析 fix_action
+
+        Args:
+            hint: 提示字符串（可能是 JSON）
+            extra_info: 额外信息
+
+        Returns:
+            修复动作字典或 None
+        """
+        # Shell 错误通常无法自动修复，除非是路径验证类
+        if extra_info and "fix_action" in extra_info:
+            return extra_info["fix_action"]
+
+        # 从 hint 解析 JSON
+        if hint and hint.startswith('{'):
+            try:
+                fix_action = json.loads(hint)
+                return {
+                    "action_type": fix_action.get("action_type", "path_verification"),
+                    "verified_path": fix_action.get("verified_path"),
+                    "suggestion": fix_action.get("suggestion", ""),
+                }
+            except json.JSONDecodeError:
+                pass
 
         return None
 
-    def _extract_error_message(self, log_content: str, pattern: str) -> str:
-        """提取错误消息片段"""
-        lines = log_content.split("\n")
-        for i, line in enumerate(lines):
-            if pattern.lower() in line.lower():
-                start = max(0, i - 3)
-                end = min(len(lines), i + 5)
-                return "\n".join(lines[start:end])
-        return pattern
+    def suggest(self, analysis: ErrorAnalysis) -> list[str]:
+        """补充建议"""
+        suggestions = []
 
-    def _extract_wrong_command(self, error_message: str) -> Optional[str]:
-        """提取错误的命令"""
-        patterns = [
-            r"command not found:\s+(\w+)",
-            r"(\w+):\s+command not found",
-            r"line \d+:\s+(\w+):\s+command not found",
-        ]
-        for p in patterns:
-            match = re.search(p, error_message)
-            if match:
-                return match.group(1)
-        return None
+        # 基于错误类型给出补充建议
+        if analysis.error_type in ["syntax_error", "unexpected_eof", "unexpected_token"]:
+            suggestions.append("检查 Shell 脚本语法：引号闭合、括号匹配、if/for/while 结构")
+        elif analysis.error_type in ["permission_denied", "access_denied"]:
+            suggestions.append("检查文件或目录权限，确认执行用户有足够权限")
+        elif analysis.error_type in ["no_such_file", "file_not_found", "directory_not_exist"]:
+            suggestions.append("检查文件路径是否存在，确认路径拼写正确")
+        elif analysis.error_type in ["connection_refused", "connection_timeout"]:
+            suggestions.append("检查目标服务是否运行，确认网络连通性")
+        elif analysis.error_type in ["disk_full", "no_space_left"]:
+            suggestions.append("清理磁盘空间或更换输出路径")
+
+        return suggestions
 
 
 __all__ = ["ShellSkill"]

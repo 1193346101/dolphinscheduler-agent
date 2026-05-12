@@ -204,9 +204,6 @@ class DingTalkWebhookNotifier:
         if action_type:
             text += f"**执行动作:** {action_type}\n\n"
 
-        if confidence:
-            text += f"**修复置信度:** {confidence:.2%}\n\n"
-
         if script_changes:
             text += "**脚本修复详情:**\n\n"
             for original, fixed in script_changes.items():
@@ -218,7 +215,7 @@ class DingTalkWebhookNotifier:
         text += f"**执行详情:**\n{message}\n\n"
         text += "---\n\n"
 
-        if success and confidence and knowledge_entry_id:
+        if success and knowledge_entry_id:
             # 添加知识库确认提示
             text += "💡 **知识库反馈**\n\n"
             text += "请确认修复是否正确，帮助 Agent 学习改进：\n"

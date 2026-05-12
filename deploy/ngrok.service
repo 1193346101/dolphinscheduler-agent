@@ -1,0 +1,15 @@
+[Unit]
+Description=ngrok tunnel for DolphinScheduler Agent
+After=network.target dolphinscheduler-agent.service
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/ngrok http 8080 --log=stdout
+Restart=always
+RestartSec=5
+StandardOutput=file:/tmp/ngrok.log
+StandardError=file:/tmp/ngrok.log
+
+[Install]
+WantedBy=multi-user.target

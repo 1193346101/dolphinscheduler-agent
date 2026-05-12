@@ -2,3 +2,6 @@ C:\Python314\Lib\site-packages\langgraph\cache\base\__init__.py:8: LangChainPend
   from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 2026-05-11 20:26:02,523 dingtalk_stream.client INFO     open connection, url=https://api.dingtalk.com/v1.0/gateway/connections/open [stream.py:149]
 2026-05-11 20:26:02,939 dingtalk_stream.client INFO     endpoint is {'endpoint': 'wss://wss-open-connection-union.dingtalk.com:443/connect', 'ticket': '933ec475-4d34-11f1-869f-3e2dc55d6766'} [stream.py:71]
+2026-05-12 08:26:03,109 dingtalk_stream.client INFO     received disconnect topic=disconnect, message={'specVersion': '1.0', 'type': 'SYSTEM', 'headers': {'contentType': 'application/json', 'messageId': 'c0a801f1177854556304614512013d44', 'time': '1778545563046', 'topic': 'disconnect'}, 'data': '{"reason":"persistent connection is timeout"}'} [stream.py:119]
+2026-05-12 08:26:03,284 dingtalk_stream.client INFO     open connection, url=https://api.dingtalk.com/v1.0/gateway/connections/open [stream.py:149]
+2026-05-12 08:26:03,878 dingtalk_stream.client INFO     endpoint is {'endpoint': 'wss://wss-open-connection-union.dingtalk.com:443/connect', 'ticket': '29005693-4d99-11f1-a5dc-6eb625d4e7f6'} [stream.py:71]

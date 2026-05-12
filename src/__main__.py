@@ -2,9 +2,10 @@
 DolphinScheduler Agent Package Entry
 
 使用方式：
-- python -m src           # 启钉钉 Stream 模式（默认，推荐）
-- python -m src stream    # 启动钉钉 Stream 模式（无需公网地址）
-- python -m src api       # 启动 API 服务（需要公网地址）
+- python -m src           # 启动所有服务（Stream + API，推荐）
+- python -m src all       # 启动所有服务（Stream + API）
+- python -m src stream    # 仅启动钉钉 Stream 模式（无需公网地址）
+- python -m src api       # 仅启动 API 服务（需要公网地址）
 - python -m src chat      # 启动交互式对话
 """
 
@@ -13,6 +14,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import sys
+import threading
 from .api.webhook_api import run_server
 from .config import settings
 from .dispatcher import ChatAgent
@@ -22,9 +24,11 @@ def main():
     """Main entry point"""
     # 解析命令行参数
     args = sys.argv[1:]
-    mode = args[0] if args else "stream"
+    mode = args[0] if args else "all"
 
-    if mode == "stream":
+    if mode == "all":
+        run_all_services()
+    elif mode == "stream":
         run_dingtalk_stream()
     elif mode == "api":
         run_api_server()
@@ -32,8 +36,37 @@ def main():
         run_chat_repl()
     else:
         print(f"未知模式: {mode}")
-        print("用法: python -m src [stream|api|chat]")
+        print("用法: python -m src [all|stream|api|chat]")
         sys.exit(1)
+
+
+def run_all_services():
+    """同时启动 Stream 和 API 服务"""
+    print("=" * 60)
+    print("DolphinScheduler Agent - 完整服务")
+    print("=" * 60)
+    print()
+    print("启动服务:")
+    print("  1. 钉钉 Stream 模式（对话功能）")
+    print("  2. API 服务（告警 webhook）")
+    print()
+    print(f"Client ID: {settings.DINGTALK_CLIENT_ID}")
+    print(f"DS_API_URL: {settings.DS_API_URL}")
+    print(f"API Server: http://{settings.API_HOST}:{settings.API_PORT}")
+    print("-" * 60)
+
+    from .integrations.dingtalk_stream import DingTalkStreamClient
+
+    # 启动 Stream 服务（后台线程）
+    stream_client = DingTalkStreamClient()
+    stream_thread = threading.Thread(target=stream_client.run, daemon=True)
+    stream_thread.start()
+
+    print("[Stream] 后台线程已启动")
+
+    # 启动 API 服务（主线程）
+    print("[API] 启动主服务...")
+    run_server()
 
 
 def run_dingtalk_stream():

@@ -6,244 +6,222 @@ Skill 是快速预判器:
 - KNOWN_NEEDS_LLM: 所有错误都需 LLM 分析具体原因
 - UNKNOWN: 无匹配，完全交给 LLM
 
-改进: 使用 preprocess_log 进行预处理，保留 legacy 分析作为 fallback
+重构版: 使用公共 pattern_matcher 模块，移除硬编码模式表
+所有模式维护在 patterns.md 文件中，符合 anthropics/skills 规范
 """
 
-import re
 import json
-import subprocess
 from pathlib import Path
-from typing import Optional, Dict, Tuple, Any
+from typing import Optional, Dict, Any
+
 from ...models.analysis import ErrorAnalysis, ErrorCategory
 from ...models.risk import RiskLevel
 from ...models.alert import AlertContext
 from ..base import BaseSkill
 from ..common.preprocess_log import preprocess_log
+from ..common.pattern_matcher import PatternMatcher, MatchResult
 
 
 class DataXSkill(BaseSkill):
     """
-    DataX 任务分析 Skill
+    DataX 任务分析 Skill - 重构版
 
-    DataX 错误通常涉及数据库连接、数据转换、权限等，需要人工干预
-
-    使用 preprocess_log 进行预处理，然后使用 legacy 分析
+    DataX 错误通常涉及数据库连接、数据转换、权限等，需要人工干预。
+    使用公共 pattern_matcher 模块进行模式匹配，移除硬编码模式表。
     """
 
     skill_name = "datax"
     task_types = ["DATAX"]
 
-    def _get_scripts_dir(self) -> Optional[Path]:
-        """获取 scripts 目录"""
-        scripts_dir = Path(__file__).parent / "scripts"
-        if scripts_dir.exists():
-            return scripts_dir
-        return None
+    # Pattern Matcher（延迟初始化）
+    _matcher: Optional[PatternMatcher] = None
 
-    def _get_patterns_file(self) -> Optional[Path]:
-        """获取 patterns.md 文件路径"""
-        patterns_file = Path(__file__).parent / "patterns.md"
-        if patterns_file.exists():
-            return patterns_file
-        return None
-
-    # 错误模式: (pattern, category, llm_hint)
-    error_patterns: Dict[str, Tuple[str, str, str]] = {
-        # === 配置错误 ===
-        "config_error": (
-            "Configuration error",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "DataX 配置错误，请检查 job 配置文件"
-        ),
-        "json_parse_error": (
-            "JSON parse error",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "DataX JSON 配置解析失败，请检查 JSON 格式是否正确"
-        ),
-
-        # === 连接错误 ===
-        "source_connection": (
-            "source connection failed",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "DataX 源端数据库连接失败，请检查源端连接配置（URL、用户名、密码、网络）"
-        ),
-        "sink_connection": (
-            "sink connection failed",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "DataX 目标端数据库连接失败，请检查目标端连接配置"
-        ),
-        "connection_timeout": (
-            "Connection timed out|connect timed out",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "DataX 数据库连接超时，请检查网络和超时设置"
-        ),
-        "socket_timeout": (
-            "SocketTimeoutException|Read timed out",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "DataX Socket 超时，请检查网络延迟和超时配置，或调整 connectTimeout/readTimeout 参数"
-        ),
-        "connection_refused": (
-            "Communications link failure|Could not create connection",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "DataX 数据库连接被拒绝，请检查数据库服务是否运行、连接配置是否正确"
-        ),
-        "load_url_empty": (
-            "load_url cannot be empty|host cannot be connected",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "DataX Doris/SelectDB 连接失败，请检查 load_url 配置（FE 地址和端口）"
-        ),
-
-        # === 数据错误 ===
-        "data_transform": (
-            "Data transform error",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "DataX 数据转换错误，请检查数据类型转换配置"
-        ),
-        "type_convert": (
-            "Type conversion error|Data truncation|Data truncated",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "DataX 类型转换失败，请分析源字段类型和目标字段类型"
-        ),
-        "column_not_match": (
-            "column not match|Unknown column",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "DataX 列名不匹配，请检查源表和目标表的列名配置"
-        ),
-        "primary_key_conflict": (
-            "Duplicate entry",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "DataX 主键冲突，请分析数据是否有重复主键"
-        ),
-
-        # === 写入错误 ===
-        "write_error": (
-            "Write error|Error writing",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "DataX 写入错误，请检查写入权限和目标表结构"
-        ),
-        "batch_write_failed": (
-            "batch write failed|BatchUpdateException",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "DataX 批量写入失败，请分析失败的具体批次和原因"
-        ),
-
-        # === 权限错误 ===
-        "permission_denied": (
-            "Permission denied",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "DataX 权限不足，请检查数据库用户权限"
-        ),
-        "access_denied": (
-            "Access denied",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "DataX 访问被拒绝，请检查数据库访问权限"
-        ),
-
-        # === 性能错误 ===
-        "speed_limit": (
-            "speed limit",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "DataX 速度限制，请检查流量控制配置"
-        ),
-        "channel_error": (
-            "channel error|Channel closed",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "DataX Channel 错误，请检查并发配置"
-        ),
-        "memory_error": (
-            "OutOfMemoryError|cannot allocate memory",
-            ErrorCategory.KNOWN_NEEDS_LLM,
-            "DataX 内存不足，请检查 JVM 内存配置"
-        ),
-    }
+    def _get_matcher(self) -> PatternMatcher:
+        """获取模式匹配器"""
+        if self._matcher is None:
+            patterns_file = str(Path(__file__).parent / "patterns.md")
+            self._matcher = PatternMatcher("datax", patterns_file)
+        return self._matcher
 
     def analyze(self, log_content: str, context: AlertContext) -> ErrorAnalysis:
-        """分析 DataX 任务错误 - 使用 preprocess_log + legacy fallback"""
+        """
+        分析 DataX 任务错误 - 使用公共 pattern_matcher
+
+        流程:
+        1. preprocess_log - 日志预处理
+        2. PatternMatcher.match - 模式匹配
+        3. _build_analysis - 构建 ErrorAnalysis
+        """
         # 1. 日志预处理
         preprocessed = preprocess_log(log_content, task_type="datax")
         error_blocks = preprocessed.get("error_blocks", [])
 
+        # 没有错误块时返回 UNKNOWN
         if not error_blocks:
-            # 没有错误块，使用 legacy 分析
-            return self._legacy_analyze(log_content, context)
+            return ErrorAnalysis(
+                error_type="unknown",
+                category=ErrorCategory.UNKNOWN,
+                error_message=log_content[:500],
+                original_log_error=log_content[:300],
+                analysis_process="无错误块提取",
+                reasoning="日志预处理未发现错误信息，建议人工分析",
+            )
 
         # 合并错误块
         error_text = "\n".join(error_blocks)
 
-        # 2. 尝试使用 match_error.py 脚本（如果存在）
-        patterns_file = self._get_patterns_file()
-        if patterns_file:
-            try:
-                # 尝试导入 match_error
-                scripts_dir = self._get_scripts_dir()
-                if scripts_dir:
-                    # 动态导入 match_error.py
-                    import importlib.util
-                    spec = importlib.util.spec_from_file_location(
-                        "match_error",
-                        scripts_dir / "match_error.py"
-                    )
-                    match_error_module = importlib.util.module_from_spec(spec)
-                    spec.loader.exec_module(match_error_module)
+        # 2. 使用 PatternMatcher 进行模式匹配
+        matcher = self._get_matcher()
+        match_result = matcher.match(error_text)
 
-                    match_result = match_error_module.match_error(error_text, str(patterns_file))
-                    if match_result.get("error_type") != "unknown":
-                        category = ErrorCategory(match_result["category"])
-                        return ErrorAnalysis(
-                            error_type=match_result["error_type"],
-                            category=category,
-                            error_message=match_result.get("error_message", error_text[:500]),
-                            matched_pattern=match_result.get("matched_pattern", ""),
-                            llm_hint=match_result.get("extra", "") if category == ErrorCategory.KNOWN_NEEDS_LLM else "",
-                            original_log_error=error_text[:300],
-                            analysis_process=f"匹配模式: {match_result.get('matched_pattern', '')}",
-                            reasoning=match_result.get("extra", "") or "根据模式匹配结果分析",
-                        )
-            except Exception:
-                pass  # Fallback to legacy
-
-        # 3. Fallback: 使用 legacy 分析
-        return self._legacy_analyze(error_text, context)
-
-    def _legacy_analyze(self, log_content: str, context: AlertContext) -> ErrorAnalysis:
-        """Legacy 分析方法 - 作为 fallback"""
-        # 使用正则匹配，而不是简单的 in 检查
-        for error_type, (pattern, category, llm_hint) in self.error_patterns.items():
-            try:
-                if re.search(pattern, log_content, re.IGNORECASE):
-                    error_message = self._extract_error_message(log_content, pattern)
-                    return ErrorAnalysis(
-                        error_type=error_type,
-                        category=ErrorCategory.KNOWN_NEEDS_LLM,
-                        error_message=error_message,
-                        matched_pattern=pattern,
-                        llm_hint=llm_hint,
-                        original_log_error=error_message,
-                        analysis_process=f"通过内置模式库匹配: {error_type}",
-                        reasoning=llm_hint or "已知错误类型，需进一步分析具体原因",
-                    )
-            except re.error:
-                # 正则模式无效，跳过
-                continue
-
-        return ErrorAnalysis(
-            error_type="unknown",
-            category=ErrorCategory.UNKNOWN,
-            error_message=log_content[:500],
-            original_log_error=log_content[:300],
-            analysis_process="无匹配错误模式",
-            reasoning="未知错误类型，建议人工分析或查阅相关文档",
+        # 3. 构建 ErrorAnalysis（包含 DataX 特有信息）
+        return self._build_analysis(
+            match_result,
+            preprocessed,
+            error_blocks[0] if error_blocks else error_text[:300],
         )
 
-    def _extract_error_message(self, log_content: str, pattern: str) -> str:
-        """提取错误消息片段"""
-        lines = log_content.split("\n")
-        for i, line in enumerate(lines):
-            if pattern.lower() in line.lower():
-                start = max(0, i - 3)
-                end = min(len(lines), i + 5)
-                return "\n".join(lines[start:end])
-        return pattern
+    def _build_analysis(
+        self,
+        match_result: MatchResult,
+        preprocessed: Dict[str, Any],
+        original_error: str,
+    ) -> ErrorAnalysis:
+        """
+        根据匹配结果构建 ErrorAnalysis（包含 DataX 特有信息）
+
+        Args:
+            match_result: 模式匹配结果
+            preprocessed: 预处理结果
+            original_error: 原始错误片段
+
+        Returns:
+            ErrorAnalysis 完整分析结果
+        """
+        category = ErrorCategory(match_result.category)
+
+        # 构建分析过程说明
+        analysis_parts = []
+        if preprocessed.get("error_blocks"):
+            analysis_parts.append(f"提取错误块 {len(preprocessed['error_blocks'])} 个")
+        if match_result.matched_pattern:
+            analysis_parts.append(f"匹配模式: {match_result.error_type}")
+        analysis_process = ", ".join(analysis_parts) if analysis_parts else "通过错误模式库匹配"
+
+        # 提取 DataX Job 信息
+        job_info = self._extract_job_info(match_result.error_message)
+
+        # 根据 category 设置不同字段
+        quick_fix = None
+        llm_hint = None
+        reasoning = match_result.hint
+
+        if category == ErrorCategory.AUTO_FIXABLE:
+            # AUTO_FIXABLE: DataX 很少有可直接修复的情况
+            quick_fix = self._parse_fix_action(match_result.hint, match_result.extra_info)
+            reasoning = match_result.hint or "根据错误模式匹配结果，提供标准修复方案"
+
+        elif category == ErrorCategory.KNOWN_NEEDS_LLM:
+            # KNOWN_NEEDS_LLM: 给 LLM 提供提示（DataX 大多数情况）
+            llm_hint = match_result.hint
+            reasoning = match_result.hint or "已知错误类型，需进一步分析具体原因"
+
+        else:
+            # UNKNOWN: 未知错误
+            reasoning = "未知错误类型，建议人工分析或查阅相关文档"
+
+        return ErrorAnalysis(
+            error_type=match_result.error_type,
+            category=category,
+            error_message=match_result.error_message,
+            matched_pattern=match_result.matched_pattern,
+            quick_fix=quick_fix,
+            llm_hint=llm_hint,
+            original_log_error=original_error,
+            analysis_process=analysis_process,
+            reasoning=reasoning,
+            data_metrics=job_info,  # 将 Job 信息放入 data_metrics
+        )
+
+    def _extract_job_info(self, log_content: str) -> Dict[str, Any]:
+        """
+        提取 DataX Job 信息
+
+        Args:
+            log_content: 日志内容
+
+        Returns:
+            Job 信息字典
+        """
+        import re
+        info = {}
+
+        # 提取 Job ID
+        job_match = re.search(r'\[job-(\d+)\]', log_content)
+        if job_match:
+            info['job_id'] = f"job-{job_match.group(1)}"
+
+        # 提取数据库类型
+        db_patterns = {
+            'mysql': [r'mysql', r'com\.mysql'],
+            'oracle': [r'oracle', r'ORA-\d+'],
+            'postgresql': [r'postgresql'],
+            'sqlserver': [r'sqlserver'],
+            'hive': [r'hive'],
+        }
+        for db_type, patterns in db_patterns.items():
+            for p in patterns:
+                if re.search(p, log_content, re.IGNORECASE):
+                    info['database_type'] = db_type
+                    break
+
+        return info
+
+    def _parse_fix_action(
+        self,
+        hint: str,
+        extra_info: Optional[Dict] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        解析 fix_action
+
+        Args:
+            hint: 提示字符串
+            extra_info: 额外信息
+
+        Returns:
+            修复动作字典或 None
+        """
+        if extra_info and "fix_action" in extra_info:
+            return extra_info["fix_action"]
+
+        if hint and hint.startswith('{'):
+            try:
+                fix_action = json.loads(hint)
+                return fix_action
+            except json.JSONDecodeError:
+                pass
+
+        return None
+
+    def suggest(self, analysis: ErrorAnalysis) -> list[str]:
+        """补充建议"""
+        suggestions = []
+
+        # 基于错误类型给出补充建议
+        if analysis.error_type in ["connection_refused", "connection_timeout", "source_connection"]:
+            suggestions.append("检查数据库连接配置：URL、端口、用户名、密码")
+            suggestions.append("确认数据库服务正常运行")
+        elif analysis.error_type in ["permission_denied", "access_denied"]:
+            suggestions.append("检查数据库用户是否有足够的读写权限")
+        elif analysis.error_type in ["type_convert", "data_transform"]:
+            suggestions.append("检查源表和目标表的字段类型是否匹配")
+        elif analysis.error_type in ["column_not_match"]:
+            suggestions.append("检查列名配置是否与实际表结构一致")
+        elif analysis.error_type in ["primary_key_conflict"]:
+            suggestions.append("考虑数据去重或使用 REPLACE INTO 模式")
+
+        return suggestions
 
 
 __all__ = ["DataXSkill"]
