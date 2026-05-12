@@ -104,6 +104,7 @@ def query_workflow_instances_node(state: ChatState) -> ChatState:
 
     # 2. 查询每个工作流今天的实例（限制前10个工作流，避免请求过多）
     all_instances = []
+    seen_ids = set()  # 去重
     checked_count = 0
     max_check = 10  # 只检查前10个工作流
 
@@ -132,14 +133,18 @@ def query_workflow_instances_node(state: ChatState) -> ChatState:
 
                 for inst in instance_list:
                     if isinstance(inst, dict):
-                        all_instances.append({
-                            "workflow_name": wf_name,
-                            "workflow_code": wf_code,
-                            "instance_id": inst.get("id", "N/A"),
-                            "state": inst.get("state", "UNKNOWN"),
-                            "start_time": inst.get("startTime", ""),
-                            "end_time": inst.get("endTime", ""),
-                        })
+                        inst_id = inst.get("id")
+                        # 去重：同一个实例ID只记录一次
+                        if inst_id not in seen_ids:
+                            seen_ids.add(inst_id)
+                            all_instances.append({
+                                "workflow_name": wf_name,
+                                "workflow_code": wf_code,
+                                "instance_id": inst_id,
+                                "state": inst.get("state", "UNKNOWN"),
+                                "start_time": inst.get("startTime", ""),
+                                "end_time": inst.get("endTime", ""),
+                            })
         except Exception:
             continue
 
@@ -165,13 +170,14 @@ def query_workflow_instances_node(state: ChatState) -> ChatState:
         instance_list = []
         for inst in all_instances[:30]:  # 最多显示30个
             state_icon = state_desc.get(inst["state"], "❓")
-            time_str = inst["start_time"].split(" ")[1] if inst["start_time"] else "N/A"  # 只显示时分秒
+            start_time = inst["start_time"].split(" ")[1] if inst["start_time"] else "N/A"
+            end_time = inst["end_time"].split(" ")[1] if inst["end_time"] else "运行中"
             instance_list.append(
-                f"{inst['workflow_name']} 实例ID: {inst['instance_id']} {state_icon} {time_str}"
+                f"{inst['workflow_name']} | ID:{inst['instance_id']} | {state_icon} | {start_time} → {end_time}"
             )
 
-        response = f"### {project_name} 工作流实例 ({query_date})\n\n"
-        response += f"成功 {success_count} | 失败 {failure_count} | 运行中 {running_count}\n\n"
+        response = f"### {project_name} ({query_date})\n\n"
+        response += f"✅ {success_count} | ❌ {failure_count} | 🔄 {running_count}\n\n"
         response += "\n".join(instance_list)
 
     return {
