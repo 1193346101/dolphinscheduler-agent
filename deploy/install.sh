@@ -1,5 +1,6 @@
 #!/bin/bash
 # DolphinScheduler Agent 部署脚本
+# 支持 Ubuntu/Debian 和 CentOS/RHEL
 # 用法: sudo ./install.sh
 
 set -e
@@ -18,10 +19,35 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
+# 检测系统类型
+if [ -f /etc/debian_version ]; then
+    OS_TYPE="debian"
+    PKG_MANAGER="apt"
+    PKG_INSTALL="apt install -y"
+    NGINX_CONF_DIR="/etc/nginx/sites-available"
+elif [ -f /etc/redhat-release ]; then
+    OS_TYPE="redhat"
+    PKG_MANAGER="yum"
+    PKG_INSTALL="yum install -y"
+    NGINX_CONF_DIR="/etc/nginx/conf.d"
+else
+    echo "未知系统类型，请手动安装依赖"
+    exit 1
+fi
+
+echo "系统类型: $OS_TYPE"
+echo "包管理器: $PKG_MANAGER"
+
 # 1. 安装依赖
 echo "[1/10] 安装系统依赖..."
-apt update
-apt install -y python3 python3-pip python3-venv nginx git curl
+if [ "$OS_TYPE" = "debian" ]; then
+    apt update
+    apt install -y python3 python3-pip python3-venv nginx git curl
+elif [ "$OS_TYPE" = "redhat" ]; then
+    yum install -y python3 python3-pip nginx git curl
+    # CentOS 需要额外安装 venv
+    pip3 install virtualenv || yum install -y python3-virtualenv
+fi
 
 # 2. 创建项目目录
 echo "[2/10] 创建项目目录..."
@@ -32,10 +58,17 @@ mkdir -p $PROJECT_DIR/data/graph
 # 3. 安装 ngrok
 echo "[3/10] 安装 ngrok..."
 if ! command -v ngrok &> /dev/null; then
-    curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-    echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | tee /etc/apt/sources.list.d/ngrok.list
-    apt update
-    apt install -y ngrok
+    if [ "$OS_TYPE" = "debian" ]; then
+        curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+        echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | tee /etc/apt/sources.list.d/ngrok.list
+        apt update
+        apt install -y ngrok
+    elif [ "$OS_TYPE" = "redhat" ]; then
+        # CentOS 直接下载二进制
+        curl -Lo /tmp/ngrok.zip https://bin.equinox.io/c/bNyj1mqp2n/ngrok-v3-stable-linux-amd64.zip
+        unzip -o /tmp/ngrok.zip -d /usr/local/bin/
+        chmod +x /usr/local/bin/ngrok
+    fi
 fi
 
 # 4. 克隆代码仓库（用于图谱扫描）
@@ -65,7 +98,7 @@ fi
 # 6. 安装 Python 依赖
 echo "[6/10] 安装 Python 依赖..."
 cd $PROJECT_DIR
-python3 -m venv venv
+python3 -m venv venv || virtualenv venv
 source venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
@@ -90,24 +123,24 @@ systemctl enable ngrok
 
 # 10. 配置 nginx（提供 HTML 可视化和 webhook）
 echo "[10/10] 配置 nginx..."
-cat > /etc/nginx/sites-available/dolphinscheduler-agent << 'EOF'
+if [ "$OS_TYPE" = "debian" ]; then
+    mkdir -p /etc/nginx/sites-available
+    mkdir -p /etc/nginx/sites-enabled
+    cat > /etc/nginx/sites-available/dolphinscheduler-agent << 'EOF'
 server {
     listen 80;
     server_name _;
 
-    # 图谱 HTML 可视化
     location /graph/ {
         alias /opt/dolphinscheduler-agent/data/graph/;
         index graph_viewer.html;
         try_files $uri $uri/ /graph/graph_viewer.html;
     }
 
-    # 静态文件
     location /static/ {
         alias /opt/dolphinscheduler-agent/data/;
     }
 
-    # Webhook API
     location /webhook {
         proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host $host;
@@ -116,22 +149,56 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # 其他 API
     location / {
         proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
 
-    # 健康检查
     location /health {
         proxy_pass http://127.0.0.1:8080;
     }
 }
 EOF
+    ln -sf /etc/nginx/sites-available/dolphinscheduler-agent /etc/nginx/sites-enabled/
+elif [ "$OS_TYPE" = "redhat" ]; then
+    cat > /etc/nginx/conf.d/dolphinscheduler-agent.conf << 'EOF'
+server {
+    listen 80;
+    server_name _;
 
-ln -sf /etc/nginx/sites-available/dolphinscheduler-agent /etc/nginx/sites-enabled/
-nginx -t && systemctl reload nginx
+    location /graph/ {
+        alias /opt/dolphinscheduler-agent/data/graph/;
+        index graph_viewer.html;
+        try_files $uri $uri/ /graph/graph_viewer.html;
+    }
+
+    location /static/ {
+        alias /opt/dolphinscheduler-agent/data/;
+    }
+
+    location /webhook {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location /health {
+        proxy_pass http://127.0.0.1:8080;
+    }
+}
+EOF
+fi
+
+nginx -t && systemctl reload nginx || systemctl start nginx
 
 echo ""
 echo "============================================"
@@ -156,11 +223,7 @@ echo "  ngrok 日志: tail -f /tmp/ngrok.log"
 echo ""
 echo "下一步:"
 echo "  1. 配置 ngrok authtoken: ngrok config add-authtoken YOUR_TOKEN"
-echo "  2. 运行 ngrok 配置: ./deploy/setup_ngrok.sh"
-echo "  3. 编辑配置: vim $PROJECT_DIR/.env"
-echo "  4. 配置项目: vim $PROJECT_DIR/config/projects.yaml"
-echo "  5. 启动服务: systemctl start $SERVICE_NAME && systemctl start ngrok"
-echo "  6. 扫描图谱: curl -X POST http://localhost:8080/graph/scan"
-echo ""
-echo "获取公网 URL:"
-echo "  curl -s http://127.0.0.1:4040/api/tunnels | python3 -c \"import sys, json; data = json.load(sys.stdin); print(data['tunnels'][0]['public_url'])\""
+echo "  2. 编辑配置: vim $PROJECT_DIR/.env"
+echo "  3. 配置项目: vim $PROJECT_DIR/config/projects.yaml"
+echo "  4. 启动服务: systemctl start $SERVICE_NAME && systemctl start ngrok"
+echo "  5. 获取公网 URL: curl -s http://127.0.0.1:4040/api/tunnels | python3 -c \"import sys, json; print(json.load(sys.stdin)['tunnels'][0]['public_url'])\""
