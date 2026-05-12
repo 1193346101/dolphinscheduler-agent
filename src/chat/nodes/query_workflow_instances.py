@@ -108,36 +108,40 @@ def query_workflow_instances_node(state: ChatState) -> ChatState:
 
     # 格式化响应
     if not all_instances:
-        response = f"项目 **{project_name}** 在 {query_date} 暂无工作流实例运行"
+        response = f"**{project_name}** {query_date} 无运行实例"
     else:
-        # 状态中文映射
-        state_desc = {
-            "SUCCESS": "✅",
-            "FAILURE": "❌",
-            "RUNNING": "🔄",
-            "WAITTING": "⏳",
-            "PAUSE": "⏸️",
-            "STOP": "🛑",
-        }
-
-        # 按状态分组统计
+        # 统计各状态数量
         success_count = sum(1 for i in all_instances if i["state"] == "SUCCESS")
         failure_count = sum(1 for i in all_instances if i["state"] == "FAILURE")
         running_count = sum(1 for i in all_instances if i["state"] == "RUNNING")
 
-        instance_list = []
-        for inst in all_instances[:30]:  # 最多显示30个
-            state_icon = state_desc.get(inst["state"], "❓")
-            # 显示完整日期时间
-            start_time = inst["start_time"] if inst["start_time"] else "N/A"
-            end_time = inst["end_time"] if inst["end_time"] else "运行中"
-            instance_list.append(
-                f"{inst['workflow_name']} | ID:{inst['instance_id']} | {state_icon} | {start_time} → {end_time}"
-            )
+        # 构建响应内容
+        lines = []
+        lines.append(f"## {project_name}")
+        lines.append(f"**日期**: {query_date}")
+        lines.append("")
+        lines.append(f"**成功**: {success_count} | **失败**: {failure_count} | **运行中**: {running_count}")
+        lines.append("")
+        lines.append("---")
+        lines.append("")
 
-        response = f"### {project_name} ({query_date})\n\n"
-        response += f"✅ {success_count} | ❌ {failure_count} | 🔄 {running_count}\n\n"
-        response += "\n".join(instance_list)
+        for inst in all_instances[:50]:
+            wf_name = inst["workflow_name"]
+            inst_id = inst["instance_id"]
+            start = inst["start_time"]
+            end = inst["end_time"] or "运行中"
+
+            # 状态图标
+            state_icon = {"SUCCESS": "成功", "FAILURE": "失败", "RUNNING": "运行中"}.get(inst["state"], inst["state"])
+
+            lines.append(f"- **{wf_name}**")
+            lines.append(f"  - 实例: `{inst_id}`")
+            lines.append(f"  - 状态: {state_icon}")
+            lines.append(f"  - 开始: {start}")
+            lines.append(f"  - 结束: {end}")
+            lines.append("")
+
+        response = "\n".join(lines)
 
     return {
         **state,
