@@ -29,7 +29,9 @@ class ChatState(TypedDict, total=False):
     conversation_id: str
 
     # ==================== Intent Parsing Stage ====================
-    # Intent type: scan_graph, lineage_query, visualize_lineage, help, unknown
+    # Intent type: scan_graph, lineage_query, visualize_lineage, query_workflow,
+    #              query_workflow_instances, query_status, query_logs,
+    #              query_task_instances, recover_failure, run_workflow, help, unknown
     intent_type: str
     # Query type for lineage_query: downstream, upstream, workflow_nodes,
     #                                  table_consumer, table_producer
@@ -38,6 +40,8 @@ class ChatState(TypedDict, total=False):
     # ==================== Parameters Stage ====================
     # Workflow code for workflow queries
     workflow_code: Optional[str]
+    # Workflow name (optional, for display)
+    workflow_name: Optional[str]
     # Workflow instance id for instance queries
     workflow_instance_id: Optional[str]
     # Task code for task queries

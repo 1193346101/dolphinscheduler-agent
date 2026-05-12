@@ -105,17 +105,22 @@ def format_non_lineage_response(state: ChatState) -> str:
     intent_type = state.get("intent_type")
     project_name = state.get("project_name")
     workflow_code = state.get("workflow_code")
+    workflow_name = state.get("workflow_name")
 
-    if intent_type == "scan_graph":
-        return f"### 扫描图谱\n\n正在扫描项目 **{project_name}** 的知识图谱...\n\n请稍候，扫描完成后将通知您。"
-    elif intent_type == "visualize_lineage":
-        return f"### 血缘可视化\n\n工作流 **{workflow_code}** 的血缘链路图正在生成...\n\n请稍候。"
-    elif intent_type == "help":
-        return format_help_response()
-    elif intent_type == "unknown":
-        return "抱歉，我不理解您的消息。请发送 **帮助** 查看可用命令。"
-    else:
-        return f"收到您的消息，意图类型: {intent_type}"
+    RESPONSE_MAP = {
+        "scan_graph": f"### 扫描图谱\n\n正在扫描项目 **{project_name}** 的知识图谱...\n\n请稍候，扫描完成后将通知您。",
+        "visualize_lineage": f"### 血缘可视化\n\n工作流 **{workflow_code}** 的血缘链路图正在生成...\n\n请稍候。",
+        "query_workflow": "",  # 已由query_workflow_node设置response_content
+        "query_workflow_instances": "",  # 已由query_workflow_instances_node设置
+        "query_status": "",  # 已由query_status_node设置
+        "query_logs": "",  # 已由query_logs_node设置
+        "recover_failure": "",  # 已由recover_failure_node设置
+        "run_workflow": "",  # 已由run_workflow_node设置
+        "help": format_help_response(),
+        "unknown": "抱歉，我不理解您的消息。请发送 **帮助** 查看可用命令。",
+    }
+
+    return RESPONSE_MAP.get(intent_type, f"收到您的消息，意图类型: {intent_type}")
 
 
 def format_help_response() -> str:
@@ -137,13 +142,23 @@ def format_help_response() -> str:
    - `扫描项目 <name> 图谱` - 扫描项目图谱
    - `展示 <code> 的影响链路` - 可视化血缘
 
-4. **其他**
+4. **工作流管理**
+   - `项目 <name> 有哪些工作流` - 查询项目工作流列表
+   - `项目 <name> 今天有哪些实例` - 查询今日运行记录
+   - `工作流 <code> 的状态` - 查询工作流状态
+   - `工作流 <code> 的日志` - 查看执行日志
+   - `恢复工作流 <code>` - 恢复失败工作流
+   - `运行工作流 <code>` - 手动运行工作流
+
+5. **其他**
    - `帮助` - 显示帮助信息
 
 **示例:**
 - `工作流 wf_12345 的下游`
 - `表 hive.db.dwd_order 被谁消费`
-- `扫描项目 my_project 图谱`"""
+- `扫描项目 my_project 图谱`
+- `ad_monitor 项目今天有哪些实例`
+- `恢复工作流 12345`"""
 
 
 def format_downstream_response(state: ChatState, result_data: Dict) -> str:

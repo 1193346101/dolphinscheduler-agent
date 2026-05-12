@@ -6,10 +6,10 @@
 
 可直接修复的简单问题。使用 ossutil 验证路径后给出确切结论。
 
-| error_type | pattern | fix_action |
-|------------|---------|------------|
-| oss_path_verified_exists | `Path.*does not exist\|FileNotFoundException` | 使用 ossutil 验证路径，如果文件存在则提示路径拼写错误 |
-| oss_partition_verified_empty | `Partition.*not found\|partition.*empty` | 使用 ossutil 验证分区，如果存在但无数据文件则提示数据生成问题 |
+| error_type | pattern | hint |
+|------------|---------|------|
+| oss_path_verified_exists | `Path.*does not exist|FileNotFoundException` | 使用 ossutil 验证路径，如果文件存在则提示路径拼写错误 |
+| oss_partition_verified_empty | `Partition.*not found|partition.*empty` | 使用 ossutil 验证分区，如果存在但无数据文件则提示数据生成问题 |
 
 **验证流程：**
 1. 从日志提取 OSS 路径
@@ -21,88 +21,67 @@
 
 资源类问题，Skill智能计算初步建议 + LLM验证补充。
 
-| error_type | pattern | skill_hint |
-|------------|---------|------------|
+| error_type | pattern | hint |
+|------------|---------|------|
 | oom_executor | `java\.lang\.OutOfMemoryError:\s*Java heap space` | Executor OOM，结合数据量和当前配置计算合理内存 |
 | oom_driver | `OutOfMemoryError:\s*unable to create new native thread` | Driver OOM，结合任务复杂度计算合理内存 |
 | oom_driver_direct | `OutOfMemoryError:\s*Container memory exceeded` | Driver 内存超限，调整 maxResultSize |
 | oom_offheap | `OutOfMemoryError:\s*offheap` | OffHeap OOM，启用并配置堆外内存 |
 | oom_storage | `OutOfMemoryError:\s*Storage memory` | Storage OOM，调整存储比例 |
-| container_killed_memory | `Container killed due to memory\|exceeding memory limits\|memory limits` | Container被YARN终止，结合YARN日志分析资源需求 |
+| container_killed_memory | `Container killed.*memory|exceeding memory limits|killed by YARN` | Container被YARN终止，结合YARN日志分析资源需求 |
 | gc_overhead | `GC overhead limit exceeded` | GC开销过大，结合内存使用情况调整 |
 | shuffle_timeout | `shuffle.*timeout` | Shuffle超时，结合网络状况调整 |
 | network_timeout | `spark\.network\.timeout` | 网络超时，结合任务复杂度调整 |
 | rpc_timeout | `RPC timeout` | RPC超时，调整通信超时 |
 | executor_lost_heartbeat | `Executor heartbeat timeout` | Executor心跳超时，调整心跳间隔 |
-| driver_memory_insufficient | `System memory.*must be at least.*increase heap size.*driver-memory` | Driver内存不足，结合任务需求计算 |
+| driver_memory_insufficient | `System memory.*must be at least.*driver-memory` | Driver内存不足，结合任务需求计算 |
 | executor_memory_insufficient | `Executor memory.*must be at least` | Executor内存不足，结合数据量计算 |
 
 ## KNOWN_NEEDS_LLM
 
 已知错误类型，需要 LLM 进一步分析上下文。
 
-| error_type | pattern | llm_hint |
-|------------|---------|----------|
-| broadcast_timeout | `BroadcastHashJoin.*timeout\|broadcast.*timeout\|Could not broadcast` | Spark 广播超时，请分析是否数据量变化或网络拥堵导致，对比历史执行情况给出合理建议 |
+| error_type | pattern | hint |
+|------------|---------|------|
+| broadcast_timeout | `BroadcastHashJoin.*timeout|broadcast.*timeout|Could not broadcast` | Spark 广播超时，请分析是否数据量变化或网络拥堵导致 |
 | class_not_found | `ClassNotFoundException` | Spark 类找不到，请分析缺失的类名和需要的依赖包 |
 | no_class_def | `NoClassDefFoundError` | Spark 类定义找不到，请分析类名和依赖加载问题 |
-| jar_not_found | `jar not found\|could not find jar` | Spark Jar 包找不到，请检查 Jar 包路径 |
+| jar_not_found | `jar not found|could not find jar` | Spark Jar 包找不到，请检查 Jar 包路径 |
 | main_class_not_found | `Main class not found` | Spark 主类找不到，请检查 Main Class 名称 |
 | spark_version_mismatch | `Spark version mismatch` | Spark 版本不匹配，请检查版本兼容性 |
 | shuffle_failed | `FetchFailedException` | Spark Shuffle 数据拉取失败，请分析 Shuffle Service 状态和网络问题 |
 | shuffle_connection | `shuffle.*connection failed` | Spark Shuffle 连接失败，请检查 Shuffle Service |
-| connection_refused | `Connection refused\|ConnectException` | Spark 网络连接被拒绝，请检查目标服务是否运行 |
-| connection_timeout | `Connection timed out\|SocketTimeoutException` | Spark 网络连接超时，请检查网络状态 |
-| driver_disconnected | `Driver disconnected\|Driver closed` | Spark Driver 断开连接，请分析 Driver 状态 |
-| block_manager_lost | `BlockManager.*lost\|BlockManagerId.*lost` | Spark BlockManager 丢失，请检查存储状态 |
-| hdfs_not_found | `does not exist\|FileNotFound\|InvalidInputException.*path` | Spark HDFS 文件不存在，请检查输入路径是否正确 |
-| file_not_found | `FileNotFoundException\|file not found` | Spark 文件不存在，请检查文件路径 |
-| hdfs_permission | `Permission denied.*hdfs\|access denied` | Spark HDFS 权限不足，请检查文件权限 |
-| schema_mismatch | `Schema mismatch\|cannot resolve` | Spark Schema 不匹配，请分析数据结构问题 |
-| partition_not_found | `Partition not found\|partition.*does not exist` | Spark 分区不存在，请检查分区配置 |
-| corrupt_data | `Corrupt block\|corrupt data` | Spark 数据损坏，请检查数据文件 |
-| null_value | `Null value\|NullPointerException` | Spark 空值问题，请分析空值处理逻辑 |
-| datetime_parse | `DateTimeParseException\|cannot parse date` | Spark 日期解析失败，请检查日期格式 |
-| spark_sql_error | `SparkSQLException\|AnalysisException` | Spark SQL 错误，请分析 SQL 语法和语义问题 |
+| connection_refused | `Connection refused|ConnectException` | Spark 网络连接被拒绝，请检查目标服务是否运行 |
+| connection_timeout | `Connection timed out|SocketTimeoutException` | Spark 网络连接超时，请检查网络状态 |
+| driver_disconnected | `Driver disconnected|Driver closed` | Spark Driver 断开连接，请分析 Driver 状态 |
+| block_manager_lost | `BlockManager.*lost|BlockManagerId.*lost` | Spark BlockManager 丢失，请检查存储状态 |
+| hdfs_not_found | `does not exist|FileNotFound|InvalidInputException.*path|Path.*does not exist` | Spark HDFS 文件不存在，请检查输入路径是否正确 |
+| file_not_found | `FileNotFoundException|file not found` | Spark 文件不存在，请检查文件路径 |
+| hdfs_permission | `Permission denied.*hdfs|access denied` | Spark HDFS 权限不足，请检查文件权限 |
+| schema_mismatch | `Schema mismatch|cannot resolve` | Spark Schema 不匹配，请分析数据结构问题 |
+| partition_not_found | `Partition not found|partition.*does not exist` | Spark 分区不存在，请检查分区配置 |
+| corrupt_data | `Corrupt block|corrupt data` | Spark 数据损坏，请检查数据文件 |
+| null_value | `Null value|NullPointerException` | Spark 空值问题，请分析空值处理逻辑 |
+| datetime_parse | `DateTimeParseException|cannot parse date` | Spark 日期解析失败，请检查日期格式 |
+| spark_sql_error | `SparkSQLException|AnalysisException` | Spark SQL 错误，请分析 SQL 语法和语义问题 |
 | job_aborted | `SparkException:\s*Job aborted` | Spark Job 被中止，请分析具体中止原因 |
 | stage_failed | `Stage\s+\d+\s+failed` | Spark Stage 失败，请分析失败的具体 Stage 和原因 |
-| task_failed | `Task failed\|TaskSetManager.*failed` | Spark Task 失败，请分析失败原因 |
+| task_failed | `Task failed|TaskSetManager.*failed` | Spark Task 失败，请分析失败原因 |
 | app_submission_failed | `Application submission failed` | Spark 应用提交失败，请检查提交配置 |
-| sql_syntax | `SQL syntax error\|parse exception` | Spark SQL 语法错误，请分析 SQL 语法 |
-| sql_column_not_found | `Column.*not found\|cannot resolve column` | Spark SQL 列不存在，请检查列名 |
-| sql_table_not_found | `Table.*not found\|table does not exist` | Spark SQL 表不存在，请检查表名 |
-| container_killed | `Container killed by YARN\|Container killed` | Spark 容器被 YARN 终止，请分析资源使用情况 |
+| sql_syntax | `SQL syntax error|parse exception` | Spark SQL 语法错误，请分析 SQL 语法 |
+| sql_column_not_found | `Column.*not found|cannot resolve column` | Spark SQL 列不存在，请检查列名 |
+| sql_table_not_found | `Table.*not found|table does not exist` | Spark SQL 表不存在，请检查表名 |
+| container_killed | `Container killed by YARN|Container killed` | Spark 容器被 YARN 终止，请分析资源使用情况 |
 | executor_lost | `Executor lost` | Spark Executor 丢失，请分析 Executor 状态 |
 | executor_crash | `Executor crashed` | Spark Executor 崩溃，请分析崩溃原因 |
 | yarn_resource | `YARN.*resource.*insufficient` | Spark YARN 资源不足，请检查资源配额 |
 | yarn_container_exit | `Container.*exit.*code` | YARN Container 异常退出，请分析退出原因 |
-| queue_full | `Queue.*full\|queue capacity` | Spark YARN 队列满，请检查队列状态 |
+| queue_full | `Queue.*full|queue capacity` | Spark YARN 队列满，请检查队列状态 |
 | killed_by_user | `Killed by user` | Spark 任务被手动终止，无需自动修复 |
 
 ## Pattern Matching Rules
 
-1. **优先级**: AUTO_FIXABLE > KNOWN_NEEDS_LLM > UNKNOWN
+1. **优先级**: AUTO_FIXABLE > RESOURCE_SUGGESTED > KNOWN_NEEDS_LLM > UNKNOWN
 2. **匹配方式**: 正则表达式，忽略大小写 (re.IGNORECASE)
 3. **跨行匹配**: 使用 re.DOTALL 处理跨行日志
 4. **多模式匹配**: 单个日志可能匹配多个模式，取第一个匹配
-
-## Usage
-
-```python
-import re
-from pathlib import Path
-
-def load_patterns(file_path: str) -> dict:
-    """Load patterns from spark_patterns.md"""
-    patterns = {"AUTO_FIXABLE": {}, "KNOWN_NEEDS_LLM": {}}
-    # Parse markdown tables and populate patterns
-    return patterns
-
-def match_error(log_content: str, patterns: dict) -> tuple:
-    """Match error patterns in log content"""
-    for category, error_patterns in patterns.items():
-        for error_type, (pattern, hint_or_fix) in error_patterns.items():
-            if re.search(pattern, log_content, re.IGNORECASE | re.DOTALL):
-                return error_type, category, pattern, hint_or_fix
-    return "unknown", "UNKNOWN", None, None
-```

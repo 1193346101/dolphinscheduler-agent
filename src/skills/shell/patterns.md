@@ -15,6 +15,13 @@
 
 已知错误类型，需要 LLM 进一步分析上下文。
 
+### 命令错误
+
+| error_type | pattern | llm_hint |
+|------------|---------|----------|
+| command_not_found | `command not found` | Shell 命令未找到，请检查命令是否存在或拼写是否正确 |
+| command_not_found_line | `line.*command not found` | Shell 命令未找到，请检查脚本中的命令拼写 |
+
 ### 语法错误
 
 | error_type | pattern | llm_hint |

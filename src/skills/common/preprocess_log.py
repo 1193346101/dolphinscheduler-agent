@@ -58,7 +58,12 @@ def extract_error_blocks(log_content: str) -> List[str]:
     Extract complete error blocks from log content.
 
     Identifies error blocks starting with ERROR/FATAL/Exception markers
-    and includes following stack trace lines.
+    and includes following stack trace lines and exception type lines.
+    Supports:
+    - Java exceptions (java.lang.*, org.apache.*, etc.)
+    - Python traceback (Traceback + File + Error)
+    - Shell errors (line X: syntax error, Permission denied, etc.)
+    - DataX errors (ERROR + Exception)
 
     Args:
         log_content: The raw log content to process
@@ -69,21 +74,95 @@ def extract_error_blocks(log_content: str) -> List[str]:
     if not log_content:
         return []
 
-    # Patterns that start an error block (NOT including "Caused by:" which extends existing blocks)
+    # Patterns that start an error block
     error_start_patterns = [
         r'\bERROR\b',
         r'\bFATAL\b',
         r'\bException\b',
-        r'\bjava\.\w+Exception\b',
-        r'\borg\.\w+Exception\b',
+        r'^FetchFailedException',           # Spark shuffle fetch failed
+        r'^Traceback \(most recent call last\)',  # Python traceback
+        r'^java\.[a-z]+\.[A-Z]',           # Java exception at line start
+        r'^org\.[a-z]+\.[A-Z]',             # org.apache.* exception
+        r'^com\.[a-z]+\.[A-Z]',             # com.* exception
+        r'^\w+Error:',                       # Python error: KeyError:, ValueError:, etc.
+        r'^\w+Exception:',                   # Python/Java exception at line start
+        r'^[A-Z][a-zA-Z]+Error',             # ModuleNotFoundError, IndexError
+        # Shell error patterns
+        r'/bin/bash:.*error',               # Shell syntax error
+        r'\bPermission denied\b',           # Shell permission error
+        r'\bConnection refused\b',          # Network connection error
+        r'\bno space left\b',               # Disk full error
+        r'\bCannot connect\b',              # Connection error
+        r'\bFailed to connect\b',           # curl/wget connection error
+        r'\bCommunications link failure\b', # DataX/MySQL connection error
+        # DataX/MySQL/Database error patterns
+        r'\bDuplicate entry.*for key\b',    # MySQL duplicate key error
+        r'\bAccess denied for user\b',      # MySQL authentication error
+        r"\bTable.*doesn'?t exist\b",       # MySQL table not found (apostrophe optional)
+        r'\bORA-\d+',                       # Oracle error code (ORA-12154, ORA-12514)
+        # Spark/YARN error patterns
+        r'\bContainer killed\b',             # YARN container killed
+        r'\bPath.*does not exist\b',         # Spark/HDFS path not found
+        # Additional Shell/Linux error patterns
+        r'^ls:.*No such file',              # ls file not found
+        r'^cat:.*No such file',             # cat file not found
+        r'^rm:.*No such file',              # rm file not found
+        r'^mkdir:.*cannot create',          # mkdir error
+        r'^cp:.*cannot',                    # cp error
+        r'^mv:.*cannot',                    # mv error
+        r'^chmod:.*cannot',                 # chmod error
+        r'^chown:.*cannot',                 # chown error
+        r'^grep:.*',                        # grep error
+        r'^find:.*',                        # find error
+        r'^sed:.*',                         # sed error
+        r'^awk:.*',                         # awk error
+        r'^curl:.*',                        # curl error
+        r'^wget:.*',                        # wget error
+        r'^ssh:.*',                         # ssh error
+        r'^scp:.*',                         # scp error
+        r'^tar:.*',                         # tar error
+        r'^unzip:.*',                       # unzip error
+        r'^python:.*',                      # python command error
+        r'^pip:.*',                         # pip error
+        r'^docker:.*',                      # docker error
+        r'^kubectl:.*',                     # kubectl error
+        r'\bNo such file or directory\b',   # Generic file not found
+        r'\bcommand not found\b',           # Command not found
+        r'\bsyntax error\b',                # Generic syntax error
+        r'\bsegmentation fault\b',          # Segfault
+        r'\bcore dumped\b',                 # Core dump
     ]
 
-    # Patterns that continue an error block (stack trace lines)
-    stack_trace_patterns = [
+    # Patterns that continue an error block
+    continuation_patterns = [
+        # Java stack trace
         r'^\s+at\s+',                    # at com.example.Class.method(File.java:10)
         r'^\s+\.\.\.\s+\d+\s+more',      # ... N more
-        r'Caused by:',                    # Caused by: exception chain (extends current block)
-        r'^\s+\[?:',                      # [CIRCULAR REFERENCE:] or similar
+        r'Caused by:',                    # Caused by: exception chain
+        r'^\s+\[?:',                      # [CIRCULAR REFERENCE:]
+        # Java exception continuation
+        r'^The last packet',              # MySQL/DataX error continuation
+        r'^\s+at java\.',                 # Java stack trace
+        r'^\s+at org\.',                  # Apache stack trace
+        # Python traceback
+        r'^\s+File "',                   # Python: File "path", line N
+        r'^\s+import\s+',                 # Python import line in traceback
+        r'^\s+[A-Z][a-zA-Z]+Error:',      # Python error line continuation
+        r'^During handling',              # Python exception handling
+        # Shell continuation
+        r'^\s+[a-zA-Z_]+:',               # Shell error continuation (script.sh:)
+        # DataX/Database error continuation (critical lines after ERROR)
+        r'^Duplicate entry',              # MySQL duplicate key
+        r'^Access denied',                # MySQL access denied
+        r'^Table.*doesn',                 # MySQL table not found
+        r'^Connection refused',           # Connection error
+        r'^Timeout',                      # Timeout error
+        r'^Invalid',                      # Invalid value
+        r'^Out of range',                 # Out of range
+        r'^Data truncation',              # Data truncation
+        r'^com\.mysql',                   # MySQL exception class
+        r'^java\.\w+',                    # Java exception class continuation
+        r'^org\.\w+',                     # Apache exception class
     ]
 
     error_blocks = []
@@ -92,38 +171,54 @@ def extract_error_blocks(log_content: str) -> List[str]:
     in_error_block = False
 
     for line in lines:
-        # Check if this is a "Caused by:" continuation (should extend current block, not start new)
-        is_caused_by = 'Caused by:' in line
+        stripped = line.strip()
+        if not stripped:
+            if in_error_block:
+                # End block on empty line (for most cases)
+                if current_block:
+                    error_blocks.append('\n'.join(current_block))
+                current_block = []
+                in_error_block = False
+            continue
 
-        # Check if this line starts a new error block (only if NOT a "Caused by:" line)
-        is_error_start = not is_caused_by and any(
-            re.search(pattern, line, re.IGNORECASE)
+        # Check if this line starts a new error block
+        is_error_start = any(
+            re.search(pattern, stripped, re.IGNORECASE)
             for pattern in error_start_patterns
         )
 
-        # Check if this line continues a stack trace
-        is_stack_trace = any(
-            re.search(pattern, line)
-            for pattern in stack_trace_patterns
+        # Check if this line continues a block
+        is_continuation = any(
+            re.search(pattern, stripped)
+            for pattern in continuation_patterns
         )
+
+        # Exception type line (java.lang.*, etc.) - should continue or start
+        is_exception_type = re.match(r'^[a-z]+\.[a-z]+\.[A-Z]', stripped) or \
+                           re.match(r'^[A-Z][a-zA-Z]+Error:', stripped) or \
+                           re.match(r'^[A-Z][a-zA-Z]+Exception', stripped)
 
         if is_error_start:
             # Save previous block if exists
             if current_block:
                 error_blocks.append('\n'.join(current_block))
-
             # Start new block
             current_block = [line]
             in_error_block = True
-        elif in_error_block and is_stack_trace:
-            # Continue current block (includes "Caused by:" lines)
+        elif in_error_block and (is_continuation or is_exception_type):
+            # Continue current block
             current_block.append(line)
-        elif in_error_block:
-            # End of error block (non-stack-trace line after error block)
-            if current_block:
-                error_blocks.append('\n'.join(current_block))
-            current_block = []
-            in_error_block = False
+        elif in_error_block and len(current_block) < 30:
+            # Allow up to 30 lines per block for unknown continuation
+            # Check if it looks like it could be related
+            if stripped.startswith(('at', 'Caused', 'File', 'import', 'The', 'More', 'Error', 'Exception')):
+                current_block.append(line)
+            else:
+                # End block
+                if current_block:
+                    error_blocks.append('\n'.join(current_block))
+                current_block = []
+                in_error_block = False
 
     # Don't forget the last block
     if current_block:

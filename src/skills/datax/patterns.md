@@ -26,7 +26,7 @@ DataX 错误大多需要 LLM 进一步分析上下文。
 
 | error_type | pattern | llm_hint |
 |------------|---------|----------|
-| table_not_found | `Table.*doesn't exist|Table.*不存在` | DataX 表不存在，请检查表名是否正确，注意大小写和 Schema |
+| table_not_found | `Table.*doesn'?t exist|Table.*不存在` | DataX 表不存在，请检查表名是否正确，注意大小写和 Schema |
 | table_not_found_oracle | `ORA-00942: table or view does not exist` | DataX Oracle 表不存在，请检查表名和 Schema |
 | table_not_found_mysql | `Table '.*' doesn't exist` | DataX MySQL 表不存在，请检查表名和数据库名 |
 | column_mismatch | `Unknown column` | DataX 列名不匹配，请检查源表和目标表的列名配置 |
@@ -48,8 +48,8 @@ DataX 错误大多需要 LLM 进一步分析上下文。
 
 | error_type | pattern | llm_hint |
 |------------|---------|----------|
-| primary_key_dup | `Duplicate entry.*for key 'PRIMARY'` | DataX 主键冲突，请分析数据是否有重复主键，考虑去重或使用 REPLACE INTO 模式 |
-| unique_key_dup | `Duplicate entry.*for key '.*'` | DataX 唯一键冲突，请检查数据是否有重复 |
+| primary_key_dup | `Duplicate entry.*for key.*PRIMARY` | DataX 主键冲突，请分析数据是否有重复主键，考虑去重或使用 REPLACE INTO 模式 |
+| unique_key_dup | `Duplicate entry.*for key` | DataX 唯一键冲突，请检查数据是否有重复 |
 | foreign_key_error | `Cannot add or update a child row: a foreign key constraint fails` | DataX 外键约束错误，请检查关联数据是否存在 |
 | constraint_error | `Constraint violation|Integrity constraint` | DataX 约束违反，请检查数据完整性约束 |
 

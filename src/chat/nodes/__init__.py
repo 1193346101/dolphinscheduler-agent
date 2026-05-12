@@ -11,6 +11,10 @@ from .scan_graph import scan_graph_node
 from .visualize import visualize_node
 from .query_workflow import query_workflow_node
 from .query_workflow_instances import query_workflow_instances_node
+from .query_status import query_status_node
+from .query_logs import query_logs_node
+from .recover_failure import recover_failure_node
+from .run_workflow import run_workflow_node
 
 __all__ = [
     "parse_intent_node",
@@ -20,4 +24,8 @@ __all__ = [
     "visualize_node",
     "query_workflow_node",
     "query_workflow_instances_node",
+    "query_status_node",
+    "query_logs_node",
+    "recover_failure_node",
+    "run_workflow_node",
 ]

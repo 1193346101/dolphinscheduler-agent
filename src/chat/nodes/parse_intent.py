@@ -1,20 +1,26 @@
 """
 Parse Intent Node - 智能意图解析
 
-使用关键词匹配，LLM 备用（统一使用 LLMClient）
+重构版：统一使用IntentParser，移除重复逻辑
+LLM备用：统一使用LLMClient
 """
 
-import re
 import json
 from typing import Dict, Any
 
 from ..state import ChatState
+from ..tools.intent_parser import IntentParser
 from ...tools.llm_client import LLMClient
 
 
 def parse_intent_node(state: ChatState) -> ChatState:
     """
     解析用户消息意图
+
+    流程:
+    1. 使用IntentParser快速匹配
+    2. 如果unknown，尝试LLM深度分析
+    3. 返回解析结果
 
     Args:
         state: Current ChatState with message field populated
@@ -32,15 +38,18 @@ def parse_intent_node(state: ChatState) -> ChatState:
             "workflow_code": None,
             "table_name": None,
             "project_name": None,
+            "workflow_instance_id": None,
+            "query_date": None,
         }
 
     message = message.strip()
     print(f"[parse_intent] 解析消息: {message}")
 
-    # 先用规则匹配（快速）
-    result = match_intent(message)
+    # 1. 使用IntentParser快速匹配（统一逻辑）
+    parser = IntentParser()
+    result = parser.parse(message)
 
-    # 如果规则匹配失败，尝试 LLM
+    # 2. 如果规则匹配失败，尝试LLM
     if result.get("intent_type") == "unknown":
         llm_result = parse_with_llm(message)
         if llm_result and llm_result.get("intent_type") != "unknown":
@@ -63,9 +72,9 @@ def parse_intent_node(state: ChatState) -> ChatState:
 
 def parse_with_llm(message: str) -> Dict:
     """
-    使用 LLM 解析意图（统一使用 LLMClient）
+    使用 LLM 解析意图
 
-    继承 LLMClient 的默认配置，无需单独配置环境变量
+    统一使用 LLMClient，继承默认配置
     """
     llm_client = LLMClient()
 
@@ -73,12 +82,12 @@ def parse_with_llm(message: str) -> Dict:
 
 支持的意图类型：
 - query_workflow: 查询项目工作流定义列表，参数 project_name
-- query_workflow_instances: 查询工作流实例列表（运行记录），参数 project_name, date(可选，默认今天)
+- query_workflow_instances: 查询工作流实例列表（运行记录），参数 project_name, query_date(可选，默认今天，格式YYYY-MM-DD)
 - query_status: 查询工作流状态，参数 workflow_code
 - query_logs: 查看日志，参数 workflow_code
 - query_task_instances: 查询任务实例详情，参数 workflow_instance_id
 - recover_failure: 恢复失败工作流，参数 workflow_code
-- lineage_query: 血缘查询，参数 query_type(downstream/upstream/table_consumer/table_producer), workflow_code/table_name
+- lineage_query: 血缘查询，参数 query_type(downstream/upstream/table_consumer/table_producer/workflow_nodes), workflow_code/table_name
 - scan_graph: 扫描项目图谱，参数 project_name
 - visualize_lineage: 可视化血缘链路，参数 workflow_code
 - run_workflow: 手动运行工作流，参数 workflow_code
@@ -89,13 +98,44 @@ def parse_with_llm(message: str) -> Dict:
 
 返回 JSON：{{"intent_type": "xxx", "project_name": "xxx", "workflow_code": "xxx", "workflow_instance_id": "xxx", "query_type": "xxx", "table_name": "xxx", "query_date": "YYYY-MM-DD"}}"""
 
+    # 使用统一的analyze方法
+    skill_result = {"error_type": "unknown", "llm_hint": message}
+
     try:
+        result = llm_client.analyze(
+            log_excerpt=message,
+            task_type="chat_intent",
+            skill_result=skill_result
+        )
+
+        # 从result提取意图信息
+        if result.get("error_category") != "UNKNOWN":
+            # 解析建议动作中的意图信息
+            actions = result.get("suggested_actions", [])
+            if actions:
+                action = actions[0]
+                description = action.get("description", "")
+
+                # 尝试从description解析JSON
+                json_start = description.find("{")
+                json_end = description.rfind("}") + 1
+                if json_start >= 0 and json_end > json_start:
+                    try:
+                        parsed = json.loads(description[json_start:json_end])
+                        print(f"[parse_intent] LLM result: {parsed}")
+                        return parsed
+                    except json.JSONDecodeError:
+                        pass
+
+        # 回退：直接让LLM返回JSON
+        response = llm_client._build_prompt(message, "chat_intent", skill_result)
+        # 这里需要直接调用API获取JSON结果
+        import requests
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {llm_client.api_token}",
             "x-api-key": llm_client.api_token,
         }
-
         payload = {
             "model": llm_client.model,
             "max_tokens": 256,
@@ -103,14 +143,11 @@ def parse_with_llm(message: str) -> Dict:
         }
 
         print(f"[parse_intent] Calling LLM: {llm_client.api_url}/v1/messages")
-        print(f"[parse_intent] Model: {llm_client.model}")
-
-        import requests
         response = requests.post(
             f"{llm_client.api_url}/v1/messages",
             headers=headers,
             json=payload,
-            timeout=60  # 增加超时时间
+            timeout=60
         )
 
         if response.status_code != 200:

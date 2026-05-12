@@ -45,27 +45,30 @@ class PythonSkill(BaseSkill):
 
     def analyze(self, log_content: str, context: AlertContext) -> ErrorAnalysis:
         """
-        分析 Python 任务错误 - 使用公共 pattern_matcher
+        分析 Python 任务错误 - 使用公共 pattern_matcher + LLM fallback
 
         流程:
         1. preprocess_log - 日志预处理
         2. PatternMatcher.match - 模式匹配
-        3. _build_analysis - 构建 ErrorAnalysis（含 traceback 解析）
+        3. _parse_traceback - 解析 traceback
+        4. _build_analysis - 构建 ErrorAnalysis
+        5. UNKNOWN -> analyze_with_llm_fallback - LLM 分析并记录候选
         """
         # 1. 日志预处理
         preprocessed = preprocess_log(log_content, task_type="python")
         error_blocks = preprocessed.get("error_blocks", [])
 
-        # 没有错误块时返回 UNKNOWN
+        # 没有错误块时返回 UNKNOWN（交给 LLM）
         if not error_blocks:
-            return ErrorAnalysis(
+            initial = ErrorAnalysis(
                 error_type="unknown",
                 category=ErrorCategory.UNKNOWN,
                 error_message=log_content[:500],
                 original_log_error=log_content[:300],
                 analysis_process="无错误块提取",
-                reasoning="日志预处理未发现错误信息，建议人工分析",
+                reasoning="日志预处理未发现错误信息，交给 LLM 分析",
             )
+            return self.analyze_with_llm_fallback(log_content, initial, context)
 
         # 合并错误块
         error_text = "\n".join(error_blocks)
@@ -78,12 +81,18 @@ class PythonSkill(BaseSkill):
         traceback_info = self._parse_traceback(error_text)
 
         # 4. 构建 ErrorAnalysis
-        return self._build_analysis(
+        initial = self._build_analysis(
             match_result,
             preprocessed,
             error_blocks[0] if error_blocks else error_text[:300],
             traceback_info,
         )
+
+        # 5. UNKNOWN -> LLM fallback
+        if initial.category == ErrorCategory.UNKNOWN:
+            return self.analyze_with_llm_fallback(log_content, initial, context)
+
+        return initial
 
     def _parse_traceback(self, log_content: str) -> Dict[str, Any]:
         """

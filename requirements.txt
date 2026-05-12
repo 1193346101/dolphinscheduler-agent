@@ -1,11 +1,12 @@
 # DolphinScheduler Agent Dependencies
-# GSD: Only what's needed
+# Updated for compatibility
 
-# LangChain (LLM Agent)
-langchain>=0.3.0
-langchain-openai>=0.2.0  # 兼容 OpenAI API 格式
+# LangChain (LLM Agent) - 使用稳定的 0.3.x 或更高版本
+# 注意: langchain 0.3.x 是独立包，langchain-core 是核心包
+langchain>=0.3.0,<1.0.0
+langchain-openai>=0.2.0
 langchain-core>=0.3.0
-langgraph>=0.2.0  # 状态机
+langgraph>=0.2.0
 
 # DingTalk Stream
 dingtalk-stream>=0.24.0
@@ -20,12 +21,11 @@ pydantic>=2.0.0
 python-dotenv>=1.0.0
 pyyaml>=6.0
 
-# Kubernetes
-kubernetes>=28.0.0
+# Kubernetes (可选)
+# kubernetes>=28.0.0
 
 # Development
 pytest>=7.0.0
-black>=23.0.0
 
 # Graph Analysis
 networkx>=3.0
