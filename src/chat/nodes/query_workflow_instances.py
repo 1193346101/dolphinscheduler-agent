@@ -102,9 +102,8 @@ def query_workflow_instances_node(state: ChatState) -> ChatState:
             name = wf.get("name", "未命名")
             workflow_map[code] = name
 
-    # 2. 查询每个工作流今天的实例（限制前10个工作流，避免请求过多）
+    # 2. 查询每个工作流今天的实例
     all_instances = []
-    seen_ids = set()  # 去重：同一个实例ID只记录一次
     checked_count = 0
     max_check = 10  # 只检查前10个工作流
 
@@ -134,21 +133,21 @@ def query_workflow_instances_node(state: ChatState) -> ChatState:
                 for inst in instance_list:
                     if isinstance(inst, dict):
                         inst_id = inst.get("id")
-                        # 去重：同一个实例ID只记录第一次（避免API返回重复数据）
-                        if inst_id and inst_id not in seen_ids:
-                            seen_ids.add(inst_id)
-                            # 使用实例自身的workflowName（如果有），否则用当前查询的工作流名
-                            actual_wf_name = inst.get("workflowName", wf_name)
-                            all_instances.append({
-                                "workflow_name": actual_wf_name,
-                                "workflow_code": wf_code,
-                                "instance_id": inst_id,
-                                "state": inst.get("state", "UNKNOWN"),
-                                "start_time": inst.get("startTime", ""),
-                                "end_time": inst.get("endTime", ""),
-                            })
+                        # 不去重，保留所有记录
+                        actual_wf_name = inst.get("workflowName", wf_name)
+                        all_instances.append({
+                            "workflow_name": actual_wf_name,
+                            "workflow_code": wf_code,
+                            "instance_id": inst_id,
+                            "state": inst.get("state", "UNKNOWN"),
+                            "start_time": inst.get("startTime", ""),
+                            "end_time": inst.get("endTime", ""),
+                        })
         except Exception:
             continue
+
+    # 按开始时间排序（最新的在前）
+    all_instances.sort(key=lambda x: x.get("start_time", ""), reverse=True)
 
     # 格式化响应
     if not all_instances:
