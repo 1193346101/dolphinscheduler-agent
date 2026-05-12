@@ -60,13 +60,35 @@ def query_workflow_instances_node(state: ChatState) -> ChatState:
     start_time = f"{query_date} 00:00:00"
     end_time = f"{query_date} 23:59:59"
 
-    # 调用 dsctl 直接查询项目所有实例
+    # 调用 dsctl
     client = DSCLIClient(
         api_url=settings.DS_API_URL,
         api_token=settings.DS_API_TOKEN,
         version=settings.DS_VERSION,
     )
 
+    # 1. 先获取工作流定义列表（建立 code -> name 映射）
+    workflows_result = client.list_workflows(project_code)
+    workflow_name_map = {}
+
+    if workflows_result.success:
+        wf_data = json.loads(workflows_result.stdout)
+        if isinstance(wf_data, dict):
+            wf_list = wf_data.get("data", [])
+            if isinstance(wf_list, dict):
+                wf_list = wf_list.get("workflows", wf_list.get("list", []))
+        elif isinstance(wf_data, list):
+            wf_list = wf_data
+        else:
+            wf_list = []
+
+        for wf in wf_list:
+            if isinstance(wf, dict):
+                code = wf.get("code")
+                name = wf.get("name", "未命名")
+                workflow_name_map[code] = name
+
+    # 2. 查询项目所有实例
     all_instances = []
     try:
         instances_result = client.list_workflow_instances(
@@ -87,10 +109,12 @@ def query_workflow_instances_node(state: ChatState) -> ChatState:
 
             for inst in instance_list:
                 if isinstance(inst, dict):
-                    wf_name = inst.get("workflowName", "未命名")
+                    # 使用 workflowDefinitionCode 查工作流名称
+                    wf_code = inst.get("workflowDefinitionCode")
+                    wf_name = workflow_name_map.get(wf_code, inst.get("name", "未命名"))
                     all_instances.append({
                         "workflow_name": wf_name,
-                        "workflow_code": inst.get("workflowCode", ""),
+                        "workflow_code": wf_code,
                         "instance_id": inst.get("id"),
                         "state": inst.get("state", "UNKNOWN"),
                         "start_time": inst.get("startTime", ""),
