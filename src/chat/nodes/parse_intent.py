@@ -283,6 +283,8 @@ def match_query_workflow_instances(message: str) -> Dict:
 
 def extract_project(message: str) -> str:
     clean_msg = message
+    # 先移除 @机器人名 格式
+    clean_msg = re.sub(r'@[a-zA-Z_][a-zA-Z0-9_]*', '', clean_msg)
     for word in ["查询", "项目", "的", "下", "有哪些", "工作流", "图谱", "扫描"]:
         clean_msg = clean_msg.replace(word, " ")
     matches = re.findall(r'[a-zA-Z_][a-zA-Z0-9_]*', clean_msg)
