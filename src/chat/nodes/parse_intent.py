@@ -1,26 +1,33 @@
 """
-Parse Intent Node - 智能意图解析
+Parse Intent Node - 智能意图解析（LLM-first）
 
-重构版：统一使用IntentParser，移除重复逻辑
-LLM备用：统一使用LLMClient
+重构版：
+1. LLM优先理解（更灵活）
+2. 关键词快速备用（效率）
+3. 上下文参数补全（多轮对话）
+4. 自然语言理解增强
 """
 
 import json
+import requests
 from typing import Dict, Any
 
 from ..state import ChatState
 from ..tools.intent_parser import IntentParser
+from ..tools.intent_context import intent_context
 from ...tools.llm_client import LLMClient
 
 
 def parse_intent_node(state: ChatState) -> ChatState:
     """
-    解析用户消息意图
+    解析用户消息意图（LLM-first模式）
 
     流程:
-    1. 使用IntentParser快速匹配
-    2. 如果unknown，尝试LLM深度分析
-    3. 返回解析结果
+    1. 快速关键词检测（秒级响应）
+    2. 如果关键词明确，直接返回
+    3. 如果模糊，调用LLM深度理解
+    4. 上下文参数补全
+    5. 记录对话记忆
 
     Args:
         state: Current ChatState with message field populated
@@ -29,33 +36,48 @@ def parse_intent_node(state: ChatState) -> ChatState:
         Updated ChatState with intent fields populated
     """
     message = state.get("message", "")
+    conversation_id = state.get("conversation_id", "default")
 
     if not message or not message.strip():
-        return {
-            **state,
-            "intent_type": "unknown",
-            "query_type": None,
-            "workflow_code": None,
-            "table_name": None,
-            "project_name": None,
-            "workflow_instance_id": None,
-            "query_date": None,
-        }
+        return _empty_result(state)
 
     message = message.strip()
     print(f"[parse_intent] 解析消息: {message}")
 
-    # 1. 使用IntentParser快速匹配（统一逻辑）
+    # 获取上下文摘要（用于LLM）
+    context_summary = intent_context.get_context_summary(conversation_id)
+    print(f"[parse_intent] {context_summary}")
+
+    # 1. 快速关键词检测（明确意图直接返回）
     parser = IntentParser()
-    result = parser.parse(message)
+    quick_result = parser.parse(message)
 
-    # 2. 如果规则匹配失败，尝试LLM
-    if result.get("intent_type") == "unknown":
-        llm_result = parse_with_llm(message)
-        if llm_result and llm_result.get("intent_type") != "unknown":
-            result = llm_result
+    # 2. 如果是明确的简单意图（help、scan_graph等），直接返回
+    if quick_result.get("intent_type") in ["help", "scan_graph", "unknown"]:
+        # 即使是unknown，也可能是复杂表达，继续LLM
+        if quick_result.get("intent_type") != "unknown":
+            result = quick_result
+            print(f"[parse_intent] 快速匹配: {result}")
+        else:
+            # 3. 模糊表达 -> LLM深度理解
+            result = parse_with_llm_flexible(message, context_summary)
+            print(f"[parse_intent] LLM理解: {result}")
+    else:
+        # 4. 检查是否需要参数补全
+        result = quick_result
+        if needs_more_parameters(result):
+            # 尝试LLM补充参数
+            enhanced = parse_with_llm_flexible(message, context_summary, result)
+            if enhanced.get("intent_type") != "unknown":
+                result = enhanced
 
-    print(f"[parse_intent] 解析结果: {result}")
+    # 5. 参数补全（从上下文）
+    result = intent_context.complete_parameters(conversation_id, result)
+
+    # 6. 记录对话记忆
+    intent_context.update_memory(conversation_id, result, message)
+
+    print(f"[parse_intent] 最终结果: {result}")
 
     return {
         **state,
@@ -70,79 +92,103 @@ def parse_intent_node(state: ChatState) -> ChatState:
     }
 
 
-def parse_with_llm(message: str) -> Dict:
-    """
-    使用 LLM 解析意图
+def needs_more_parameters(result: Dict) -> bool:
+    """检查是否缺少必要参数"""
+    intent_type = result.get("intent_type", "unknown")
 
-    统一使用 LLMClient，继承默认配置
+    # 需要workflow_code的意图
+    if intent_type in ["query_status", "query_logs", "recover_failure",
+                       "run_workflow", "lineage_query", "visualize_lineage"]:
+        return not result.get("workflow_code")
+
+    # 需要project_name的意图
+    if intent_type in ["query_workflow", "query_workflow_instances", "scan_graph"]:
+        return not result.get("project_name")
+
+    # 需要table_name的意图
+    if intent_type == "lineage_query" and result.get("query_type") in ["table_consumer", "table_producer"]:
+        return not result.get("table_name")
+
+    return False
+
+
+def parse_with_llm_flexible(
+    message: str,
+    context_summary: str,
+    current_result: Dict = None
+) -> Dict:
+    """
+    LLM灵活意图理解
+
+    特点：
+    1. 支持自然语言表达（不限制固定格式）
+    2. 理解上下文
+    3. 智能补全参数
+    4. 支持意图组合（如"查状态和日志")
     """
     llm_client = LLMClient()
 
-    prompt = f"""分析用户消息，提取意图类型和参数，返回 JSON 格式。
+    # 构建灵活的提示词
+    prompt = f"""分析用户消息，理解用户意图，返回JSON格式。
 
-支持的意图类型：
-- query_workflow: 查询项目工作流定义列表，参数 project_name
-- query_workflow_instances: 查询工作流实例列表（运行记录），参数 project_name, query_date(可选，默认今天，格式YYYY-MM-DD)
-- query_status: 查询工作流状态，参数 workflow_code
-- query_logs: 查看日志，参数 workflow_code
-- query_task_instances: 查询任务实例详情，参数 workflow_instance_id
-- recover_failure: 恢复失败工作流，参数 workflow_code
-- lineage_query: 血缘查询，参数 query_type(downstream/upstream/table_consumer/table_producer/workflow_nodes), workflow_code/table_name
-- scan_graph: 扫描项目图谱，参数 project_name
-- visualize_lineage: 可视化血缘链路，参数 workflow_code
-- run_workflow: 手动运行工作流，参数 workflow_code
-- help: 帮助
-- unknown: 未知意图
+## 对话上下文
+{context_summary}
 
-用户消息：{message}
+## 用户消息
+{message}
 
-返回 JSON：{{"intent_type": "xxx", "project_name": "xxx", "workflow_code": "xxx", "workflow_instance_id": "xxx", "query_type": "xxx", "table_name": "xxx", "query_date": "YYYY-MM-DD"}}"""
+## 支持的意图类型
+1. query_workflow - 查询项目工作流列表（需要project_name）
+2. query_workflow_instances - 查询工作流实例/运行记录（需要project_name，可选query_date）
+3. query_status - 查询工作流状态（需要workflow_code）
+4. query_logs - 查看工作流日志（需要workflow_code）
+5. recover_failure - 恢复失败工作流（需要workflow_code）
+6. run_workflow - 运行工作流（需要workflow_code）
+7. lineage_query - 血缘查询（需要query_type+workflow_code或table_name）
+   - query_type: downstream/upstream/workflow_nodes/table_consumer/table_producer
+8. scan_graph - 扫描项目图谱（需要project_name）
+9. visualize_lineage - 可视化血缘（需要workflow_code）
+10. help - 显示帮助
+11. unknown - 无法理解
 
-    # 使用统一的analyze方法
-    skill_result = {"error_type": "unknown", "llm_hint": message}
+## 理解规则
+1. 自然表达：用户可能说"看看xxx的情况"、"xxx怎么样"、"查一下xxx"
+2. 代词引用：用户可能说"它的状态"、"那个工作流"，需从上下文推断
+3. 简化表达：用户可能说"状态"、"日志"、"下游"，需从上下文补全
+4. 多意图：用户可能说"状态和日志"，返回primary_intent和secondary_intents
+
+## 返回格式
+JSON:
+{
+  "intent_type": "主要意图",
+  "project_name": "项目名（如果推断出来）",
+  "workflow_code": "工作流code（如果推断出来）",
+  "workflow_name": "工作流名（如果有）",
+  "query_type": "血缘查询类型",
+  "table_name": "表名",
+  "query_date": "日期YYYY-MM-DD",
+  "parameter_inferred": true/false,  # 是否从上下文推断参数
+  "confidence": 0.0-1.0,  # 理解置信度
+  "reasoning": "理解过程简述"
+}
+
+只返回JSON，不要其他文字。"""
 
     try:
-        result = llm_client.analyze(
-            log_excerpt=message,
-            task_type="chat_intent",
-            skill_result=skill_result
-        )
-
-        # 从result提取意图信息
-        if result.get("error_category") != "UNKNOWN":
-            # 解析建议动作中的意图信息
-            actions = result.get("suggested_actions", [])
-            if actions:
-                action = actions[0]
-                description = action.get("description", "")
-
-                # 尝试从description解析JSON
-                json_start = description.find("{")
-                json_end = description.rfind("}") + 1
-                if json_start >= 0 and json_end > json_start:
-                    try:
-                        parsed = json.loads(description[json_start:json_end])
-                        print(f"[parse_intent] LLM result: {parsed}")
-                        return parsed
-                    except json.JSONDecodeError:
-                        pass
-
-        # 回退：直接让LLM返回JSON
-        response = llm_client._build_prompt(message, "chat_intent", skill_result)
-        # 这里需要直接调用API获取JSON结果
-        import requests
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {llm_client.api_token}",
             "x-api-key": llm_client.api_token,
         }
+
         payload = {
             "model": llm_client.model,
-            "max_tokens": 256,
+            "max_tokens": 512,
             "messages": [{"role": "user", "content": prompt}]
         }
 
-        print(f"[parse_intent] Calling LLM: {llm_client.api_url}/v1/messages")
+        print(f"[parse_intent] LLM API: {llm_client.api_url}/v1/messages")
+
         response = requests.post(
             f"{llm_client.api_url}/v1/messages",
             headers=headers,
@@ -152,6 +198,9 @@ def parse_with_llm(message: str) -> Dict:
 
         if response.status_code != 200:
             print(f"[parse_intent] LLM error: {response.status_code}")
+            # 备用：返回关键词匹配结果或unknown
+            if current_result:
+                return current_result
             return {"intent_type": "unknown"}
 
         data = response.json()
@@ -162,18 +211,47 @@ def parse_with_llm(message: str) -> Dict:
                 text = item.get("text", "")
                 break
 
-        # 解析 JSON
+        # 解析JSON
         json_start = text.find("{")
         json_end = text.rfind("}") + 1
         if json_start >= 0 and json_end > json_start:
             parsed = json.loads(text[json_start:json_end])
-            print(f"[parse_intent] LLM result: {parsed}")
+            print(f"[parse_intent] LLM解析: {parsed}")
+
+            # 如果置信度低于0.5，可能理解不准确
+            confidence = parsed.get("confidence", 0.5)
+            if confidence < 0.5:
+                print(f"[parse_intent] 低置信度: {confidence}")
+                # 尝试关键词备用
+                if current_result and current_result.get("intent_type") != "unknown":
+                    return current_result
+
             return parsed
 
     except Exception as e:
-        print(f"[parse_intent] LLM exception: {e}")
+        print(f"[parse_intent] LLM异常: {e}")
+        if current_result:
+            return current_result
 
     return {"intent_type": "unknown"}
+
+
+def _empty_result(state: ChatState) -> ChatState:
+    """空消息结果"""
+    return {
+        **state,
+        "intent_type": "unknown",
+        "query_type": None,
+        "workflow_code": None,
+        "workflow_name": None,
+        "workflow_instance_id": None,
+        "table_name": None,
+        "project_name": None,
+        "query_date": None,
+    }
+
+
+__all__ = ["parse_intent_node"]
 
 
 def match_intent(message: str) -> Dict:

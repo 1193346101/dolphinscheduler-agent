@@ -49,6 +49,38 @@ class DSCLIClient:
         self.audit = AuditLogger()
         self.alert = SecurityAlert()
 
+    # ============ Project ============
+
+    def list_projects(self, page_size: int = 100) -> CLIResult:
+        """
+        列出所有项目
+
+        Args:
+            page_size: 返回数量（默认100）
+
+        Returns:
+            CLIResult (stdout 是 JSON 格式的项目列表)
+        """
+        return self._run_command([
+            "project", "list",
+            "--page-size", str(page_size)
+        ], timeout=60)
+
+    def get_project(self, project: str) -> CLIResult:
+        """
+        获取项目信息（通过名称或代码）
+
+        Args:
+            project: 项目名称或项目代码
+
+        Returns:
+            CLIResult (stdout 是 JSON 格式的项目信息)
+        """
+        return self._run_command([
+            "project", "get",
+            project
+        ], timeout=30)
+
     def _run_command(self, args: list, timeout: int = 30) -> CLIResult:
         """执行 dsctl 命令（增加安全检查）"""
         import time

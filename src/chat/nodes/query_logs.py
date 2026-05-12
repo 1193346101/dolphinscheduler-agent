@@ -45,8 +45,17 @@ def query_logs_node(state: ChatState) -> ChatState:
     elif workflow_code:
         # 查询最近一次执行的日志
         # 先获取最近的实例ID
+        # workflow_code 需要转换为整数
+        try:
+            workflow_code_int = int(workflow_code)
+        except (ValueError, TypeError):
+            return {
+                **state,
+                "error_message": f"无效的工作流代码: {workflow_code}",
+                "response_content": f"工作流代码格式错误，请提供数字格式的工作流代码",
+            }
         instances_result = client.list_workflow_instances(
-            workflow_code=int(workflow_code),
+            workflow_code=workflow_code_int,
             page_size=1,
         )
         if instances_result.success:

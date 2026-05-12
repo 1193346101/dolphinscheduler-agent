@@ -132,8 +132,9 @@ class DingTalkStreamHandler(dingtalk_stream.ChatbotHandler):
                 conversation_id=message.conversation_id or "unknown",
             )
 
-            # 设置 project_code (从配置中获取默认，不使用字符串 fallback)
-            state["project_code"] = settings.DEFAULT_PROJECT_CODE if settings.DEFAULT_PROJECT_CODE else None
+            # 不再设置 project_code
+            # 用户需要在消息中明确指定项目名称，或者从会话标题解析
+            # state["project_code"] = None  # 不需要设置
 
             # 通过 LangGraph 流程执行
             result_state = self.chat_graph.invoke(state)

@@ -1,6 +1,6 @@
 #!/bin/bash
 # DolphinScheduler Agent 部署脚本
-# 支持 Ubuntu/Debian 和 CentOS/RHEL
+# 从 GitHub 直接 clone 部署
 # 用法: sudo ./install.sh
 
 set -e
@@ -8,6 +8,10 @@ set -e
 PROJECT_DIR="/opt/dolphinscheduler-agent"
 SERVICE_NAME="dolphinscheduler-agent"
 CODE_DIR="/opt/spark-etl"
+
+# GitHub 仓库地址
+AGENT_REPO="https://github.com/1193346101/dolphinscheduler-agent.git"
+DSCTL_REPO="https://github.com/1193346101/dolphinscheduler-cli.git"
 
 echo "============================================"
 echo "DolphinScheduler Agent 部署脚本"
@@ -23,13 +27,9 @@ fi
 if [ -f /etc/debian_version ]; then
     OS_TYPE="debian"
     PKG_MANAGER="apt"
-    PKG_INSTALL="apt install -y"
-    NGINX_CONF_DIR="/etc/nginx/sites-available"
 elif [ -f /etc/redhat-release ]; then
     OS_TYPE="redhat"
     PKG_MANAGER="yum"
-    PKG_INSTALL="yum install -y"
-    NGINX_CONF_DIR="/etc/nginx/conf.d"
 else
     echo "未知系统类型，请手动安装依赖"
     exit 1
@@ -38,94 +38,86 @@ fi
 echo "系统类型: $OS_TYPE"
 echo "包管理器: $PKG_MANAGER"
 
-# 1. 安装依赖
-echo "[1/10] 安装系统依赖..."
+# 1. 安装系统依赖
+echo "[1/8] 安装系统依赖..."
 if [ "$OS_TYPE" = "debian" ]; then
     apt update
-    apt install -y python3 python3-pip python3-venv nginx git curl
+    apt install -y python3 python3-pip python3-venv nginx git curl unzip
 elif [ "$OS_TYPE" = "redhat" ]; then
-    yum install -y python3 python3-pip nginx git curl
-    # CentOS 需要额外安装 venv
-    pip3 install virtualenv || yum install -y python3-virtualenv
+    yum install -y python3 python3-pip nginx git curl unzip
 fi
 
-# 2. 创建项目目录
-echo "[2/10] 创建项目目录..."
-mkdir -p $PROJECT_DIR
-mkdir -p $PROJECT_DIR/logs
-mkdir -p $PROJECT_DIR/data/graph
-
-# 3. 安装 ngrok
-echo "[3/10] 安装 ngrok..."
-if ! command -v ngrok &> /dev/null; then
-    if [ "$OS_TYPE" = "debian" ]; then
-        curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-        echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | tee /etc/apt/sources.list.d/ngrok.list
-        apt update
-        apt install -y ngrok
-    elif [ "$OS_TYPE" = "redhat" ]; then
-        # CentOS 直接下载二进制
-        curl -Lo /tmp/ngrok.zip https://bin.equinox.io/c/bNyj1mqp2n/ngrok-v3-stable-linux-amd64.zip
-        unzip -o /tmp/ngrok.zip -d /usr/local/bin/
-        chmod +x /usr/local/bin/ngrok
-    fi
+# 2. 克隆 Agent 代码
+echo "[2/8] 克隆 Agent 代码..."
+if [ -d "$PROJECT_DIR" ]; then
+    echo "目录已存在，更新代码..."
+    cd $PROJECT_DIR
+    git pull || true
+else
+    git clone $AGENT_REPO $PROJECT_DIR
 fi
 
-# 4. 克隆代码仓库（用于图谱扫描）
-echo "[4/10] 克隆 spark-etl 代码仓库..."
+cd $PROJECT_DIR
+
+# 3. 克隆 dsctl CLI（修改版本，适配 3.2.0）
+echo "[3/8] 克隆 dsctl CLI..."
+DSCTL_DIR="$PROJECT_DIR/dsctl"
+if [ -d "$DSCTL_DIR" ]; then
+    echo "dsctl 已存在，更新代码..."
+    cd $DSCTL_DIR
+    git pull || true
+else
+    git clone $DSCTL_REPO $DSCTL_DIR
+fi
+
+# 4. 克隆 spark-etl 代码仓库（用于图谱扫描）
+echo "[4/8] 克隆 spark-etl 代码仓库..."
 if [ ! -d "$CODE_DIR" ]; then
-    mkdir -p $CODE_DIR
-    # 配置 GitLab 访问（使用 HTTPS 避免 SSH 配置）
     git clone https://fengxiaoping:726580zw@gitlab-bigdata.huan.tv/etl/spark-etl.git $CODE_DIR || {
         echo "GitLab 克隆失败，请手动配置代码仓库"
-        echo "命令: git clone git@gitlab-bigdata.huan.tv:etl/spark-etl.git $CODE_DIR"
     }
 fi
 
-# 5. 复制 Agent 代码
-echo "[5/10] 复制 Agent 代码..."
-if [ -f "src/__main__.py" ]; then
-    cp -r src $PROJECT_DIR/
-    cp -r config $PROJECT_DIR/ 2>/dev/null || true
-    cp -r data $PROJECT_DIR/ 2>/dev/null || true
-    cp .env $PROJECT_DIR/ 2>/dev/null || cp .env.example $PROJECT_DIR/.env
-    cp requirements.txt $PROJECT_DIR/
-else
-    echo "请在代码目录下运行此脚本"
-    exit 1
-fi
+# 5. 创建目录结构
+echo "[5/8] 创建目录结构..."
+mkdir -p $PROJECT_DIR/logs
+mkdir -p $PROJECT_DIR/data/graph
 
 # 6. 安装 Python 依赖
-echo "[6/10] 安装 Python 依赖..."
+echo "[6/8] 安装 Python 依赖..."
 cd $PROJECT_DIR
-python3 -m venv venv || virtualenv venv
+python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 
+# 安装 dsctl
+cd $DSCTL_DIR
+pip install -e .
+cd $PROJECT_DIR
+echo "dsctl 已安装"
+
 # 7. 配置环境变量
-echo "[7/10] 配置环境变量..."
-# 设置代码仓库路径
-sed -i "s|CODE_ROOT_PATH=.*|CODE_ROOT_PATH=$CODE_DIR|" .env || true
-sed -i "s|GRAPH_STORAGE_PATH=.*|GRAPH_STORAGE_PATH=$PROJECT_DIR/data/graph|" .env || true
+echo "[7/8] 配置环境变量..."
+if [ ! -f "$PROJECT_DIR/.env" ]; then
+    cp $PROJECT_DIR/.env.example $PROJECT_DIR/.env
+fi
+# 更新路径配置
+sed -i "s|CODE_ROOT_PATH=.*|CODE_ROOT_PATH=$CODE_DIR|" $PROJECT_DIR/.env || true
+sed -i "s|GRAPH_STORAGE_PATH=.*|GRAPH_STORAGE_PATH=$PROJECT_DIR/data/graph|" $PROJECT_DIR/.env || true
 
 # 8. 安装 systemd 服务
-echo "[8/10] 安装 systemd 服务..."
-cp deploy/agent.service /etc/systemd/system/$SERVICE_NAME.service
+echo "[8/8] 安装 systemd 服务..."
+cp $PROJECT_DIR/deploy/agent.service /etc/systemd/system/$SERVICE_NAME.service
 systemctl daemon-reload
 systemctl enable $SERVICE_NAME
 
-# 9. 安装 ngrok 服务
-echo "[9/10] 安装 ngrok 服务..."
-cp deploy/ngrok.service /etc/systemd/system/ngrok.service
-systemctl daemon-reload
-systemctl enable ngrok
-
-# 10. 配置 nginx（提供 HTML 可视化和 webhook）
-echo "[10/10] 配置 nginx..."
+# 配置 nginx
+echo "配置 nginx..."
 if [ "$OS_TYPE" = "debian" ]; then
     mkdir -p /etc/nginx/sites-available
     mkdir -p /etc/nginx/sites-enabled
+    cp $PROJECT_DIR/deploy/nginx.conf /etc/nginx/sites-available/dolphinscheduler-agent || \
     cat > /etc/nginx/sites-available/dolphinscheduler-agent << 'EOF'
 server {
     listen 80;
@@ -134,29 +126,18 @@ server {
     location /graph/ {
         alias /opt/dolphinscheduler-agent/data/graph/;
         index graph_viewer.html;
-        try_files $uri $uri/ /graph/graph_viewer.html;
-    }
-
-    location /static/ {
-        alias /opt/dolphinscheduler-agent/data/;
     }
 
     location /webhook {
         proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     location / {
         proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-    }
-
-    location /health {
-        proxy_pass http://127.0.0.1:8080;
     }
 }
 EOF
@@ -170,29 +151,18 @@ server {
     location /graph/ {
         alias /opt/dolphinscheduler-agent/data/graph/;
         index graph_viewer.html;
-        try_files $uri $uri/ /graph/graph_viewer.html;
-    }
-
-    location /static/ {
-        alias /opt/dolphinscheduler-agent/data/;
     }
 
     location /webhook {
         proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     location / {
         proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-    }
-
-    location /health {
-        proxy_pass http://127.0.0.1:8080;
     }
 }
 EOF
@@ -207,23 +177,16 @@ echo "============================================"
 echo ""
 echo "目录结构:"
 echo "  Agent: $PROJECT_DIR"
-echo "  代码仓库: $CODE_DIR"
-echo "  图谱数据: $PROJECT_DIR/data/graph/"
+echo "  dsctl: $DSCTL_DIR"
+echo "  spark-etl: $CODE_DIR"
 echo ""
 echo "服务管理:"
-echo "  启动 Agent: systemctl start $SERVICE_NAME"
-echo "  停止 Agent: systemctl stop $SERVICE_NAME"
-echo "  重启 Agent: systemctl restart $SERVICE_NAME"
-echo "  状态 Agent: systemctl status $SERVICE_NAME"
-echo "  日志 Agent: tail -f $PROJECT_DIR/logs/agent.log"
-echo ""
-echo "  启动 ngrok: systemctl start ngrok"
-echo "  停止 ngrok: systemctl stop ngrok"
-echo "  ngrok 日志: tail -f /tmp/ngrok.log"
+echo "  启动: systemctl start $SERVICE_NAME"
+echo "  停止: systemctl stop $SERVICE_NAME"
+echo "  重启: systemctl restart $SERVICE_NAME"
+echo "  状态: systemctl status $SERVICE_NAME"
+echo "  日志: tail -f $PROJECT_DIR/logs/agent.log"
 echo ""
 echo "下一步:"
-echo "  1. 配置 ngrok authtoken: ngrok config add-authtoken YOUR_TOKEN"
-echo "  2. 编辑配置: vim $PROJECT_DIR/.env"
-echo "  3. 配置项目: vim $PROJECT_DIR/config/projects.yaml"
-echo "  4. 启动服务: systemctl start $SERVICE_NAME && systemctl start ngrok"
-echo "  5. 获取公网 URL: curl -s http://127.0.0.1:4040/api/tunnels | python3 -c \"import sys, json; print(json.load(sys.stdin)['tunnels'][0]['public_url'])\""
+echo "  1. 编辑配置: vim $PROJECT_DIR/.env"
+echo "  2. 启动服务: systemctl start $SERVICE_NAME"

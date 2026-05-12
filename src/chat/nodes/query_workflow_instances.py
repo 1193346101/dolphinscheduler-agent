@@ -1,15 +1,15 @@
 """
 Query Workflow Instances Node - 查询工作流实例列表（运行记录）
+
+重构版：使用全局 Token，通过项目名自动查找项目 code
 """
 
-import os
 import json
 from datetime import datetime, date, timedelta
 from typing import Dict, Any
 
 from ..state import ChatState
-from ...integrations import DSCLIClient
-from ...config.projects import projects_registry
+from ...integrations import DSCLIClient, project_resolver
 from ...config import settings
 
 
@@ -33,19 +33,18 @@ def query_workflow_instances_node(state: ChatState) -> ChatState:
             "response_content": "请提供项目名称，例如：ad_monitor 下今天有哪些工作流实例",
         }
 
-    # 查找项目配置
-    project_config = projects_registry.get_by_name(project_name)
-    if not project_config:
-        try:
-            project_code = int(project_name)
-        except ValueError:
-            return {
-                **state,
-                "error_message": f"未找到项目: {project_name}",
-                "response_content": f"未找到项目 **{project_name}**，请确认项目名称是否正确",
-            }
-    else:
-        project_code = project_config.code
+    # 通过项目名查找项目 code（使用全局 Token）
+    project_code, resolved_name = project_resolver.resolve(project_name)
+
+    if not project_code:
+        return {
+            **state,
+            "error_message": f"未找到项目: {project_name}",
+            "response_content": f"未找到项目 **{project_name}**，请确认项目名称是否正确",
+        }
+
+    # 使用解析后的项目名
+    display_name = resolved_name or project_name
 
     # 计算时间范围（默认今天）
     today = date.today()
@@ -92,7 +91,7 @@ def query_workflow_instances_node(state: ChatState) -> ChatState:
     all_instances = []
     try:
         instances_result = client.list_workflow_instances(
-            project_code=int(project_code),
+            project_code=project_code,
             page_size=100,
             start_time=start_time,
             end_time=end_time,
@@ -132,16 +131,16 @@ def query_workflow_instances_node(state: ChatState) -> ChatState:
 
     # 格式化响应
     if not all_instances:
-        response = f"**{project_name}** {query_date} 无运行实例"
+        response = f"**{display_name}** {query_date} 无运行实例"
     else:
         # 统计各状态数量
         success_count = sum(1 for i in all_instances if i["state"] == "SUCCESS")
         failure_count = sum(1 for i in all_instances if i["state"] == "FAILURE")
         running_count = sum(1 for i in all_instances if i["state"] == "RUNNING")
 
-        # 构建响应内容
+        # 构建响应内容（钉钉 Markdown 格式）
         lines = []
-        lines.append(f"## {project_name}")
+        lines.append(f"## {display_name}")
         lines.append(f"**日期**: {query_date}")
         lines.append("")
         lines.append(f"**成功**: {success_count} | **失败**: {failure_count} | **运行中**: {running_count}")
@@ -169,8 +168,9 @@ def query_workflow_instances_node(state: ChatState) -> ChatState:
 
     return {
         **state,
-        "result_data": {"instances": all_instances, "count": len(all_instances)},
+        "result_data": {"instances": all_instances, "count": len(all_instances), "project_code": project_code},
         "response_content": response,
+        "project_name": display_name,
     }
 
 

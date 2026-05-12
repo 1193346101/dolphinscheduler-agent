@@ -106,9 +106,10 @@ async def handle_dingtalk_message(request: Request):
             conversation_id=conversation_id,
         )
 
-        # 设置 project_code (从会话标题或配置中获取)
-        project_code = extract_project_code(payload)
-        state["project_code"] = project_code
+        # 设置 project_name (从会话标题获取，用户在消息中也可以指定)
+        project_name = extract_project_code(payload)  # 函数名不变，但返回的是项目名
+        if project_name:
+            state["project_name"] = project_name
 
         # 通过 LangGraph 流程图执行
         graph = get_chat_graph()
@@ -156,38 +157,29 @@ def extract_message_content(payload: Dict[str, Any], msgtype: str) -> str:
 
 def extract_project_code(payload: Dict[str, Any]) -> Optional[str]:
     """
-    从钉钉请求中提取项目代码
+    从钉钉请求中提取项目名称（不再返回 project_code）
 
-    可从:
-    - 会话标题中解析 (如 "项目-XXX-告警群")
-    - 配置中获取默认项目
+    用户通过项目名称操作，系统自动查找 project_code
 
     Args:
         payload: 钉钉请求 payload
 
     Returns:
-        项目代码或 None
+        项目名称或 None（不再返回代码）
     """
-    from ...config import settings
-
     conversation_title = payload.get("conversationTitle", "")
 
-    # 从会话标题解析项目代码
-    # 例如: "项目-proj_001-告警群" -> "proj_001"
-    # 使用更精确的匹配: 项目后跟分隔符，然后是字母数字下划线
+    # 从会话标题解析项目名称
+    # 例如: "项目-ad_monitor-告警群" -> "ad_monitor"
     if conversation_title:
         import re
-        # Match pattern like: 项目-<project_code> or 项目<separator><project_code>
-        match = re.search(r'项目[^\w]*([a-zA-Z0-9_]+)', conversation_title)
+        # Match pattern like: 项目-<project_name> or 项目<separator><project_name>
+        match = re.search(r'项目[^\w]*([a-zA-Z0-9_-]+)', conversation_title)
         if match:
             return match.group(1)
 
-    # 从配置中获取默认项目
-    default_project = settings.DEFAULT_PROJECT_CODE
-    if default_project:
-        return default_project
-
-    # 无默认配置时返回 None
+    # 不再使用 DEFAULT_PROJECT_CODE 配置
+    # 用户需要在消息中明确指定项目名称
     return None
 
 

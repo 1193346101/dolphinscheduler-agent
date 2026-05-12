@@ -1,13 +1,14 @@
 """
 Query Workflow Node - 查询项目工作流列表
+
+重构版：使用全局 Token，通过项目名自动查找项目 code
 """
 
-import os
+import json
 from typing import Dict, Any
 
 from ..state import ChatState
-from ...integrations import DSCLIClient
-from ...config.projects import projects_registry
+from ...integrations import DSCLIClient, project_resolver
 from ...config import settings
 
 
@@ -30,22 +31,20 @@ def query_workflow_node(state: ChatState) -> ChatState:
             "response_content": "请提供项目名称，例如：查询项目 ad_monitor 下有哪些工作流",
         }
 
-    # 查找项目配置
-    project_config = projects_registry.get_by_name(project_name)
-    if not project_config:
-        # 尝试作为 project_code 使用
-        try:
-            project_code = int(project_name)
-        except ValueError:
-            return {
-                **state,
-                "error_message": f"未找到项目: {project_name}",
-                "response_content": f"未找到项目 **{project_name}**，请确认项目名称是否正确",
-            }
-    else:
-        project_code = project_config.code
+    # 通过项目名查找项目 code（使用全局 Token）
+    project_code, resolved_name = project_resolver.resolve(project_name)
 
-    # 调用 dsctl 查询工作流列表（显式传递配置）
+    if not project_code:
+        return {
+            **state,
+            "error_message": f"未找到项目: {project_name}",
+            "response_content": f"未找到项目 **{project_name}**，请确认项目名称是否正确",
+        }
+
+    # 使用解析后的项目名（如果有）
+    display_name = resolved_name or project_name
+
+    # 调用 dsctl 查询工作流列表（使用全局配置）
     client = DSCLIClient(
         api_url=settings.DS_API_URL,
         api_token=settings.DS_API_TOKEN,
@@ -101,7 +100,7 @@ def query_workflow_node(state: ChatState) -> ChatState:
 
     # 格式化响应
     if not workflows:
-        response = f"项目 **{project_name}** 下暂无工作流"
+        response = f"项目 **{display_name}** 下暂无工作流"
     else:
         workflow_list = []
         for wf in workflows:
@@ -121,12 +120,13 @@ def query_workflow_node(state: ChatState) -> ChatState:
             else:
                 workflow_list.append(f"{wf}")
 
-        response = f"### {project_name} 工作流列表\n\n共 {len(workflows)} 个\n\n" + "\n".join(workflow_list)
+        response = f"### {display_name} 工作流列表\n\n共 {len(workflows)} 个\n\n" + "\n".join(workflow_list)
 
     return {
         **state,
-        "result_data": {"workflows": workflows, "count": len(workflows)},
+        "result_data": {"workflows": workflows, "count": len(workflows), "project_code": project_code},
         "response_content": response,
+        "project_name": display_name,
     }
 
 

@@ -7,7 +7,6 @@ from typing import Dict, Any
 
 from ..state import ChatState
 from ...integrations import DSCLIClient
-from ...config.projects import projects_registry
 from ...config import settings
 
 

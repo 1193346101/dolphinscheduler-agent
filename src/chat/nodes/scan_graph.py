@@ -1,7 +1,7 @@
 """
 Scan Graph Node - 图谱扫描节点
 
-调用 GraphScanner 执行图谱扫描
+重构版：使用全局 Token，通过项目名自动查找项目 code
 """
 
 from typing import Dict, Any, Optional
@@ -9,26 +9,21 @@ import os
 
 from ..state import ChatState
 from src.graph import GraphScanner, GraphStorage, GraphIndexer
-from src.config.projects import projects_registry
+from ...integrations import project_resolver
+from ...config import settings
 
 
 def scan_graph_node(state: ChatState) -> ChatState:
     """
-    Execute graph scan based on project_name or project_code.
+    Execute graph scan based on project_name.
 
-    Initializes GraphScanner with storage and code_root,
-    calls scanner.scan_project(), then calls indexer.generate_all_indexes()
-    to generate query indexes.
+    通过项目名自动查找项目 code，使用全局 API Token
 
     Args:
-        state: Current ChatState with project_name or project_code populated
+        state: Current ChatState with project_name populated
 
     Returns:
-        Updated ChatState with result_data containing scan statistics:
-        - workflows_count: number of workflows scanned
-        - tasks_count: number of tasks scanned
-        - tables_count: number of tables found
-        - classes_count: number of classes found
+        Updated ChatState with result_data containing scan statistics
     """
     intent_type = state.get("intent_type")
 
@@ -40,53 +35,32 @@ def scan_graph_node(state: ChatState) -> ChatState:
             "error_message": None,
         }
 
-    # Get project info - need either project_name or project_code
+    # Get project name
     project_name = state.get("project_name")
-    project_code = state.get("project_code")
 
-    # If only project_name provided, look up the code
-    if project_name and not project_code:
-        project_config = projects_registry.get_by_name(project_name)
-        if project_config:
-            project_code = str(project_config.code)
-        else:
-            return {
-                **state,
-                "result_data": None,
-                "error_message": f"未找到项目配置: {project_name}",
-            }
-
-    # If only project_code provided, look up the name and config
-    if project_code and not project_name:
-        project_config = projects_registry.get_by_code(int(project_code))
-        if project_config:
-            project_name = project_config.name
-        else:
-            return {
-                **state,
-                "result_data": None,
-                "error_message": f"未找到项目配置: {project_code}",
-            }
-
-    # If neither provided, error
-    if not project_name and not project_code:
+    if not project_name:
         return {
             **state,
             "result_data": None,
-            "error_message": "缺少项目名称或项目代码",
+            "error_message": "请提供项目名称，例如：扫描项目 ad_monitor 图谱",
         }
 
-    # Get project config for API credentials
-    project_config = projects_registry.get_by_code(int(project_code))
-    if not project_config:
+    # 通过项目名查找项目 code（使用全局 Token）
+    project_code, resolved_name = project_resolver.resolve(project_name)
+
+    if not project_code:
         return {
             **state,
             "result_data": None,
-            "error_message": f"未找到项目配置: {project_code}",
+            "error_message": f"未找到项目: {project_name}",
         }
 
-    ds_api_url = project_config.ds_api_url
-    ds_api_token = project_config.ds_api_token
+    # 使用解析后的项目名
+    display_name = resolved_name or project_name
+
+    # 使用全局 API 配置
+    ds_api_url = settings.DS_API_URL
+    ds_api_token = settings.DS_API_TOKEN
 
     # Get code_root from environment or default
     code_root = os.getenv("CODE_ROOT", "")
@@ -101,18 +75,18 @@ def scan_graph_node(state: ChatState) -> ChatState:
 
         # Execute scan
         scan_result = scanner.scan_project(
-            project_code=project_code,
-            project_name=project_name,
+            project_code=str(project_code),
+            project_name=display_name,
             ds_api_url=ds_api_url,
             ds_api_token=ds_api_token,
         )
 
         # Generate indexes after scan
         indexer = GraphIndexer(storage)
-        indexer.generate_all_indexes(project_code)
+        indexer.generate_all_indexes(str(project_code))
 
         # Count classes from graph
-        graph_data = storage.load_graph(project_code)
+        graph_data = storage.load_graph(str(project_code))
         classes_count = 0
         if graph_data:
             nodes = graph_data.get("nodes", {})
@@ -126,7 +100,7 @@ def scan_graph_node(state: ChatState) -> ChatState:
             "tables_count": scan_result.get("tables_count", 0),
             "classes_count": classes_count,
             "project_code": project_code,
-            "project_name": project_name,
+            "project_name": display_name,
         }
 
     except Exception as e:
@@ -137,6 +111,7 @@ def scan_graph_node(state: ChatState) -> ChatState:
         **state,
         "result_data": result_data,
         "error_message": error_message,
+        "project_name": display_name,
     }
 
 
