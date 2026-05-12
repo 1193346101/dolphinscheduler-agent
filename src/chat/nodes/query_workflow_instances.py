@@ -170,8 +170,9 @@ def query_workflow_instances_node(state: ChatState) -> ChatState:
         instance_list = []
         for inst in all_instances[:30]:  # 最多显示30个
             state_icon = state_desc.get(inst["state"], "❓")
-            start_time = inst["start_time"].split(" ")[1] if inst["start_time"] else "N/A"
-            end_time = inst["end_time"].split(" ")[1] if inst["end_time"] else "运行中"
+            # 显示完整日期时间
+            start_time = inst["start_time"] if inst["start_time"] else "N/A"
+            end_time = inst["end_time"] if inst["end_time"] else "运行中"
             instance_list.append(
                 f"{inst['workflow_name']} | ID:{inst['instance_id']} | {state_icon} | {start_time} → {end_time}"
             )
