@@ -25,3 +25,12 @@ agent_run.log
 *.txt
 ngrok
 /Pythonerror_log/
+
+# Graph data files (generated, large)
+data/graph/*/graph_data.js
+data/graph/*_graph.json
+data/graph/*_index_*.json
+data/graph/project_list.js
+
+# Stream logs
+stream*.log

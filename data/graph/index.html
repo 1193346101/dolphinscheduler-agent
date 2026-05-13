@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DolphinScheduler 工作流血缘关系</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 1600px; margin: 0 auto; }
+        h1 { color: #1a1a1a; margin-bottom: 20px; font-size: 24px; }
+
+        .project-bar {
+            background: white; padding: 15px 20px; border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px;
+            display: flex; align-items: center; gap: 15px;
+        }
+        .project-bar select {
+            padding: 10px 15px; border: 1px solid #d9d9d9; border-radius: 6px;
+            font-size: 14px; min-width: 300px; background: #fff;
+        }
+        .project-bar select:focus { border-color: #4a90d9; outline: none; }
+        .project-bar .info { color: #666; font-size: 14px; }
+
+        .stats { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
+        .stat-card {
+            background: white; padding: 12px 20px; border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.06); min-width: 100px;
+        }
+        .stat-card .label { color: #8c8c8c; font-size: 13px; }
+        .stat-card .value { color: #1890ff; font-size: 22px; font-weight: 600; margin-top: 4px; }
+
+        .tabs { display: flex; gap: 10px; margin-bottom: 15px; }
+        .tab {
+            padding: 10px 20px; background: white; border-radius: 8px;
+            cursor: pointer; border: 2px solid transparent; font-size: 14px;
+            transition: all 0.2s;
+        }
+        .tab:hover { background: #f5f5f5; }
+        .tab.active { border-color: #1890ff; background: #e6f7ff; color: #1890ff; }
+
+        .panel { background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+
+        .wf-select { width: calc(100% - 30px); padding: 10px 12px; border: 1px solid #d9d9d9; border-radius: 6px; margin: 15px; font-size: 14px; }
+
+        /* 树形结构 */
+        .tree-box { max-height: 500px; overflow: auto; padding: 15px; }
+        .tree-item { margin-left: 24px; margin-bottom: 6px; }
+        .tree-item.root { margin-left: 0; }
+        .tree-row {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 14px; background: #fafafa; border-radius: 6px;
+            cursor: pointer; border: 1px solid #e8e8e8;
+            transition: all 0.15s;
+        }
+        .tree-row:hover { background: #e6f7ff; border-color: #91d5ff; }
+        .tree-row.sel { background: #bae7ff; border-color: #1890ff; }
+
+        .tree-icon {
+            width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
+            color: #8c8c8c; font-size: 10px; border-radius: 4px; background: transparent;
+            cursor: pointer; transition: all 0.2s; margin-right: 4px;
+        }
+        .tree-icon:hover { background: #1890ff; color: white; }
+        .tree-icon.expandable { background: #f0f0f0; color: #666; }
+        .tree-icon.expanded { background: #e6f7ff; color: #1890ff; }
+        .tree-icon.none { visibility: hidden; }
+
+        .tree-name { font-weight: 500; color: #262626; flex: 1; word-break: break-all; }
+        .tree-meta { color: #8c8c8c; font-size: 12px; margin-left: 8px; }
+
+        .badge { padding: 3px 8px; border-radius: 10px; font-size: 11px; color: white; margin-left: 4px; }
+        .badge.spark { background: #ff7a45; }
+        .badge.datax { background: #1890ff; }
+        .badge.sub { background: #52c41a; }
+        .badge.table { background: #722ed1; }
+
+        .tree-child { display: none; margin-top: 6px; border-left: 2px solid #d9d9d9; padding-left: 8px; }
+        .tree-child.open { display: block; }
+
+        /* 详情面板 */
+        .detail { border-top: 1px solid #e8e8e8; margin-top: 15px; padding: 20px; }
+        .detail .wf-title { font-size: 18px; color: #1890ff; margin-bottom: 8px; font-weight: 600; }
+        .detail .wf-info { color: #8c8c8c; font-size: 13px; margin-bottom: 20px; }
+
+        .section { margin-top: 20px; }
+        .section-title {
+            font-size: 14px; color: #262626; margin-bottom: 12px;
+            padding-bottom: 6px; border-bottom: 2px solid;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .section-title .count { color: #8c8c8c; font-size: 12px; }
+        .section-title.sub { border-color: #52c41a; }
+        .section-title.input { border-color: #722ed1; }
+        .section-title.output { border-color: #13c2c2; }
+        .section-title.spark { border-color: #ff7a45; }
+        .section-title.datax { border-color: #1890ff; }
+        .section-title.http { border-color: #eb2f96; }
+        .section-title.shell { border-color: #faad14; }
+        .section-title.python { border-color: #52c41a; }
+
+        /* 任务卡片 - 优化格式 */
+        .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; }
+        .card {
+            padding: 12px; border: 1px solid #e8e8e8; border-radius: 6px;
+            background: #fafafa; transition: all 0.15s;
+        }
+        .card:hover { background: #e6f7ff; border-color: #91d5ff; cursor: pointer; }
+        .card .name { font-weight: 500; color: #262626; word-break: break-all; }
+        .card .meta { color: #8c8c8c; font-size: 12px; margin-top: 4px; word-break: break-all; }
+
+        /* 任务卡片 - 三行格式 */
+        .task-card { }
+        .task-card .task-op { font-weight: 600; color: #262626; font-size: 14px; }
+        .task-card .task-table { color: #722ed1; font-size: 13px; margin-top: 2px; word-break: break-all; }
+        .task-card .task-class { color: #8c8c8c; font-size: 11px; font-family: 'Consolas', monospace; margin-top: 4px; background: #f0f0f0; padding: 2px 4px; border-radius: 2px; }
+        .task-card .task-type-badge { position: absolute; top: 8px; right: 8px; padding: 2px 6px; border-radius: 4px; font-size: 10px; }
+
+        .table-card { display: flex; align-items: center; gap: 8px; }
+        .table-card .table-icon { color: #722ed1; font-size: 16px; }
+        .table-card .table-name { word-break: break-all; }
+
+        /* DAG 容器 */
+        .dag-box { max-height: 600px; overflow: auto; padding: 15px; }
+
+        .hide { display: none; }
+        .tip { color: #8c8c8c; padding: 40px; text-align: center; font-size: 14px; }
+
+        /* 任务类型图标 */
+        .type-icon { display: inline-flex; align-items: center; gap: 4px; }
+        .type-icon::before { content: ''; width: 8px; height: 8px; border-radius: 50%; }
+        .type-icon.spark::before { background: #ff7a45; }
+        .type-icon.datax::before { background: #1890ff; }
+        .type-icon.http::before { background: #eb2f96; }
+        .type-icon.shell::before { background: #faad14; }
+        .type-icon.python::before { background: #52c41a; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1 id="title">DolphinScheduler 工作流血缘关系</h1>
+
+    <div class="project-bar">
+        <select id="projSel" onchange="loadProj()">
+            <option value="">-- 选择项目 --</option>
+        </select>
+        <span class="info" id="projInfo"></span>
+    </div>
+
+    <div class="stats">
+        <div class="stat-card"><span class="label">工作流</span><div class="value" id="c1">-</div></div>
+        <div class="stat-card"><span class="label">任务</span><div class="value" id="c2">-</div></div>
+        <div class="stat-card"><span class="label">SPARK</span><div class="value" id="c3">-</div></div>
+        <div class="stat-card"><span class="label">DATAX</span><div class="value" id="c4">-</div></div>
+        <div class="stat-card"><span class="label">表</span><div class="value" id="c5">-</div></div>
+    </div>
+
+    <div class="tabs">
+        <span class="tab active" onclick="showP('tree')">工作流层级</span>
+        <span class="tab" onclick="showP('dag')">任务DAG</span>
+        <span class="tab" onclick="showP('lineage')">表血缘</span>
+    </div>
+
+    <div class="panel">
+        <div id="treeP">
+            <div class="tree-box" id="tree"><div class="tip">请选择项目</div></div>
+            <div class="detail" id="detail"></div>
+        </div>
+        <div id="dagP" class="hide">
+            <select class="wf-select" id="dagSel" onchange="drawDag()"><option value="">选择工作流查看任务依赖</option></select>
+            <div class="dag-box" id="dag"></div>
+        </div>
+        <div id="lineageP" class="hide">
+            <select class="wf-select" id="linSel" onchange="drawLineage()"><option value="">选择工作流查看表血缘</option></select>
+            <div class="dag-box" id="lin"></div>
+        </div>
+    </div>
+</div>
+
+<script src="project_list.js"></script>
+<script>
+mermaid.initialize({ startOnLoad: false, theme: 'default' });
+
+let G = null;
+
+// 解析任务名称，分离操作类型和表名
+// 例如: "添加分区 ad_link_lift.huan_ad_link_lift_dmp_request_log" -> {op: "添加分区", table: "ad_link_lift.huan_ad_link_lift_dmp_request_log"}
+function parseTaskName(name) {
+    // 常见操作类型关键词
+    const ops = ['添加分区', '数据统计', '数据检查点', '同步', '导入', '导出', '计算', '处理', '清洗', '备份', '恢复'];
+
+    for (const op of ops) {
+        // 匹配操作类型（可能有空格）
+        const regex = new RegExp(`^${op}[\s　]+(.+)$`);
+        const match = name.match(regex);
+        if (match) {
+            return { op: op, table: match[1].trim() };
+        }
+    }
+
+    // 没有匹配到操作类型，返回原名
+    return { op: name, table: '' };
+}
+
+function init() {
+    const sel = document.getElementById('projSel');
+    const sorted = projectList.sort((a, b) => b.workflows - a.workflows);
+    sorted.forEach(p => {
+        sel.innerHTML += `<option value="${p.dir}">${p.name} (${p.workflows}个工作流)</option>`;
+    });
+}
+
+function loadProj() {
+    const dir = document.getElementById('projSel').value;
+    if (!dir) { G = null; reset(); return; }
+
+    const p = projectList.find(x => x.dir === dir);
+    document.getElementById('title').textContent = `工作流血缘 - ${p.name}`;
+    document.getElementById('projInfo').textContent = `共 ${p.tasks} 个任务，${p.tables} 个表`;
+
+    const old = document.getElementById('dataScript');
+    if (old) old.remove();
+
+    const s = document.createElement('script');
+    s.id = 'dataScript';
+    s.src = `${dir}/graph_data.js`;
+    s.onload = () => {
+        G = window.graphData;
+        if (G) {
+            renderStats();
+            renderTree();
+            fillSelects();
+            document.getElementById('detail').innerHTML = '';
+        } else {
+            alert('数据加载失败');
+        }
+    };
+    s.onerror = () => { alert('加载失败: ' + s.src); };
+    document.body.appendChild(s);
+}
+
+function reset() {
+    ['c1','c2','c3','c4','c5'].forEach(i => document.getElementById(i).textContent = '-');
+    document.getElementById('tree').innerHTML = '<div class="tip">请选择项目查看工作流层级结构</div>';
+    document.getElementById('detail').innerHTML = '';
+    document.getElementById('projInfo').textContent = '';
+    document.getElementById('title').textContent = 'DolphinScheduler 工作流血缘关系';
+}
+
+function renderStats() {
+    document.getElementById('c1').textContent = G.nodes.workflows.length;
+    document.getElementById('c2').textContent = G.nodes.tasks.length;
+    document.getElementById('c3').textContent = G.nodes.tasks.filter(t => t.task_type === 'SPARK').length;
+    document.getElementById('c4').textContent = G.nodes.tasks.filter(t => t.task_type === 'DATAX').length;
+    document.getElementById('c5').textContent = G.nodes.tables.length;
+}
+
+function renderTree() {
+    const called = G.edges.workflow_calls_subworkflow.map(e => e.target);
+    const roots = G.nodes.workflows.filter(w => !called.includes(w.code));
+
+    let html = '';
+    roots.forEach(w => html += treeNode(w.code, true));
+    document.getElementById('tree').innerHTML = html || '<div class="tip">无工作流数据</div>';
+}
+
+function treeNode(code, root) {
+    const wf = G.nodes.workflows.find(w => w.code === code);
+    if (!wf) return '';
+
+    const tasks = G.nodes.tasks.filter(t => t.workflow_code === code);
+    const spark = tasks.filter(t => t.task_type === 'SPARK').length;
+    const datax = tasks.filter(t => t.task_type === 'DATAX').length;
+    const http = tasks.filter(t => t.task_type === 'HTTP').length;
+    const shell = tasks.filter(t => t.task_type === 'SHELL').length;
+    const python = tasks.filter(t => t.task_type === 'PYTHON').length;
+    const subs = G.edges.workflow_calls_subworkflow.filter(e => e.source === code);
+    const tbls = G.edges.task_consumes_table.filter(e => tasks.map(t => t.code).includes(e.source)).length;
+
+    let html = `<div class="tree-item ${root?'root':''}">
+        <div class="tree-row" onclick="pick('${code}')">
+            <span class="tree-icon ${subs.length ? 'expandable' : 'none'}" onclick="exp(event,'${code}')" id="icon_${code}">${subs.length ? '▶' : ''}</span>
+            <span class="tree-name">${wf.name}</span>
+            <span class="tree-meta">${tasks.length}任务</span>
+            ${spark ? `<span class="badge spark">SPARK ${spark}</span>` : ''}
+            ${datax ? `<span class="badge datax">DATAX ${datax}</span>` : ''}
+            ${http ? `<span class="badge" style="background:#eb2f96">HTTP ${http}</span>` : ''}
+            ${shell ? `<span class="badge" style="background:#faad14">SHELL ${shell}</span>` : ''}
+            ${python ? `<span class="badge" style="background:#52c41a">PYTHON ${python}</span>` : ''}
+            ${subs.length ? `<span class="badge sub">子流程 ${subs.length}</span>` : ''}
+            ${tbls ? `<span class="badge table">表 ${tbls}</span>` : ''}
+        </div>
+        <div class="tree-child" id="ch_${code}">`;
+
+    subs.forEach(e => html += treeNode(e.target, false));
+    html += '</div></div>';
+    return html;
+}
+
+function exp(ev, code) {
+    ev.stopPropagation();
+    const el = document.getElementById('ch_' + code);
+    const icon = document.getElementById('icon_' + code);
+    if (el.classList.contains('open')) {
+        el.classList.remove('open');
+        icon.textContent = '▶';
+        icon.classList.remove('expanded');
+        icon.classList.add('expandable');
+    } else {
+        el.classList.add('open');
+        icon.textContent = '▼';
+        icon.classList.add('expanded');
+        icon.classList.remove('expandable');
+    }
+}
+
+function pick(code) {
+    document.querySelectorAll('.tree-row').forEach(r => r.classList.remove('sel'));
+    event.target.closest('.tree-row').classList.add('sel');
+    showDetail(code);
+}
+
+function showDetail(code) {
+    const wf = G.nodes.workflows.find(w => w.code === code);
+    const tasks = G.nodes.tasks.filter(t => t.workflow_code === code);
+    const subs = G.edges.workflow_calls_subworkflow.filter(e => e.source === code);
+
+    let html = `
+        <div class="wf-title">${wf.name}</div>
+        <div class="wf-info">任务总数: ${tasks.length} | 编码: ${code}</div>
+    `;
+
+    // 子工作流
+    if (subs.length) {
+        html += `<div class="section">
+            <div class="section-title sub">子工作流 <span class="count">${subs.length}</span></div>
+            <div class="cards">`;
+        subs.forEach(e => {
+            const sw = G.nodes.workflows.find(w => w.code === e.target);
+            const st = G.nodes.tasks.filter(t => t.workflow_code === e.target);
+            html += `<div class="card" onclick="pick('${e.target}')">
+                <div class="name">${sw?.name || '未知'}</div>
+                <div class="meta">${st.length} 个任务</div>
+            </div>`;
+        });
+        html += '</div></div>';
+    }
+
+    // 按类型分组显示任务
+    const taskTypes = ['SPARK', 'DATAX', 'HTTP', 'SHELL', 'PYTHON', 'SUB_PROCESS'];
+
+    taskTypes.forEach(type => {
+        const typeTasks = tasks.filter(t => t.task_type === type);
+        if (typeTasks.length === 0) return;
+
+        const typeClass = type.toLowerCase();
+        const typeNames = {
+            'SPARK': 'SPARK 任务',
+            'DATAX': 'DATAX 同步',
+            'HTTP': 'HTTP 请求',
+            'SHELL': 'Shell 脚本',
+            'PYTHON': 'Python 脚本',
+            'SUB_PROCESS': '子流程'
+        };
+
+        html += `<div class="section">
+            <div class="section-title ${typeClass}"><span class="type-icon ${typeClass}"></span>${typeNames[type]} <span class="count">${typeTasks.length}</span></div>
+            <div class="cards">`;
+
+        typeTasks.forEach(t => {
+            const parsed = parseTaskName(t.name);
+            const mainClass = t.spark_main_class || '';
+
+            html += `<div class="card task-card">`;
+
+            // 第一行：操作类型（如果有）或任务名
+            if (parsed.table) {
+                html += `<div class="task-op">${parsed.op}</div>`;
+                html += `<div class="task-table">${parsed.table}</div>`;
+            } else {
+                html += `<div class="task-op">${t.name}</div>`;
+            }
+
+            // 第三行：类名（SPARK任务）
+            if (mainClass) {
+                html += `<div class="task-class">${mainClass}</div>`;
+            }
+
+            html += '</div>';
+        });
+
+        html += '</div></div>';
+    });
+
+    // 输入表
+    const inputs = [...new Set(G.edges.task_consumes_table.filter(e => tasks.map(t => t.code).includes(e.source)).map(e => e.target))];
+    if (inputs.length) {
+        html += `<div class="section">
+            <div class="section-title input">输入表 <span class="count">${inputs.length}</span></div>
+            <div class="cards">`;
+        inputs.forEach(t => {
+            const displayName = t.startsWith('hdfs:') ? t.replace('hdfs:', '') : t;
+            html += `<div class="card table-card">
+                <span class="table-icon">📄</span>
+                <span class="table-name">${displayName}</span>
+            </div>`;
+        });
+        html += '</div></div>';
+    }
+
+    // 输出表
+    const outputs = [...new Set(G.edges.task_produces_table.filter(e => tasks.map(t => t.code).includes(e.source)).map(e => e.target))];
+    if (outputs.length) {
+        html += `<div class="section">
+            <div class="section-title output">输出表 <span class="count">${outputs.length}</span></div>
+            <div class="cards">`;
+        outputs.forEach(t => {
+            const displayName = t.startsWith('hdfs:') ? t.replace('hdfs:', '') : t;
+            html += `<div class="card table-card">
+                <span class="table-icon">📤</span>
+                <span class="table-name">${displayName}</span>
+            </div>`;
+        });
+        html += '</div></div>';
+    }
+
+    document.getElementById('detail').innerHTML = html;
+}
+
+function fillSelects() {
+    const dagSel = document.getElementById('dagSel');
+    const linSel = document.getElementById('linSel');
+    dagSel.innerHTML = '<option value="">选择工作流查看任务依赖</option>';
+    linSel.innerHTML = '<option value="">选择工作流查看表血缘</option>';
+    G.nodes.workflows.forEach(w => {
+        dagSel.innerHTML += `<option value="${w.code}">${w.name}</option>`;
+        linSel.innerHTML += `<option value="${w.code}">${w.name}</option>`;
+    });
+}
+
+async function drawDag() {
+    const code = document.getElementById('dagSel').value;
+    const box = document.getElementById('dag');
+    if (!code) { box.innerHTML = '<div class="tip">请选择工作流</div>'; return; }
+
+    const tasks = G.nodes.tasks.filter(t => t.workflow_code === code);
+    const codes = tasks.map(t => t.code);
+    const edges = G.edges.task_depends_task.filter(e => codes.includes(e.source) && codes.includes(e.target));
+
+    let m = 'graph TD\n';
+    tasks.forEach(t => {
+        const parsed = parseTaskName(t.name);
+        const label = parsed.table ? `${parsed.op}\\n${parsed.table}` : t.name;
+        m += `  ${t.code}["${label}\\n<small>${t.task_type}</small>"]\n`;
+    });
+    edges.forEach(e => m += `  ${e.source} --> ${e.target}\n`);
+    if (!tasks.length) m += '  empty["无任务"]\n';
+
+    box.innerHTML = `<div class="mermaid">${m}</div>`;
+    await mermaid.run();
+}
+
+async function drawLineage() {
+    const code = document.getElementById('linSel').value;
+    const box = document.getElementById('lin');
+    if (!code) { box.innerHTML = '<div class="tip">请选择工作流</div>'; return; }
+
+    const tasks = G.nodes.tasks.filter(t => t.workflow_code === code);
+    const codes = tasks.map(t => t.code);
+    const consumed = G.edges.task_consumes_table.filter(e => codes.includes(e.source));
+
+    let m = 'graph LR\n';
+    const tbls = [...new Set(consumed.map(e => e.target))];
+    tbls.forEach(t => {
+        const displayName = t.startsWith('hdfs:') ? t.replace('hdfs:', '') : t;
+        m += `  t_${t.replace(/\W/g,'_')}["${displayName}"]\n`;
+    });
+    tasks.forEach(t => {
+        const parsed = parseTaskName(t.name);
+        const label = parsed.table ? `${parsed.op}\\n${parsed.table}` : t.name;
+        m += `  task_${t.code}["${label}\\n<small>${t.task_type}</small>"]\n`;
+    });
+    consumed.forEach(e => {
+        m += `  t_${e.target.replace(/\W/g,'_')} --> task_${e.source}\n`;
+    });
+
+    box.innerHTML = `<div class="mermaid">${m}</div>`;
+    await mermaid.run();
+}
+
+function showP(name) {
+    document.querySelectorAll('.panel>div').forEach(p => p.classList.add('hide'));
+    document.getElementById(name + 'P').classList.remove('hide');
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    event.target.classList.add('active');
+}
+
+init();
+</script>
+</body>
+</html>
