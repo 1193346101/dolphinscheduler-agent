@@ -25,6 +25,8 @@ class SQLParser:
     FROM_PATTERN = r'FROM\s+([a-zA-Z_][a-zA-Z0-9_.]*(?:\.[a-zA-Z_][a-zA-Z0-9_.]*)?)'
     # JOIN table [alias] ON - allow optional alias between table and ON
     JOIN_PATTERN = r'JOIN\s+([a-zA-Z_][a-zA-Z0-9_.]*(?:\.[a-zA-Z_][a-zA-Z0-9_.]*)?)\s*(?:[a-zA-Z_][a-zA-Z0-9_]*\s+)?ON'
+    # CTE pattern: WITH cte_name AS (...)
+    CTE_PATTERN = r'WITH\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+AS\s*\('
 
     # SQL keywords (for recognizing SQL strings in code files)
     SQL_KEYWORDS = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'CREATE']
@@ -34,6 +36,7 @@ class SQLParser:
         self._insert_re = re.compile(self.INSERT_OVERWRITE_PATTERN, re.IGNORECASE | re.MULTILINE)
         self._from_re = re.compile(self.FROM_PATTERN, re.IGNORECASE)
         self._join_re = re.compile(self.JOIN_PATTERN, re.IGNORECASE)
+        self._cte_re = re.compile(self.CTE_PATTERN, re.IGNORECASE | re.DOTALL)
 
     def extract_tables(self, sql: str) -> Dict[str, List[str]]:
         """
@@ -91,6 +94,42 @@ class SQLParser:
 
         return result
 
+    def _extract_cte_names(self, sql: str) -> List[str]:
+        """
+        Extract CTE (Common Table Expression) names from WITH clauses
+
+        Supports both single CTE and multiple CTEs (comma-separated):
+        - WITH cte1 AS (...)
+        - WITH cte1 AS (...), cte2 AS (...), cte3 AS (...)
+
+        Args:
+            sql: SQL statement
+
+        Returns:
+            List of CTE names
+        """
+        cte_names = []
+
+        # Find WITH clause start
+        with_match = re.search(r'WITH\s+', sql, re.IGNORECASE)
+        if not with_match:
+            return cte_names
+
+        # Extract the WITH clause section (until first non-CTE keyword like SELECT)
+        with_start = with_match.end()
+
+        # Match all CTE definitions: cte_name AS (...)
+        # Pattern handles: name AS (...) or name AS (...) , name2 AS (...)
+        cte_def_pattern = r'([a-zA-Z_][a-zA-Z0-9_]*)\s+AS\s*\('
+
+        # Find all CTE names in the WITH clause
+        for match in re.finditer(cte_def_pattern, sql[with_start:], re.IGNORECASE):
+            cte_name = match.group(1)
+            if cte_name:
+                cte_names.append(cte_name.lower())
+
+        return cte_names
+
     def _extract_with_regex(self, sql: str) -> Dict[str, List[str]]:
         """
         Use regex to extract table names
@@ -102,6 +141,9 @@ class SQLParser:
             Table name dict
         """
         result = {"input": [], "output": []}
+
+        # Extract CTE names first (to exclude them from input tables)
+        cte_names = self._extract_cte_names(sql)
 
         # Extract output tables (INSERT OVERWRITE/INTO TABLE)
         for match in self._insert_re.finditer(sql):
@@ -116,16 +158,21 @@ class SQLParser:
             table = match.group(1)
             table = self._clean_table_name(table)
             # Exclude subquery aliases (like FROM (SELECT ...) alias)
+            # Exclude CTE names (WITH cte_name AS ...)
             if table and not table.startswith('(') and table.upper() not in ('SELECT', 'DUAL'):
-                if table not in result["input"]:
-                    result["input"].append(table)
+                # Check if this is a CTE name
+                if table.lower() not in cte_names:
+                    if table not in result["input"]:
+                        result["input"].append(table)
 
         # Extract input tables (JOIN)
         for match in self._join_re.finditer(sql):
             table = match.group(1)
             table = self._clean_table_name(table)
-            if table and table not in result["input"]:
-                result["input"].append(table)
+            # Exclude CTE names
+            if table and table.lower() not in cte_names:
+                if table not in result["input"]:
+                    result["input"].append(table)
 
         return result
 

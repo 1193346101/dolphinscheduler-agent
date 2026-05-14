@@ -1,0 +1,1 @@
+const implicitProjectList = [{"name": "ad_monitor", "dir": "ad_monitor"}];

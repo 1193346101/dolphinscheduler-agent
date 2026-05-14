@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DolphinScheduler 隐式依赖分析</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 { color: #1a1a1a; margin-bottom: 20px; font-size: 24px; }
+
+        .project-bar {
+            background: white; padding: 15px 20px; border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px;
+            display: flex; align-items: center; gap: 15px;
+        }
+        .project-bar select {
+            padding: 10px 15px; border: 1px solid #d9d9d9; border-radius: 6px;
+            font-size: 14px; min-width: 300px; background: #fff;
+        }
+        .project-bar select:focus { border-color: #4a90d9; outline: none; }
+        .project-bar .info { color: #666; font-size: 14px; }
+        .project-bar .btn {
+            padding: 8px 16px; background: #1890ff; color: white;
+            border-radius: 6px; cursor: pointer; border: none; font-size: 14px;
+        }
+        .project-bar .btn:hover { background: #40a9ff; }
+
+        .stats { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
+        .stat-card {
+            background: white; padding: 12px 20px; border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.06); min-width: 120px;
+        }
+        .stat-card .label { color: #8c8c8c; font-size: 13px; }
+        .stat-card .value { color: #1890ff; font-size: 22px; font-weight: 600; margin-top: 4px; }
+        .stat-card.warning { background: #fff7e6; }
+        .stat-card.warning .value { color: #fa8c16; }
+
+        .tabs { display: flex; gap: 10px; margin-bottom: 15px; }
+        .tab {
+            padding: 10px 20px; background: white; border-radius: 8px;
+            cursor: pointer; border: 2px solid transparent; font-size: 14px;
+            transition: all 0.2s;
+        }
+        .tab:hover { background: #f5f5f5; }
+        .tab.active { border-color: #1890ff; background: #e6f7ff; color: #1890ff; }
+
+        .panel { background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 20px; }
+
+        .section { margin-bottom: 25px; }
+        .section-title {
+            font-size: 16px; color: #262626; margin-bottom: 12px;
+            padding-bottom: 8px; border-bottom: 2px solid #1890ff;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .section-title.main { border-color: #faad14; }
+        .section-title.child { border-color: #52c41a; }
+        .section-title.independent { border-color: #f5222d; }
+        .section-title.dependent { border-color: #722ed1; }
+
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { border: 1px solid #e8e8e8; padding: 10px 12px; text-align: left; }
+        th { background: #fafafa; color: #262626; font-weight: 500; }
+        tr:hover { background: #e6f7ff; }
+        tr.main { background: #fff7e6; }
+        tr.child { background: #f6ffed; }
+        tr.independent { background: #fff1f0; }
+        tr.warning { background: #fff7e6; }
+
+        .badge { padding: 3px 8px; border-radius: 10px; font-size: 11px; color: white; margin-left: 4px; }
+        .badge.main { background: #faad14; }
+        .badge.child { background: #52c41a; }
+        .badge.independent { background: #f5222d; }
+        .badge.empty { background: #fa8c16; }
+
+        .warning-box {
+            background: #fff7e6; border: 1px solid #ffd591;
+            padding: 15px 20px; border-radius: 8px; margin: 15px 0;
+        }
+        .warning-box .title { color: #d48806; font-weight: 600; margin-bottom: 8px; }
+
+        .tip { color: #8c8c8c; padding: 40px; text-align: center; font-size: 14px; }
+
+        .dot-link {
+            display: inline-block; padding: 10px 20px; background: #1890ff;
+            color: white; border-radius: 6px; text-decoration: none; margin: 10px 0;
+        }
+        .dot-link:hover { background: #40a9ff; }
+
+        .graph-box { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 15px; }
+        .graph-box pre { white-space: pre-wrap; word-break: break-all; font-size: 12px; }
+
+        .hide { display: none; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1 id="title">DolphinScheduler 隐式依赖分析</h1>
+
+    <div class="project-bar">
+        <select id="projSel" onchange="loadProj()">
+            <option value="">-- 选择项目 --</option>
+        </select>
+        <span class="info" id="projInfo"></span>
+    </div>
+
+    <div class="stats">
+        <div class="stat-card"><span class="label">总工作流</span><div class="value" id="c_total">-</div></div>
+        <div class="stat-card"><span class="label">主调度</span><div class="value" id="c_main">-</div></div>
+        <div class="stat-card"><span class="label">子工作流</span><div class="value" id="c_child">-</div></div>
+        <div class="stat-card warning"><span class="label">独立工作流</span><div class="value" id="c_indep">-</div></div>
+        <div class="stat-card"><span class="label">SUB_PROCESS</span><div class="value" id="c_sub">-</div></div>
+        <div class="stat-card"><span class="label">DEPENDENT</span><div class="value" id="c_dep">-</div></div>
+        <div class="stat-card warning"><span class="label">表血缘依赖</span><div class="value" id="c_lineage">-</div></div>
+        <div class="stat-card warning"><span class="label">缺失依赖</span><div class="value" id="c_missing">-</div></div>
+    </div>
+
+    <div class="tabs">
+        <span class="tab active" onclick="showTab('overview')">分析概览</span>
+        <span class="tab" onclick="showTab('details')">调用详情</span>
+        <span class="tab" onclick="showTab('lineage')">表血缘依赖</span>
+        <span class="tab" onclick="showTab('graph')">依赖图</span>
+    </div>
+
+    <div class="panel">
+        <!-- 分析概览 -->
+        <div id="overviewTab">
+            <div class="section">
+                <div class="section-title main">主调度工作流 <span class="badge main">有 SUB_PROCESS 任务</span></div>
+                <table>
+                    <thead><tr><th>名称</th><th>Code</th><th>调用子工作流数</th></tr></thead>
+                    <tbody id="mainTable"><tr><td colspan="3" class="tip">请选择项目</td></tr></tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <div class="section-title independent">独立工作流（需关注） <span class="badge independent">无隐式依赖</span></div>
+                <div class="warning-box" id="indepWarning" style="display:none">
+                    <div class="title">⚠ 以下工作流无隐式依赖关系，请检查是否应有前置依赖</div>
+                    <p style="color:#666;font-size:13px;margin-top:8px">
+                        1. 这些工作流是否应有前置依赖（如数据源工作流）<br>
+                        2. 是否需要添加 DEPENDENT 任务等待其他工作流完成<br>
+                        3. 是否为独立调度的工作流（正常情况）
+                    </p>
+                </div>
+                <table>
+                    <thead><tr><th>名称</th><th>Code</th><th>版本</th></tr></thead>
+                    <tbody id="indepTable"><tr><td colspan="3" class="tip">请选择项目</td></tr></tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <div class="section-title dependent">DEPENDENT 任务状态</div>
+                <table>
+                    <thead><tr><th>工作流</th><th>任务名</th><th>状态</th></tr></thead>
+                    <tbody id="depTable"><tr><td colspan="3" class="tip">请选择项目</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 调用详情 -->
+        <div id="detailsTab" class="hide">
+            <div class="section">
+                <div class="section-title child">SUB_PROCESS 调用关系详情</div>
+                <table>
+                    <thead><tr><th>父工作流</th><th>任务名</th><th>子工作流</th><th>子工作流Code</th></tr></thead>
+                    <tbody id="subTable"><tr><td colspan="4" class="tip">请选择项目</td></tr></tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <div class="section-title child">子工作流列表</div>
+                <table>
+                    <thead><tr><th>Code</th><th>名称</th><th>被调用次数</th></tr></thead>
+                    <tbody id="childWfTable"><tr><td colspan="3" class="tip">请选择项目</td></tr></tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <div class="section-title">测试/复制工作流（可忽略）</div>
+                <table>
+                    <thead><tr><th>名称</th><th>Code</th><th>版本</th></tr></thead>
+                    <tbody id="testTable"><tr><td colspan="3" class="tip">请选择项目</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 表血缘依赖 -->
+        <div id="lineageTab" class="hide">
+            <div class="section">
+                <div class="section-title independent">缺失 DEPENDENT 任务（需告警） <span class="badge independent">表血缘驱动</span></div>
+                <div class="warning-box" id="lineageWarning" style="display:none">
+                    <div class="title">⚠ 以下工作流通过表血缘关系依赖上游，但未配置 DEPENDENT 任务</div>
+                    <p style="color:#666;font-size:13px;margin-top:8px">
+                        1. Consumer 工作流使用 Producer 工作流输出的表<br>
+                        2. Consumer 没有 DEPENDENT 任务等待 Producer 完成<br>
+                        3. 可能导致数据不一致或调度失败
+                    </p>
+                </div>
+                <table>
+                    <thead><tr><th>Consumer 工作流</th><th>Producer 工作流</th><th>共享表</th><th>有 DEPENDENT</th></tr></thead>
+                    <tbody id="lineageTable"><tr><td colspan="4" class="tip">请选择项目</td></tr></tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <div class="section-title">完整表血缘依赖列表</div>
+                <table>
+                    <thead><tr><th>Consumer 工作流</th><th>Producer 工作流</th><th>共享表</th><th>有 DEPENDENT</th></tr></thead>
+                    <tbody id="allLineageTable"><tr><td colspan="4" class="tip">请选择项目</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 依赖图 -->
+        <div id="graphTab" class="hide">
+            <div class="section">
+                <div class="section-title">在线渲染 DOT 图</div>
+                <p style="color:#666;font-size:14px;margin:10px 0">
+                    点击下方链接，在浏览器中查看可视化依赖关系图（无需安装 Graphviz）
+                </p>
+                <a class="dot-link" id="dotLink" href="#" target="_blank" style="display:none">在线查看 DOT 图</a>
+                <div id="noData" class="tip">请选择项目后生成依赖图</div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">ASCII 文本依赖图</div>
+                <div class="graph-box">
+                    <pre id="asciiGraph">请选择项目后生成依赖图</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="implicit_project_list.js"></script>
+<script>
+let D = null;
+
+function init() {
+    const sel = document.getElementById('projSel');
+    if (typeof implicitProjectList !== 'undefined') {
+        implicitProjectList.forEach(p => {
+            sel.innerHTML += `<option value="${p.dir}">${p.name}</option>`;
+        });
+    }
+}
+
+function loadProj() {
+    const dir = document.getElementById('projSel').value;
+    if (!dir) { D = null; reset(); return; }
+
+    document.getElementById('title').textContent = `隐式依赖分析 - ${dir}`;
+    document.getElementById('projInfo').textContent = '加载中...';
+
+    const old = document.getElementById('dataScript');
+    if (old) old.remove();
+
+    const s = document.createElement('script');
+    s.id = 'dataScript';
+    s.src = `${dir}/implicit_dependency_data.js`;
+    s.onload = () => {
+        D = window.implicitDependencyData;
+        if (D) {
+            renderStats();
+            renderOverview();
+            renderDetails();
+            renderLineage();
+            renderGraph();
+            document.getElementById('projInfo').textContent = `分析时间: ${D.scan_time}`;
+        } else {
+            alert('数据加载失败');
+        }
+    };
+    s.onerror = () => { alert('加载失败: ' + s.src); };
+    document.body.appendChild(s);
+}
+
+function reset() {
+    ['c_total','c_main','c_child','c_indep','c_sub','c_dep','c_lineage','c_missing'].forEach(i => document.getElementById(i).textContent = '-');
+    ['mainTable','indepTable','depTable','subTable','childWfTable','testTable','lineageTable','allLineageTable'].forEach(i => document.getElementById(i).innerHTML = '<tr><td colspan="3" class="tip">请选择项目</td></tr>');
+    document.getElementById('title').textContent = 'DolphinScheduler 隐式依赖分析';
+    document.getElementById('projInfo').textContent = '';
+    document.getElementById('indepWarning').style.display = 'none';
+    document.getElementById('lineageWarning').style.display = 'none';
+    document.getElementById('dotLink').style.display = 'none';
+    document.getElementById('noData').style.display = 'block';
+    document.getElementById('asciiGraph').textContent = '请选择项目后生成依赖图';
+}
+
+function showTab(tab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    event.target.classList.add('active');
+    document.querySelectorAll('#overviewTab, #detailsTab, #lineageTab, #graphTab').forEach(t => t.classList.add('hide'));
+    document.getElementById(tab + 'Tab').classList.remove('hide');
+}
+
+function renderStats() {
+    const s = D.statistics;
+    document.getElementById('c_total').textContent = D.total_workflows;
+    document.getElementById('c_main').textContent = s.main_workflows;
+    document.getElementById('c_child').textContent = s.child_workflows;
+    document.getElementById('c_indep').textContent = s.independent_workflows;
+    document.getElementById('c_sub').textContent = s.sub_process_calls;
+    document.getElementById('c_dep').textContent = s.dependent_tasks;
+    document.getElementById('c_lineage').textContent = s.table_lineage_dependencies || 0;
+    document.getElementById('c_missing').textContent = s.missing_dependencies || 0;
+}
+
+function renderOverview() {
+    // 主调度工作流
+    const mainT = document.getElementById('mainTable');
+    if (D.main_workflows.length > 0) {
+        // 计算每个主调度调用的子工作流数
+        const callCounts = {};
+        D.sub_process_calls.forEach(c => {
+            callCounts[c.parent_workflow_code] = (callCounts[c.parent_workflow_code] || 0) + 1;
+        });
+        mainT.innerHTML = D.main_workflows.map(w =>
+            `<tr class="main"><td>${w.name}</td><td>${w.code}</td><td>${callCounts[w.code] || 0}</td></tr>`
+        ).join('');
+    } else {
+        mainT.innerHTML = '<tr><td colspan="3" class="tip">无主调度工作流</td></tr>';
+    }
+
+    // 独立工作流
+    const indepT = document.getElementById('indepTable');
+    const indepW = document.getElementById('indepWarning');
+    if (D.independent_workflows.length > 0) {
+        indepW.style.display = 'block';
+        indepT.innerHTML = D.independent_workflows.map(w =>
+            `<tr class="independent"><td>${w.name}</td><td>${w.code}</td><td>${w.version}</td></tr>`
+        ).join('');
+    } else {
+        indepW.style.display = 'none';
+        indepT.innerHTML = '<tr><td colspan="3" class="tip">所有工作流都有隐式依赖</td></tr>';
+    }
+
+    // DEPENDENT 任务
+    const depT = document.getElementById('depTable');
+    if (D.dependent_relations.length > 0) {
+        depT.innerHTML = D.dependent_relations.map(d =>
+            `<tr class="${d.is_empty ? 'warning' : ''}">
+                <td>${d.workflow_name}</td>
+                <td>${d.task_name}</td>
+                <td>${d.is_empty ? '<span class="badge empty">空配置</span>' : d.depend_task_count + ' 个依赖'}</td>
+            </tr>`
+        ).join('');
+    } else {
+        depT.innerHTML = '<tr><td colspan="3" class="tip">无 DEPENDENT 任务</td></tr>';
+    }
+}
+
+function renderDetails() {
+    // SUB_PROCESS 调用详情
+    const subT = document.getElementById('subTable');
+    if (D.sub_process_calls.length > 0) {
+        subT.innerHTML = D.sub_process_calls.map(c =>
+            `<tr class="child"><td>${c.parent_workflow_name}</td><td>${c.task_name}</td><td>${c.sub_workflow_name}</td><td>${c.sub_workflow_code}</td></tr>`
+        ).join('');
+    } else {
+        subT.innerHTML = '<tr><td colspan="4" class="tip">无 SUB_PROCESS 调用</td></tr>';
+    }
+
+    // 子工作流列表（统计被调用次数）
+    const childWfT = document.getElementById('childWfTable');
+    if (D.child_workflows.length > 0) {
+        // 从 sub_process_calls 中统计每个子工作流的名称和被调用次数
+        const childWfMap = {};
+        D.sub_process_calls.forEach(c => {
+            if (!childWfMap[c.sub_workflow_code]) {
+                childWfMap[c.sub_workflow_code] = { name: c.sub_workflow_name, count: 0 };
+            }
+            childWfMap[c.sub_workflow_code].count++;
+        });
+        childWfT.innerHTML = Object.entries(childWfMap).map(([code, info]) =>
+            `<tr class="child"><td>${code}</td><td>${info.name}</td><td>${info.count}</td></tr>`
+        ).join('');
+    } else {
+        childWfT.innerHTML = '<tr><td colspan="3" class="tip">无子工作流</td></tr>';
+    }
+
+    // 测试/复制工作流
+    const testT = document.getElementById('testTable');
+    if (D.test_workflows.length > 0) {
+        testT.innerHTML = D.test_workflows.map(w =>
+            `<tr><td>${w.name}</td><td>${w.code}</td><td>${w.version}</td></tr>`
+        ).join('');
+    } else {
+        testT.innerHTML = '<tr><td colspan="3" class="tip">无测试工作流</td></tr>';
+    }
+}
+
+function renderLineage() {
+    // 缺失 DEPENDENT 任务
+    const lineageT = document.getElementById('lineageTable');
+    const lineageW = document.getElementById('lineageWarning');
+
+    if (D.missing_dependencies && D.missing_dependencies.length > 0) {
+        lineageW.style.display = 'block';
+        lineageT.innerHTML = D.missing_dependencies.map(dep =>
+            `<tr class="independent">
+                <td>${dep.consumer_workflow_name}</td>
+                <td>${dep.producer_workflow_name}</td>
+                <td>${dep.shared_tables.slice(0,3).join(', ')}${dep.shared_tables.length > 3 ? '...' : ''}</td>
+                <td><span class="badge independent">缺失</span></td>
+            </tr>`
+        ).join('');
+    } else {
+        lineageW.style.display = 'none';
+        lineageT.innerHTML = '<tr><td colspan="4" class="tip">所有表血缘依赖都有 DEPENDENT 任务</td></tr>';
+    }
+
+    // 完整表血缘依赖列表
+    const allLineageT = document.getElementById('allLineageTable');
+    if (D.table_lineage_dependencies && D.table_lineage_dependencies.length > 0) {
+        allLineageT.innerHTML = D.table_lineage_dependencies.map(dep =>
+            `<tr class="${dep.has_dependent_task ? '' : 'warning'}">
+                <td>${dep.consumer_workflow_name}</td>
+                <td>${dep.producer_workflow_name}</td>
+                <td>${dep.shared_tables.slice(0,3).join(', ')}${dep.shared_tables.length > 3 ? '...' : ''}</td>
+                <td>${dep.has_dependent_task ? '<span class="badge child">已有</span>' : '<span class="badge independent">缺失</span>'}</td>
+            </tr>`
+        ).join('');
+    } else {
+        allLineageT.innerHTML = '<tr><td colspan="4" class="tip">无表血缘依赖</td></tr>';
+    }
+}
+
+function renderGraph() {
+    const dotLink = document.getElementById('dotLink');
+    const noData = document.getElementById('noData');
+    const asciiGraph = document.getElementById('asciiGraph');
+
+    if (D.dependency_graph_dot) {
+        // 生成在线渲染链接
+        const encoded = encodeURIComponent(D.dependency_graph_dot);
+        const onlineUrl = `https://dreampuf.github.io/GraphvizOnline/?dot=${encoded}`;
+        dotLink.href = onlineUrl;
+        dotLink.style.display = 'inline-block';
+        noData.style.display = 'none';
+
+        // 生成 ASCII 文本图
+        const ascii = generateAsciiGraph(D);
+        asciiGraph.textContent = ascii;
+    } else {
+        dotLink.style.display = 'none';
+        noData.style.display = 'block';
+        asciiGraph.textContent = '无依赖图数据';
+    }
+}
+
+function generateAsciiGraph(D) {
+    let lines = [];
+    lines.push('+------------------------------------------------------------------------------+');
+    lines.push('|                              依赖关系图                                      |');
+    lines.push('+------------------------------------------------------------------------------+');
+    lines.push('');
+    lines.push('[主调度工作流]');
+    lines.push('-'*40);
+    D.main_workflows.forEach(w => {
+        lines.push(`    * ${w.name} (${w.code})`);
+    });
+
+    lines.push('');
+    lines.push('[SUB_PROCESS 调用关系]');
+    lines.push('-'*40);
+    // 按父工作流分组
+    const byParent = {};
+    D.sub_process_calls.forEach(c => {
+        if (!byParent[c.parent_workflow_name]) byParent[c.parent_workflow_name] = [];
+        byParent[c.parent_workflow_name].push(c);
+    });
+    Object.entries(byParent).forEach(([parent, calls]) => {
+        lines.push(`    ${parent}`);
+        calls.forEach(c => {
+            lines.push(`        |-- [${c.task_name}] -> ${c.sub_workflow_name}`);
+        });
+    });
+
+    lines.push('');
+    lines.push('[独立工作流 - 需关注]');
+    lines.push('-'*40);
+    D.independent_workflows.forEach(w => {
+        lines.push(`    ! ${w.name} (${w.code})`);
+    });
+
+    if (D.test_workflows.length > 0) {
+        lines.push('');
+        lines.push('[测试/复制工作流 - 可忽略]');
+        lines.push('-'*40);
+        D.test_workflows.forEach(w => {
+            lines.push(`    o ${w.name} (${w.code})`);
+        });
+    }
+
+    lines.push('');
+    lines.push('+------------------------------------------------------------------------------+');
+    lines.push('| * 主调度  |-- SUB_PROCESS调用  ! 需关注  o 测试/复制                       |');
+    lines.push('+------------------------------------------------------------------------------+');
+
+    return lines.join('\n');
+}
+
+init();
+</script>
+</body>
+</html>

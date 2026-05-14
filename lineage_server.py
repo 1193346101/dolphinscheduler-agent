@@ -7,10 +7,15 @@
 3. 启动本地HTTP服务器
 4. 通过ngrok暴露外网访问
 
+页面:
+- index.html: 工作流血缘关系查询
+- implicit_index.html: 隐式依赖分析
+
 使用方法:
     python lineage_server.py                    # 启动服务(默认端口8889)
     python lineage_server.py --port 9999        # 指定端口
     python lineage_server.py --scan             # 先扫描再启动
+    python lineage_server.py --implicit         # 扫描隐式依赖
     python lineage_server.py --ngrok            # 启动ngrok外网访问
     python lineage_server.py --scan --ngrok     # 扫描+ngrok
 """
@@ -201,6 +206,54 @@ def check_ngrok():
         return False
 
 
+def update_env_file(public_url: str):
+    """将 ngrok 公网地址写入 .env 文件"""
+    base_dir = Path(__file__).parent
+    env_file = base_dir / ".env"
+
+    # 读取现有 .env 内容
+    env_lines = []
+    env_vars = {}
+
+    if env_file.exists():
+        with open(env_file, "r", encoding="utf-8") as f:
+            env_lines = f.readlines()
+            for line in env_lines:
+                if "=" in line and not line.startswith("#"):
+                    key, value = line.strip().split("=", 1)
+                    env_vars[key] = value
+
+    # 更新公网地址变量
+    env_vars["LINEAGE_PUBLIC_URL"] = f"{public_url}/index.html"
+    env_vars["IMPLICIT_DEPENDENCY_PUBLIC_URL"] = f"{public_url}/implicit_index.html"
+    env_vars["NGROK_PUBLIC_URL"] = public_url
+
+    # 重建 .env 文件内容
+    new_lines = []
+    for line in env_lines:
+        if "=" in line and not line.startswith("#"):
+            key = line.strip().split("=", 1)[0]
+            if key in env_vars:
+                new_lines.append(f"{key}={env_vars[key]}\n")
+                del env_vars[key]
+            else:
+                new_lines.append(line)
+        else:
+            new_lines.append(line)
+
+    # 添加新变量（如果不在原有内容中）
+    for key, value in env_vars.items():
+        new_lines.append(f"{key}={value}\n")
+
+    # 写回 .env 文件
+    with open(env_file, "w", encoding="utf-8") as f:
+        f.writelines(new_lines)
+
+    print(f"[OK] 已更新 .env 文件:")
+    print(f"  LINEAGE_PUBLIC_URL={public_url}/index.html")
+    print(f"  IMPLICIT_DEPENDENCY_PUBLIC_URL={public_url}/implicit_index.html")
+
+
 def start_ngrok(port):
     """启动ngrok隧道"""
     print(f"\n启动ngrok隧道 (端口: {port})...")
@@ -229,8 +282,12 @@ def start_ngrok(port):
 
             if tunnels_data.get("tunnels"):
                 public_url = tunnels_data["tunnels"][0]["public_url"]
-                print(f"✓ ngrok已启动")
+                print(f"[OK] ngrok已启动")
                 print(f"  公网地址: {public_url}")
+
+                # 自动写入 .env 文件
+                update_env_file(public_url)
+
                 return public_url
         except Exception as e:
             print(f"获取ngrok地址失败: {e}")
@@ -253,10 +310,55 @@ def start_http_server(port, graph_dir):
     subprocess.run([sys.executable, "-m", "http.server", str(port)])
 
 
+def scan_implicit_dependencies():
+    """扫描所有项目的隐式依赖"""
+    print("\n" + "=" * 60)
+    print("扫描隐式依赖关系")
+    print("=" * 60)
+
+    base_dir = Path(__file__).parent
+    sys.path.insert(0, str(base_dir))
+
+    try:
+        import src.config.projects as projects_module
+        from src.tools.implicit_dependency_analyzer import analyze_implicit_dependency
+
+        projects_registry = projects_module.projects_registry
+        all_projects = projects_registry.all_projects()
+
+        graph_dir = base_dir / GRAPH_DIR
+        results = []
+
+        for project in all_projects:
+            project_name = project.name
+            print(f"\n分析: {project_name}")
+
+            try:
+                result = analyze_implicit_dependency(project_name, str(graph_dir))
+                if result.total_workflows > 0:
+                    print(f"  ✓ 工作流: {result.total_workflows}, 主调度: {len(result.main_workflows)}, 独立: {len(result.independent_workflows)}")
+                    results.append({"name": project_name, "success": True})
+                else:
+                    print(f"  ✗ 分析失败")
+                    results.append({"name": project_name, "success": False})
+            except Exception as e:
+                print(f"  ✗ 失败: {e}")
+                results.append({"name": project_name, "success": False})
+
+        success = sum(1 for r in results if r['success'])
+        print(f"\n隐式依赖扫描完成: 成功 {success}/{len(results)}")
+        return True
+
+    except Exception as e:
+        print(f"扫描失败: {e}")
+        return False
+
+
 def main():
     parser = argparse.ArgumentParser(description="工作流血缘关系可视化服务")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="HTTP服务器端口")
-    parser.add_argument("--scan", action="store_true", help="扫描所有项目数据")
+    parser.add_argument("--scan", action="store_true", help="扫描所有项目血缘数据")
+    parser.add_argument("--implicit", action="store_true", help="扫描隐式依赖关系")
     parser.add_argument("--ngrok", action="store_true", help="启动ngrok外网访问")
     parser.add_argument("--no-browser", action="store_true", help="不自动打开浏览器")
 
@@ -269,18 +371,28 @@ def main():
     print("DolphinScheduler 工作流血缘关系服务")
     print("=" * 60)
 
-    # Step 1: 扫描(可选)
+    # Step 1: 扫描血缘(可选)
     if args.scan:
         scan_all_projects()
+        generate_graph_data()
 
-    # Step 2: 生成数据文件
-    generate_graph_data()
+    # Step 2: 扫描隐式依赖(可选)
+    if args.implicit:
+        scan_implicit_dependencies()
 
-    # 检查index.html是否存在
+    # 检查页面文件是否存在
     index_html = graph_dir / "index.html"
-    if not index_html.exists():
-        print(f"\n警告: {index_html} 不存在")
-        print("请确保index.html文件已创建")
+    implicit_html = graph_dir / "implicit_index.html"
+
+    pages = []
+    if index_html.exists():
+        pages.append(("血缘关系", "index.html"))
+    if implicit_html.exists():
+        pages.append(("隐式依赖", "implicit_index.html"))
+
+    if not pages:
+        print("\n警告: 无页面文件")
+        print("请使用 --scan 扫描血缘数据，或 --implicit 扫描隐式依赖")
         return
 
     # Step 3: ngrok(可选)
@@ -288,13 +400,19 @@ def main():
     if args.ngrok:
         public_url = start_ngrok(args.port)
         if public_url:
-            print(f"\n外网访问地址: {public_url}/index.html")
+            print(f"\n外网访问地址:")
+            for name, file in pages:
+                print(f"  {name}: {public_url}/{file}")
 
     # 本地访问地址
-    local_url = f"http://localhost:{args.port}/index.html"
-    print(f"\n本地访问地址: {local_url}")
+    print(f"\n本地访问地址:")
+    for name, file in pages:
+        print(f"  {name}: http://localhost:{args.port}/{file}")
 
     # 自动打开浏览器
+    main_page = "implicit_index.html" if args.implicit else "index.html"
+    local_url = f"http://localhost:{args.port}/{main_page}"
+
     if not args.no_browser:
         print("\n正在打开浏览器...")
         webbrowser.open(local_url)

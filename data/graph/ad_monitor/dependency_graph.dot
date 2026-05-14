@@ -1,0 +1,79 @@
+digraph implicit_dependencies {
+    rankdir=TB;
+    node [shape=box, style=filled];
+
+    // 主调度工作流
+    subgraph cluster_main {
+        label = "主调度工作流";
+        style = filled;
+        fillcolor = lightyellow;
+        "欢网广告监测-DATAX-数据统计总流程" [fillcolor=gold, label="欢网广告监测-DATAX-数据统计总流程\n11599829976320"];
+        "欢网广告监测-ETL-总流程" [fillcolor=gold, label="欢网广告监测-ETL-总流程\n11605998818432"];
+    }
+
+    // SUB_PROCESS 子工作流
+    subgraph cluster_sub {
+        label = "SUB_PROCESS 子工作流";
+        style = filled;
+        fillcolor = lightgreen;
+        "欢网广告监测-ADS-交易频次报表" [label="欢网广告监测-ADS-交易频次报表\n11598178397184"];
+        "欢网广告监测-ADS-交易监测报表" [label="欢网广告监测-ADS-交易监测报表\n11598179392256"];
+        "欢网广告监测-ADS-广告位监测报表" [label="欢网广告监测-ADS-广告位监测报表\n11598180699776"];
+        "欢网广告监测-中间日志" [label="欢网广告监测-中间日志\n11598186765568"];
+        "欢网广告监测-点击日志" [label="欢网广告监测-点击日志\n11598188089984"];
+        "欢网广告监测-曝光日志" [label="欢网广告监测-曝光日志\n11598189672192"];
+        "欢网广告监测-ADS-汇总报表" [label="欢网广告监测-ADS-汇总报表\n11599819950336"];
+        "欢网广告监测-ADS-累计报表" [label="欢网广告监测-ADS-累计报表\n11599821572608"];
+        "欢网广告监测-ADS-累计报表-区县" [label="欢网广告监测-ADS-累计报表-区县\n11599823357440"];
+        "欢网广告监测-ADS-日报表" [label="欢网广告监测-ADS-日报表\n11599826665344"];
+        "欢网广告监测-DIM-设备更新" [label="欢网广告监测-DIM-设备更新\n11599834736896"];
+        "欢网广告监测-DATAX-曝光日志-数据统计" [label="欢网广告监测-DATAX-曝光日志-数据统计\n11599837063296"];
+        "欢网广告监测-DATAX-点击日志-数据统计" [label="欢网广告监测-DATAX-点击日志-数据统计\n11599837995904"];
+        "欢网广告监测-DATAX-中间日志-数据统计" [label="欢网广告监测-DATAX-中间日志-数据统计\n11599839174784"];
+        "欢网广告监测-ADS-日报表-区县" [label="欢网广告监测-ADS-日报表-区县\n11599840142464"];
+        "欢网广告监测-DWS-平台分组中间表" [label="欢网广告监测-DWS-平台分组中间表\n11600006534922"];
+    }
+
+    // SUB_PROCESS 调用关系
+    "欢网广告监测-DATAX-数据统计总流程" -> "欢网广告监测-DATAX-曝光日志-数据统计" [label="曝光", color=blue];
+    "欢网广告监测-DATAX-数据统计总流程" -> "欢网广告监测-DATAX-点击日志-数据统计" [label="点击", color=blue];
+    "欢网广告监测-DATAX-数据统计总流程" -> "欢网广告监测-DATAX-中间日志-数据统计" [label="中间", color=blue];
+    "欢网广告监测-ETL-总流程" -> "欢网广告监测-曝光日志" [label="曝光日志处理", color=blue];
+    "欢网广告监测-ETL-总流程" -> "欢网广告监测-DIM-设备更新" [label="设备更新", color=blue];
+    "欢网广告监测-ETL-总流程" -> "欢网广告监测-ADS-日报表" [label="日报表", color=blue];
+    "欢网广告监测-ETL-总流程" -> "欢网广告监测-ADS-累计报表" [label="累计报表", color=blue];
+    "欢网广告监测-ETL-总流程" -> "欢网广告监测-点击日志" [label="点击日志", color=blue];
+    "欢网广告监测-ETL-总流程" -> "欢网广告监测-中间日志" [label="中间日志", color=blue];
+    "欢网广告监测-ETL-总流程" -> "欢网广告监测-ADS-汇总报表" [label="汇总报表", color=blue];
+    "欢网广告监测-ETL-总流程" -> "欢网广告监测-ADS-日报表-区县" [label="日报表-区县", color=blue];
+    "欢网广告监测-ETL-总流程" -> "欢网广告监测-ADS-累计报表-区县" [label="累计报表-区县", color=blue];
+    "欢网广告监测-ETL-总流程" -> "欢网广告监测-ADS-广告位监测报表" [label="广告位监测报表", color=blue];
+    "欢网广告监测-ETL-总流程" -> "欢网广告监测-ADS-交易监测报表" [label="交易监测报表", color=blue];
+    "欢网广告监测-ETL-总流程" -> "欢网广告监测-ADS-交易频次报表" [label="交易频次报表", color=blue];
+    "欢网广告监测-ETL-总流程" -> "欢网广告监测-DWS-平台分组中间表" [label="平台分组中间表", color=blue];
+
+    // 真正独立的工作流
+    subgraph cluster_independent {
+        label = "独立工作流（需关注）";
+        style = filled;
+        fillcolor = lightcoral;
+        "欢网广告监测-ADS-请求报表" [fillcolor=coral, label="欢网广告监测-ADS-请求报表\n11598184562432"];
+        "Nginx监测日志处理" [fillcolor=coral, label="Nginx监测日志处理\n11599818692992"];
+        "欢网DMP-曝光表添加当日分区" [fillcolor=coral, label="欢网DMP-曝光表添加当日分区\n11599832730112"];
+        "多维钻取-补数" [fillcolor=coral, label="多维钻取-补数\n14936257423904"];
+        "Datax数据同步汇总" [fillcolor=coral, label="Datax数据同步汇总\n21098229252384"];
+    }
+
+    // 测试/复制工作流（忽略）
+    subgraph cluster_test {
+        label = "测试/复制工作流";
+        style = filled;
+        fillcolor = gray;
+        "Seatunnel测试" [fillcolor=gray, label="Seatunnel测试\n17647007721632"];
+        "欢网广告监测-ADS-累计报表_copy_20260115113837961" [fillcolor=gray, label="欢网广告监测-ADS-累计报表_copy_20260115113837961\n20354293498922"];
+        "欢网广告监测-曝光日志_spark_on_k8s测试" [fillcolor=gray, label="欢网广告监测-曝光日志_spark_on_k8s测试\n20876668664870"];
+        "欢网广告监测-曝光日志_spark_on_yarn测试" [fillcolor=gray, label="欢网广告监测-曝光日志_spark_on_yarn测试\n20941254587937"];
+        "agent-test" [fillcolor=gray, label="agent-test\n21451302002208"];
+        "欢网广告监测-曝光日志_copy_20260509093226263" [fillcolor=gray, label="欢网广告监测-曝光日志_copy_20260509093226263\n21614073121702"];
+    }
+}

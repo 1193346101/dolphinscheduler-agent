@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang='zh-CN'>
+<head>
+    <meta charset='UTF-8'>
+    <title>隐式依赖分析报告 - ad_monitor</title>
+    <style>
+        body { font-family: 'Microsoft YaHei', Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: auto; background: white; padding: 20px; border-radius: 8px; }
+        h1 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        h2 { color: #555; margin-top: 30px; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background: #007bff; color: white; }
+        tr:nth-child(even) { background: #f9f9f9; }
+        .main { background: #fff3cd; }
+        .child { background: #d4edda; }
+        .independent { background: #f8d7da; }
+        .test { background: #e2e3e5; color: #666; }
+        .stats { display: flex; gap: 20px; margin: 20px 0; }
+        .stat-box { background: #e9ecef; padding: 15px; border-radius: 5px; flex: 1; text-align: center; }
+        .stat-box h3 { margin: 0; color: #007bff; }
+        .stat-box p { margin: 5px 0; font-size: 24px; font-weight: bold; }
+        .warning { background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        .dot-link { background: #007bff; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; display: inline-block; }
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <h1>隐式依赖分析报告</h1>
+        <p><strong>项目:</strong> ad_monitor (11598158952448)</p>
+        <p><strong>分析时间:</strong> 2026-05-14T19:30:37.726565</p>
+
+        <div class='stats'>
+            <div class='stat-box'><h3>总工作流</h3><p>29</p></div>
+            <div class='stat-box'><h3>主调度</h3><p>2</p></div>
+            <div class='stat-box'><h3>子工作流</h3><p>16</p></div>
+            <div class='stat-box'><h3>独立工作流</h3><p>5</p></div>
+        </div>
+
+        <h2>主调度工作流</h2>
+        <table>
+            <tr><th>名称</th><th>Code</th><th>子工作流数</th></tr>
+            <tr class='main'><td>欢网广告监测-DATAX-数据统计总流程</td><td>11599829976320</td><td>3</td></tr>
+            <tr class='main'><td>欢网广告监测-ETL-总流程</td><td>11605998818432</td><td>13</td></tr>
+        </table>
+
+        <h2>SUB_PROCESS 调用详情</h2>
+        <table>
+            <tr><th>父工作流</th><th>任务名</th><th>子工作流</th><th>子工作流Code</th></tr>
+            <tr class='child'><td>欢网广告监测-DATAX-数据统计总流程</td><td>曝光</td><td>欢网广告监测-DATAX-曝光日志-数据统计</td><td>11599837063296</td></tr>
+            <tr class='child'><td>欢网广告监测-DATAX-数据统计总流程</td><td>点击</td><td>欢网广告监测-DATAX-点击日志-数据统计</td><td>11599837995904</td></tr>
+            <tr class='child'><td>欢网广告监测-DATAX-数据统计总流程</td><td>中间</td><td>欢网广告监测-DATAX-中间日志-数据统计</td><td>11599839174784</td></tr>
+            <tr class='child'><td>欢网广告监测-ETL-总流程</td><td>曝光日志处理</td><td>欢网广告监测-曝光日志</td><td>11598189672192</td></tr>
+            <tr class='child'><td>欢网广告监测-ETL-总流程</td><td>设备更新</td><td>欢网广告监测-DIM-设备更新</td><td>11599834736896</td></tr>
+            <tr class='child'><td>欢网广告监测-ETL-总流程</td><td>日报表</td><td>欢网广告监测-ADS-日报表</td><td>11599826665344</td></tr>
+            <tr class='child'><td>欢网广告监测-ETL-总流程</td><td>累计报表</td><td>欢网广告监测-ADS-累计报表</td><td>11599821572608</td></tr>
+            <tr class='child'><td>欢网广告监测-ETL-总流程</td><td>点击日志</td><td>欢网广告监测-点击日志</td><td>11598188089984</td></tr>
+            <tr class='child'><td>欢网广告监测-ETL-总流程</td><td>中间日志</td><td>欢网广告监测-中间日志</td><td>11598186765568</td></tr>
+            <tr class='child'><td>欢网广告监测-ETL-总流程</td><td>汇总报表</td><td>欢网广告监测-ADS-汇总报表</td><td>11599819950336</td></tr>
+            <tr class='child'><td>欢网广告监测-ETL-总流程</td><td>日报表-区县</td><td>欢网广告监测-ADS-日报表-区县</td><td>11599840142464</td></tr>
+            <tr class='child'><td>欢网广告监测-ETL-总流程</td><td>累计报表-区县</td><td>欢网广告监测-ADS-累计报表-区县</td><td>11599823357440</td></tr>
+            <tr class='child'><td>欢网广告监测-ETL-总流程</td><td>广告位监测报表</td><td>欢网广告监测-ADS-广告位监测报表</td><td>11598180699776</td></tr>
+            <tr class='child'><td>欢网广告监测-ETL-总流程</td><td>交易监测报表</td><td>欢网广告监测-ADS-交易监测报表</td><td>11598179392256</td></tr>
+            <tr class='child'><td>欢网广告监测-ETL-总流程</td><td>交易频次报表</td><td>欢网广告监测-ADS-交易频次报表</td><td>11598178397184</td></tr>
+            <tr class='child'><td>欢网广告监测-ETL-总流程</td><td>平台分组中间表</td><td>欢网广告监测-DWS-平台分组中间表</td><td>11600006534922</td></tr>
+        </table>
+
+        <h2>独立工作流（需关注）</h2>
+        <div class='warning'>
+            <strong>⚠ 以下工作流无隐式依赖，请检查是否应有前置依赖：</strong>
+        </div>
+        <table>
+            <tr><th>名称</th><th>Code</th><th>版本</th></tr>
+            <tr class='independent'><td>欢网广告监测-ADS-请求报表</td><td>11598184562432</td><td>13</td></tr>
+            <tr class='independent'><td>Nginx监测日志处理</td><td>11599818692992</td><td>2</td></tr>
+            <tr class='independent'><td>欢网DMP-曝光表添加当日分区</td><td>11599832730112</td><td>2</td></tr>
+            <tr class='independent'><td>多维钻取-补数</td><td>14936257423904</td><td>2</td></tr>
+            <tr class='independent'><td>Datax数据同步汇总</td><td>21098229252384</td><td>1</td></tr>
+        </table>
+
+        <h2>DEPENDENT 任务</h2>
+        <table>
+            <tr><th>工作流</th><th>任务名</th><th>状态</th></tr>
+            <tr class=''><td>欢网广告监测-ADS-请求报表</td><td>前置依赖</td><td>1 个依赖</td></tr>
+            <tr class='independent'><td>欢网广告监测-DATAX-数据统计总流程</td><td>计算任务</td><td>空配置（需检查）</td></tr>
+        </table>
+
+        <h2>在线渲染 DOT 图</h2>
+        <p>点击下方链接，在线查看依赖关系图：</p>
+        <a class='dot-link' href='https://dreampuf.github.io/GraphvizOnline/?dot=
+digraph%20implicit_dependencies%20%7B%0A%20%20%20%20rankdir%3DTB%3B%0A%20%20%20%20node%20%5Bshape%3Dbox%2C%20style%3Dfilled%5D%3B%0A%0A%20%20%20%20//%20%E4%B8%BB%E8%B0%83%E5%BA%A6%E5%B7%A5%E4%BD%9C%E6%B5%81%0A%20%20%20%20subgraph%20cluster_main%20%7B%0A%20%20%20%20%20%20%20%20label%20%3D%20%22%E4%B8%BB%E8%B0%83%E5%BA%A6%E5%B7%A5%E4%BD%9C%E6%B5%81%22%3B%0A%20%20%20%20%20%20%20%20style%20%3D%20filled%3B%0A%20%20%20%20%20%20%20%20fillcolor%20%3D%20lightyellow%3B%0A%20%20%20%20%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-DATAX-%E6%95%B0%E6%8D%AE%E7%BB%9F%E8%AE%A1%E6%80%BB%E6%B5%81%E7%A8%8B%22%20%5Bfillcolor%3Dgold%2C%20label%3D%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-DATAX-%E6%95%B0%E6%8D%AE%E7%BB%9F%E8%AE%A1%E6%80%BB%E6%B5%81%E7%A8%8B%5Cn11599829976320%22%5D%3B%0A%20%20%20%20%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ETL-%E6%80%BB%E6%B5%81%E7%A8%8B%22%20%5Bfillcolor%3Dgold%2C%20label%3D%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ETL-%E6%80%BB%E6%B5%81%E7%A8%8B%5Cn11605998818432%22%5D%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20//%20SUB_PROCESS%20%E5%AD%90%E5%B7%A5%E4%BD%9C%E6%B5%81%0A%20%20%20%20subgraph%20cluster_sub%20%7B%0A%20%20%20%20%20%20%20%20label%20%3D%20%22SUB_PROCESS%20%E5%AD%90%E5%B7%A5%E4%BD%9C%E6%B5%81%22%3B%0A%20%20%20%20%20%20%20%20style%20%3D%20filled%3B%0A%20%20%20%20%20%20%20%20fillcolor%20%3D%20lightgreen%3B%0A%20%20%20%20%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E4%BA%A4%E6%98%93%E9%A2%91%E6%AC%A1%E6%8A%A5%E8%A1%A8%22%20%5Blabel%3D%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E4%BA%A4%E6%98%93%E9%A2%91%E6%AC%A1%E6%8A%A5%E8%A1%A8%5Cn11598178397184%22%5D%3B%0A%20%20%20%20%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E4%BA%A4%E6%98%93%E7%9B%91%E6%B5%8B%E6%8A%A5%E8%A1%A8%22%20%5Blabel%3D%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E4%BA%A4%E6%98%93%E7%9B%91%E6%B5%8B%E6%8A%A5%E8%A1%A8%5Cn11598179392256%22%5D%3B%0A%20%20%20%20%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E5%B9%BF%E5%91%8A%E4%BD%8D%E7%9B%91%E6%B5%8B%E6%8A%A5%E8%A1%A8%22%20%5Blabel%3D%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E5%B9%BF%E5%91%8A%E4%BD%8D%E7%9B%91%E6%B5%8B%E6%8A%A5%E8%A1%A8%5Cn11598180699776%22%5D%3B%0A%20%20%20%20%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-%E4%B8%AD%E9%97%B4%E6%97%A5%E5%BF%97%22%20%5Blabel%3D%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-%E4%B8%AD%E9%97%B4%E6%97%A5%E5%BF%97%5Cn11598186765568%22%5D%3B%0A%20%20%20%20%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-%E7%82%B9%E5%87%BB%E6%97%A5%E5%BF%97%22%20%5Blabel%3D%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-%E7%82%B9%E5%87%BB%E6%97%A5%E5%BF%97%5Cn11598188089984%22%5D%3B%0A%20%20%20%20%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-%E6%9B%9D%E5%85%89%E6%97%A5%E5%BF%97%22%20%5Blabel%3D%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-%E6%9B%9D%E5%85%89%E6%97%A5%E5%BF%97%5Cn11598189672192%22%5D%3B%0A%20%20%20%20%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E6%B1%87%E6%80%BB%E6%8A%A5%E8%A1%A8%22%20%5Blabel%3D%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E6%B1%87%E6%80%BB%E6%8A%A5%E8%A1%A8%5Cn11599819950336%22%5D%3B%0A%20%20%20%20%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E7%B4%AF%E8%AE%A1%E6%8A%A5%E8%A1%A8%22%20%5Blabel%3D%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E7%B4%AF%E8%AE%A1%E6%8A%A5%E8%A1%A8%5Cn11599821572608%22%5D%3B%0A%20%20%20%20%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E7%B4%AF%E8%AE%A1%E6%8A%A5%E8%A1%A8-%E5%8C%BA%E5%8E%BF%22%20%5Blabel%3D%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E7%B4%AF%E8%AE%A1%E6%8A%A5%E8%A1%A8-%E5%8C%BA%E5%8E%BF%5Cn11599823357440%22%5D%3B%0A%20%20%20%20%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E6%97%A5%E6%8A%A5%E8%A1%A8%22%20%5Blabel%3D%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E6%97%A5%E6%8A%A5%E8%A1%A8%5Cn11599826665344%22%5D%3B%0A%20%20%20%20%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-DIM-%E8%AE%BE%E5%A4%87%E6%9B%B4%E6%96%B0%22%20%5Blabel%3D%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-DIM-%E8%AE%BE%E5%A4%87%E6%9B%B4%E6%96%B0%5Cn11599834736896%22%5D%3B%0A%20%20%20%20%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-DATAX-%E6%9B%9D%E5%85%89%E6%97%A5%E5%BF%97-%E6%95%B0%E6%8D%AE%E7%BB%9F%E8%AE%A1%22%20%5Blabel%3D%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-DATAX-%E6%9B%9D%E5%85%89%E6%97%A5%E5%BF%97-%E6%95%B0%E6%8D%AE%E7%BB%9F%E8%AE%A1%5Cn11599837063296%22%5D%3B%0A%20%20%20%20%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-DATAX-%E7%82%B9%E5%87%BB%E6%97%A5%E5%BF%97-%E6%95%B0%E6%8D%AE%E7%BB%9F%E8%AE%A1%22%20%5Blabel%3D%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-DATAX-%E7%82%B9%E5%87%BB%E6%97%A5%E5%BF%97-%E6%95%B0%E6%8D%AE%E7%BB%9F%E8%AE%A1%5Cn11599837995904%22%5D%3B%0A%20%20%20%20%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-DATAX-%E4%B8%AD%E9%97%B4%E6%97%A5%E5%BF%97-%E6%95%B0%E6%8D%AE%E7%BB%9F%E8%AE%A1%22%20%5Blabel%3D%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-DATAX-%E4%B8%AD%E9%97%B4%E6%97%A5%E5%BF%97-%E6%95%B0%E6%8D%AE%E7%BB%9F%E8%AE%A1%5Cn11599839174784%22%5D%3B%0A%20%20%20%20%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E6%97%A5%E6%8A%A5%E8%A1%A8-%E5%8C%BA%E5%8E%BF%22%20%5Blabel%3D%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E6%97%A5%E6%8A%A5%E8%A1%A8-%E5%8C%BA%E5%8E%BF%5Cn11599840142464%22%5D%3B%0A%20%20%20%20%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-DWS-%E5%B9%B3%E5%8F%B0%E5%88%86%E7%BB%84%E4%B8%AD%E9%97%B4%E8%A1%A8%22%20%5Blabel%3D%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-DWS-%E5%B9%B3%E5%8F%B0%E5%88%86%E7%BB%84%E4%B8%AD%E9%97%B4%E8%A1%A8%5Cn11600006534922%22%5D%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20//%20SUB_PROCESS%20%E8%B0%83%E7%94%A8%E5%85%B3%E7%B3%BB%0A%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-DATAX-%E6%95%B0%E6%8D%AE%E7%BB%9F%E8%AE%A1%E6%80%BB%E6%B5%81%E7%A8%8B%22%20-%3E%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-DATAX-%E6%9B%9D%E5%85%89%E6%97%A5%E5%BF%97-%E6%95%B0%E6%8D%AE%E7%BB%9F%E8%AE%A1%22%20%5Blabel%3D%22%E6%9B%9D%E5%85%89%22%2C%20color%3Dblue%5D%3B%0A%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-DATAX-%E6%95%B0%E6%8D%AE%E7%BB%9F%E8%AE%A1%E6%80%BB%E6%B5%81%E7%A8%8B%22%20-%3E%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-DATAX-%E7%82%B9%E5%87%BB%E6%97%A5%E5%BF%97-%E6%95%B0%E6%8D%AE%E7%BB%9F%E8%AE%A1%22%20%5Blabel%3D%22%E7%82%B9%E5%87%BB%22%2C%20color%3Dblue%5D%3B%0A%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-DATAX-%E6%95%B0%E6%8D%AE%E7%BB%9F%E8%AE%A1%E6%80%BB%E6%B5%81%E7%A8%8B%22%20-%3E%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-DATAX-%E4%B8%AD%E9%97%B4%E6%97%A5%E5%BF%97-%E6%95%B0%E6%8D%AE%E7%BB%9F%E8%AE%A1%22%20%5Blabel%3D%22%E4%B8%AD%E9%97%B4%22%2C%20color%3Dblue%5D%3B%0A%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ETL-%E6%80%BB%E6%B5%81%E7%A8%8B%22%20-%3E%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-%E6%9B%9D%E5%85%89%E6%97%A5%E5%BF%97%22%20%5Blabel%3D%22%E6%9B%9D%E5%85%89%E6%97%A5%E5%BF%97%E5%A4%84%E7%90%86%22%2C%20color%3Dblue%5D%3B%0A%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ETL-%E6%80%BB%E6%B5%81%E7%A8%8B%22%20-%3E%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-DIM-%E8%AE%BE%E5%A4%87%E6%9B%B4%E6%96%B0%22%20%5Blabel%3D%22%E8%AE%BE%E5%A4%87%E6%9B%B4%E6%96%B0%22%2C%20color%3Dblue%5D%3B%0A%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ETL-%E6%80%BB%E6%B5%81%E7%A8%8B%22%20-%3E%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E6%97%A5%E6%8A%A5%E8%A1%A8%22%20%5Blabel%3D%22%E6%97%A5%E6%8A%A5%E8%A1%A8%22%2C%20color%3Dblue%5D%3B%0A%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ETL-%E6%80%BB%E6%B5%81%E7%A8%8B%22%20-%3E%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E7%B4%AF%E8%AE%A1%E6%8A%A5%E8%A1%A8%22%20%5Blabel%3D%22%E7%B4%AF%E8%AE%A1%E6%8A%A5%E8%A1%A8%22%2C%20color%3Dblue%5D%3B%0A%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ETL-%E6%80%BB%E6%B5%81%E7%A8%8B%22%20-%3E%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-%E7%82%B9%E5%87%BB%E6%97%A5%E5%BF%97%22%20%5Blabel%3D%22%E7%82%B9%E5%87%BB%E6%97%A5%E5%BF%97%22%2C%20color%3Dblue%5D%3B%0A%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ETL-%E6%80%BB%E6%B5%81%E7%A8%8B%22%20-%3E%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-%E4%B8%AD%E9%97%B4%E6%97%A5%E5%BF%97%22%20%5Blabel%3D%22%E4%B8%AD%E9%97%B4%E6%97%A5%E5%BF%97%22%2C%20color%3Dblue%5D%3B%0A%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ETL-%E6%80%BB%E6%B5%81%E7%A8%8B%22%20-%3E%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E6%B1%87%E6%80%BB%E6%8A%A5%E8%A1%A8%22%20%5Blabel%3D%22%E6%B1%87%E6%80%BB%E6%8A%A5%E8%A1%A8%22%2C%20color%3Dblue%5D%3B%0A%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ETL-%E6%80%BB%E6%B5%81%E7%A8%8B%22%20-%3E%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E6%97%A5%E6%8A%A5%E8%A1%A8-%E5%8C%BA%E5%8E%BF%22%20%5Blabel%3D%22%E6%97%A5%E6%8A%A5%E8%A1%A8-%E5%8C%BA%E5%8E%BF%22%2C%20color%3Dblue%5D%3B%0A%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ETL-%E6%80%BB%E6%B5%81%E7%A8%8B%22%20-%3E%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E7%B4%AF%E8%AE%A1%E6%8A%A5%E8%A1%A8-%E5%8C%BA%E5%8E%BF%22%20%5Blabel%3D%22%E7%B4%AF%E8%AE%A1%E6%8A%A5%E8%A1%A8-%E5%8C%BA%E5%8E%BF%22%2C%20color%3Dblue%5D%3B%0A%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ETL-%E6%80%BB%E6%B5%81%E7%A8%8B%22%20-%3E%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E5%B9%BF%E5%91%8A%E4%BD%8D%E7%9B%91%E6%B5%8B%E6%8A%A5%E8%A1%A8%22%20%5Blabel%3D%22%E5%B9%BF%E5%91%8A%E4%BD%8D%E7%9B%91%E6%B5%8B%E6%8A%A5%E8%A1%A8%22%2C%20color%3Dblue%5D%3B%0A%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ETL-%E6%80%BB%E6%B5%81%E7%A8%8B%22%20-%3E%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E4%BA%A4%E6%98%93%E7%9B%91%E6%B5%8B%E6%8A%A5%E8%A1%A8%22%20%5Blabel%3D%22%E4%BA%A4%E6%98%93%E7%9B%91%E6%B5%8B%E6%8A%A5%E8%A1%A8%22%2C%20color%3Dblue%5D%3B%0A%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ETL-%E6%80%BB%E6%B5%81%E7%A8%8B%22%20-%3E%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E4%BA%A4%E6%98%93%E9%A2%91%E6%AC%A1%E6%8A%A5%E8%A1%A8%22%20%5Blabel%3D%22%E4%BA%A4%E6%98%93%E9%A2%91%E6%AC%A1%E6%8A%A5%E8%A1%A8%22%2C%20color%3Dblue%5D%3B%0A%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ETL-%E6%80%BB%E6%B5%81%E7%A8%8B%22%20-%3E%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-DWS-%E5%B9%B3%E5%8F%B0%E5%88%86%E7%BB%84%E4%B8%AD%E9%97%B4%E8%A1%A8%22%20%5Blabel%3D%22%E5%B9%B3%E5%8F%B0%E5%88%86%E7%BB%84%E4%B8%AD%E9%97%B4%E8%A1%A8%22%2C%20color%3Dblue%5D%3B%0A%0A%20%20%20%20//%20%E7%9C%9F%E6%AD%A3%E7%8B%AC%E7%AB%8B%E7%9A%84%E5%B7%A5%E4%BD%9C%E6%B5%81%0A%20%20%20%20subgraph%20cluster_independent%20%7B%0A%20%20%20%20%20%20%20%20label%20%3D%20%22%E7%8B%AC%E7%AB%8B%E5%B7%A5%E4%BD%9C%E6%B5%81%EF%BC%88%E9%9C%80%E5%85%B3%E6%B3%A8%EF%BC%89%22%3B%0A%20%20%20%20%20%20%20%20style%20%3D%20filled%3B%0A%20%20%20%20%20%20%20%20fillcolor%20%3D%20lightcoral%3B%0A%20%20%20%20%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E8%AF%B7%E6%B1%82%E6%8A%A5%E8%A1%A8%22%20%5Bfillcolor%3Dcoral%2C%20label%3D%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E8%AF%B7%E6%B1%82%E6%8A%A5%E8%A1%A8%5Cn11598184562432%22%5D%3B%0A%20%20%20%20%20%20%20%20%22Nginx%E7%9B%91%E6%B5%8B%E6%97%A5%E5%BF%97%E5%A4%84%E7%90%86%22%20%5Bfillcolor%3Dcoral%2C%20label%3D%22Nginx%E7%9B%91%E6%B5%8B%E6%97%A5%E5%BF%97%E5%A4%84%E7%90%86%5Cn11599818692992%22%5D%3B%0A%20%20%20%20%20%20%20%20%22%E6%AC%A2%E7%BD%91DMP-%E6%9B%9D%E5%85%89%E8%A1%A8%E6%B7%BB%E5%8A%A0%E5%BD%93%E6%97%A5%E5%88%86%E5%8C%BA%22%20%5Bfillcolor%3Dcoral%2C%20label%3D%22%E6%AC%A2%E7%BD%91DMP-%E6%9B%9D%E5%85%89%E8%A1%A8%E6%B7%BB%E5%8A%A0%E5%BD%93%E6%97%A5%E5%88%86%E5%8C%BA%5Cn11599832730112%22%5D%3B%0A%20%20%20%20%20%20%20%20%22%E5%A4%9A%E7%BB%B4%E9%92%BB%E5%8F%96-%E8%A1%A5%E6%95%B0%22%20%5Bfillcolor%3Dcoral%2C%20label%3D%22%E5%A4%9A%E7%BB%B4%E9%92%BB%E5%8F%96-%E8%A1%A5%E6%95%B0%5Cn14936257423904%22%5D%3B%0A%20%20%20%20%20%20%20%20%22Datax%E6%95%B0%E6%8D%AE%E5%90%8C%E6%AD%A5%E6%B1%87%E6%80%BB%22%20%5Bfillcolor%3Dcoral%2C%20label%3D%22Datax%E6%95%B0%E6%8D%AE%E5%90%8C%E6%AD%A5%E6%B1%87%E6%80%BB%5Cn21098229252384%22%5D%3B%0A%20%20%20%20%7D%0A%0A%20%20%20%20//%20%E6%B5%8B%E8%AF%95/%E5%A4%8D%E5%88%B6%E5%B7%A5%E4%BD%9C%E6%B5%81%EF%BC%88%E5%BF%BD%E7%95%A5%EF%BC%89%0A%20%20%20%20subgraph%20cluster_test%20%7B%0A%20%20%20%20%20%20%20%20label%20%3D%20%22%E6%B5%8B%E8%AF%95/%E5%A4%8D%E5%88%B6%E5%B7%A5%E4%BD%9C%E6%B5%81%22%3B%0A%20%20%20%20%20%20%20%20style%20%3D%20filled%3B%0A%20%20%20%20%20%20%20%20fillcolor%20%3D%20gray%3B%0A%20%20%20%20%20%20%20%20%22Seatunnel%E6%B5%8B%E8%AF%95%22%20%5Bfillcolor%3Dgray%2C%20label%3D%22Seatunnel%E6%B5%8B%E8%AF%95%5Cn17647007721632%22%5D%3B%0A%20%20%20%20%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E7%B4%AF%E8%AE%A1%E6%8A%A5%E8%A1%A8_copy_20260115113837961%22%20%5Bfillcolor%3Dgray%2C%20label%3D%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-ADS-%E7%B4%AF%E8%AE%A1%E6%8A%A5%E8%A1%A8_copy_20260115113837961%5Cn20354293498922%22%5D%3B%0A%20%20%20%20%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-%E6%9B%9D%E5%85%89%E6%97%A5%E5%BF%97_spark_on_k8s%E6%B5%8B%E8%AF%95%22%20%5Bfillcolor%3Dgray%2C%20label%3D%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-%E6%9B%9D%E5%85%89%E6%97%A5%E5%BF%97_spark_on_k8s%E6%B5%8B%E8%AF%95%5Cn20876668664870%22%5D%3B%0A%20%20%20%20%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-%E6%9B%9D%E5%85%89%E6%97%A5%E5%BF%97_spark_on_yarn%E6%B5%8B%E8%AF%95%22%20%5Bfillcolor%3Dgray%2C%20label%3D%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-%E6%9B%9D%E5%85%89%E6%97%A5%E5%BF%97_spark_on_yarn%E6%B5%8B%E8%AF%95%5Cn20941254587937%22%5D%3B%0A%20%20%20%20%20%20%20%20%22agent-test%22%20%5Bfillcolor%3Dgray%2C%20label%3D%22agent-test%5Cn21451302002208%22%5D%3B%0A%20%20%20%20%20%20%20%20%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-%E6%9B%9D%E5%85%89%E6%97%A5%E5%BF%97_copy_20260509093226263%22%20%5Bfillcolor%3Dgray%2C%20label%3D%22%E6%AC%A2%E7%BD%91%E5%B9%BF%E5%91%8A%E7%9B%91%E6%B5%8B-%E6%9B%9D%E5%85%89%E6%97%A5%E5%BF%97_copy_20260509093226263%5Cn21614073121702%22%5D%3B%0A%20%20%20%20%7D%0A%7D' target='_blank'>在线查看 DOT 图</a>
+
+        <h2>ASCII 文本依赖图</h2>
+        <pre style='background: #f8f9fa; padding: 15px; border-radius: 5px; overflow-x: auto;'>
++------------------------------------------------------------------------------+
+|                              依赖关系图                                    |
++------------------------------------------------------------------------------+
+
+[主调度工作流]
+----------------------------------------
+    * 欢网广告监测-DATAX-数据统计总流程 (11599829976320)
+    * 欢网广告监测-ETL-总流程 (11605998818432)
+
+[SUB_PROCESS 调用关系]
+----------------------------------------
+    欢网广告监测-DATAX-数据统计总流程
+        |-- [中间] -> 欢网广告监测-DATAX-中间日志-数据统计
+        |-- [曝光] -> 欢网广告监测-DATAX-曝光日志-数据统计
+        |-- [点击] -> 欢网广告监测-DATAX-点击日志-数据统计
+    欢网广告监测-ETL-总流程
+        |-- [中间日志] -> 欢网广告监测-中间日志
+        |-- [交易监测报表] -> 欢网广告监测-ADS-交易监测报表
+        |-- [交易频次报表] -> 欢网广告监测-ADS-交易频次报表
+        |-- [平台分组中间表] -> 欢网广告监测-DWS-平台分组中间表
+        |-- [广告位监测报表] -> 欢网广告监测-ADS-广告位监测报表
+        |-- [日报表] -> 欢网广告监测-ADS-日报表
+        |-- [日报表-区县] -> 欢网广告监测-ADS-日报表-区县
+        |-- [曝光日志处理] -> 欢网广告监测-曝光日志
+        |-- [汇总报表] -> 欢网广告监测-ADS-汇总报表
+        |-- [点击日志] -> 欢网广告监测-点击日志
+        |-- [累计报表] -> 欢网广告监测-ADS-累计报表
+        |-- [累计报表-区县] -> 欢网广告监测-ADS-累计报表-区县
+        |-- [设备更新] -> 欢网广告监测-DIM-设备更新
+
+[独立工作流 - 需关注]
+----------------------------------------
+    ! 欢网广告监测-ADS-请求报表 (11598184562432)
+    ! Nginx监测日志处理 (11599818692992)
+    ! 欢网DMP-曝光表添加当日分区 (11599832730112)
+    ! 多维钻取-补数 (14936257423904)
+    ! Datax数据同步汇总 (21098229252384)
+
+[测试/复制工作流 - 可忽略]
+----------------------------------------
+    o Seatunnel测试 (17647007721632)
+    o 欢网广告监测-ADS-累计报表_copy_20260115113837961 (20354293498922)
+    o 欢网广告监测-曝光日志_spark_on_k8s测试 (20876668664870)
+    o 欢网广告监测-曝光日志_spark_on_yarn测试 (20941254587937)
+    o agent-test (21451302002208)
+    o 欢网广告监测-曝光日志_copy_20260509093226263 (21614073121702)
+
++------------------------------------------------------------------------------+
+| * 主调度  |-- SUB_PROCESS调用  ! 需关注  o 测试/复制 |
++------------------------------------------------------------------------------+
+        </pre>
+    </div>
+</body>
+</html>
