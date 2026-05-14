@@ -10,18 +10,22 @@ import json
 from typing import Optional, Dict, List, Any
 
 
-def extract_config_lines(log_content: str) -> List[str]:
+def extract_config_lines(log_content: str, task_type: str = None) -> List[str]:
     """
-    Extract Spark/Hadoop configuration lines from log content.
+    Extract task configuration lines from log content based on task type.
 
-    Identifies lines containing configuration keys like:
-    - spark.*
-    - hadoop.*
-    - yarn.*
-    - dfs.*
+    Supports multiple task types:
+    - SPARK: spark-submit --conf, spark.executor.memory, JSON driverMemory etc.
+    - FLINK: flink.parallelism, taskmanager.memory, pipeline.name
+    - DATAX: speed.bytes, speed.records, channel count, job content
+    - SHELL/PYTHON: script path, command arguments
+    - HTTP/API: endpoint URL, timeout settings
+
+    Note: This excludes stack trace lines containing spark.* class names.
 
     Args:
         log_content: The raw log content to process
+        task_type: Task type (SPARK, FLINK, DATAX, SHELL, PYTHON, etc.)
 
     Returns:
         List of configuration lines found in the log
@@ -29,11 +33,206 @@ def extract_config_lines(log_content: str) -> List[str]:
     if not log_content:
         return []
 
-    config_patterns = [
-        r'\bspark\.',       # spark.driver.memory, spark.executor.memory, etc.
-        r'\bhadoop\.',      # hadoop.fs.defaultFS, etc.
-        r'\byarn\.',        # yarn.resourcemanager.address, etc.
-        r'\bdfs\.',         # dfs.replication, etc.
+    # Determine config patterns based on task type
+    task_type_upper = (task_type or "").upper()
+
+    config_patterns = []
+
+    # ===== Spark Configuration =====
+    if task_type_upper in ["SPARK", "SPARKSQL", "SPARK_APP"]:
+        config_patterns.extend([
+            # spark-submit command line
+            r'--conf\s+spark\.\w+\s*=',        # --conf spark.executor.memory=4g
+            r'spark-submit.*--conf',           # spark-submit command with --conf
+            r'--executor-memory\s+\S+',        # --executor-memory 4G
+            r'--driver-memory\s+\S+',          # --driver-memory 2G
+            r'--num-executors\s+\S+',          # --num-executors 4
+            r'--executor-cores\s+\S+',         # --executor-cores 2
+            # JSON config format (DS task params)
+            r'"executorMemory"\s*:',           # "executorMemory": "4G"
+            r'"driverMemory"\s*:',             # "driverMemory": "2G"
+            r'"executorCores"\s*:',            # "executorCores": 2
+            r'"numExecutors"\s*:',             # "numExecutors": 4
+            r'"driverCores"\s*:',              # "driverCores": 1
+            r'"mainClass"\s*:',                # "mainClass": "com.example.Main"
+            r'"appName"\s*:',                  # "appName": "MySparkApp"
+            # Spark properties format
+            r'spark\.\w+\s*=\s*\S+',           # spark.executor.memory=4g
+            r'spark\.\w+\s*:\s*\S+',           # spark.executor.memory: 4g
+        ])
+
+    # ===== Flink Configuration =====
+    elif task_type_upper in ["FLINK", "FLINK_SQL"]:
+        config_patterns.extend([
+            # Flink command line
+            r'flink\s+run\s+',                 # flink run command
+            r'-p\s+\d+',                       # -p 4 (parallelism)
+            r'-yjm\s+\S+',                     # -yjm 1024 (jobManagerMemory)
+            r'-ytm\s+\S+',                     # -ytm 4096 (taskManagerMemory)
+            r'-yn\s+\d+',                      # -yn 2 (numberTaskManagers)
+            r'-ys\s+\d+',                      # -ys 2 (slotsPerTaskManager)
+            # Flink config keys
+            r'flink\.parallelism\s*[=:]',      # flink.parallelism: 4
+            r'pipeline\.name\s*[=:]',          # pipeline.name: MyJob
+            r'taskmanager\.memory\.\w+\s*[=:]', # taskmanager.memory.process.size: 4096
+            r'state\.backend\s*[=:]',          # state.backend: rocksdb
+            r'checkpoint\s*\.\w+\s*[=:]',      # checkpoint.interval: 60000
+            # JSON config (DS Flink task)
+            r'"jobManagerMemory"\s*:',        # "jobManagerMemory": "1024"
+            r'"taskManagerMemory"\s*:',       # "taskManagerMemory": "4096"
+            r'"parallelism"\s*:',             # "parallelism": 4
+            r'"slots"\s*:',                   # "slots": 2
+            r'"mainClass"\s*:',               # Flink main class
+        ])
+
+    # ===== DataX Configuration =====
+    elif task_type_upper in ["DATAX", "DATAX_SYNC"]:
+        config_patterns.extend([
+            # DataX job config JSON
+            r'"speed"\s*:',                    # "speed": {"bytes": -1, "records": 1000}
+            r'"bytes"\s*:',                    # speed.bytes setting
+            r'"records"\s*:',                  # speed.records setting
+            r'"channel"\s*:',                  # "channel": 3
+            r'"job"\s*:',                      # "job": {...}
+            r'"content"\s*:',                  # "content": [reader/writer]
+            r'"reader"\s*:',                   # "reader": {"name": "mysqlreader"}
+            r'"writer"\s*:',                   # "writer": {"name": "hdfswriter"}
+            # DataX parameters
+            r'--job\s+',                       # --job /path/to/job.json
+            r'--mode\s+',                      # --mode standalone
+            # MySQL reader config
+            r'"connection"\s*:',               # MySQL connection
+            r'"jdbcUrl"\s*:',                  # jdbcUrl
+            r'"querySql"\s*:',                 # querySql
+            # HDFS writer config
+            r'"path"\s*:',                     # HDFS path
+            r'"fileName"\s*:',                 # fileName
+            r'"fileFormat"\s*:',               # fileFormat
+        ])
+
+    # ===== Shell/Python Configuration =====
+    elif task_type_upper in ["SHELL", "PYTHON", "PYTHON_SCRIPT"]:
+        config_patterns.extend([
+            # Script path/command
+            r'^python\s+',                     # python /path/to/script.py
+            r'^bash\s+',                       # bash /path/to/script.sh
+            r'^sh\s+',                         # sh script.sh
+            r'^\./\S+',                        # ./script.sh
+            r'^/[\w/]+\.\w+',                  # /path/to/script.py (script path)
+            # Script arguments
+            r'--\w+\s+\S+',                    # --arg value
+            r'-\w\s+\S+',                      # -a value
+            # Python imports (detect libraries used)
+            r'^import\s+\w+',                  # import pandas
+            r'^from\s+\w+\s+import',           # from pyspark import SparkContext
+            # Environment variables
+            r'^export\s+\w+=',                 # export JAVA_HOME=/path
+            r'^set\s+\w+=',                    # set VAR=value (Windows)
+        ])
+
+    # ===== HTTP/API Configuration =====
+    elif task_type_upper in ["HTTP", "API", "REST"]:
+        config_patterns.extend([
+            # URL/endpoint
+            r'https?://[^\s\'"]+',             # http://api.example.com
+            r'"url"\s*:',                      # "url": "http://..."
+            r'"endpoint"\s*:',                 # "endpoint": "/api/v1"
+            # Timeout/retry
+            r'"timeout"\s*:',                  # "timeout": 30
+            r'"retry"\s*:',                    # "retry": 3
+            r'"method"\s*:',                   # "method": "POST"
+            # Headers
+            r'"headers"\s*:',                  # headers config
+        ])
+
+    # ===== SQL Query Configuration =====
+    elif task_type_upper in ["SQL", "HIVE", "HIVESQL"]:
+        config_patterns.extend([
+            # SQL statement markers
+            r'^SELECT\s+',                     # SELECT ... FROM ...
+            r'^INSERT\s+',                      # INSERT INTO ...
+            r'^CREATE\s+',                      # CREATE TABLE ...
+            r'^UPDATE\s+',                      # UPDATE ...
+            r'^DELETE\s+',                      # DELETE FROM ...
+            r'^DROP\s+',                        # DROP TABLE ...
+            # Hive settings
+            r'SET\s+hive\.\w+\s*=',            # SET hive.exec.parallel=true
+            r'"database"\s*:',                 # "database": "default"
+            r'"table"\s*:',                    # "table": "my_table"
+        ])
+
+    # ===== SUB_PROCESS Configuration =====
+    elif task_type_upper in ["SUB_PROCESS", "SUBPROCESS"]:
+        config_patterns.extend([
+            # Sub workflow definition
+            r'"workflowDefinitionCode"\s*:',   # "workflowDefinitionCode": 123456789
+            r'"workflowDefinitionName"\s*:',   # "workflowDefinitionName": "child_workflow"
+            r'"definitionCode"\s*:',           # "definitionCode": 123456789
+            r'"definitionName"\s*:',           # "definitionName": "child_workflow"
+            # Sub workflow instance info
+            r'"subWorkflowInstanceId"\s*:',    # "subWorkflowInstanceId": 987654321
+            r'"processInstanceId"\s*:',        # parent workflow instance
+            # Worker group/tenant
+            r'"workerGroup"\s*:',              # "workerGroup": "default"
+            r'"tenantCode"\s*:',               # "tenantCode": "tenant1"
+        ])
+
+    # ===== DEPENDENT Configuration =====
+    elif task_type_upper in ["DEPENDENT", "DEPENDENT_TASK"]:
+        config_patterns.extend([
+            # Dependent workflow/task definition
+            r'"dependence"\s*:',               # "dependence": {...}
+            r'"definitionCode"\s*:',           # "definitionCode": 123456789
+            r'"taskDefinitionCode"\s*:',       # "taskDefinitionCode": 456789
+            r'"relation"\s*:',                 # "relation": "AND" / "OR"
+            r'"projectId"\s*:',                # "projectId": 1
+            r'"depTaskCode"\s*:',              # "depTaskCode": 789012
+            # Dependency condition
+            r'"status"\s*:',                   # "status": "SUCCESS"
+            r'"dateValue"\s*:',                # "dateValue": "today" / "last1Days"
+            r'"cycle"\s*:',                    # "cycle": "day"
+            r'"dayHours"\s*:',                 # "dayHours": "00:00"
+        ])
+
+    # ===== Default/Generic Configuration =====
+    else:
+        # When task_type unknown, use generic patterns for all types
+        config_patterns.extend([
+            # Generic spark
+            r'--conf\s+spark\.\w+\s*=',
+            r'"executorMemory"\s*:',
+            r'"driverMemory"\s*:',
+            # Generic Flink
+            r'flink\.parallelism\s*[=:]',
+            r'taskmanager\.memory\.\w+\s*[=:]',
+            # Generic DataX
+            r'"speed"\s*:',
+            r'"channel"\s*:',
+            # Generic Shell/Python
+            r'^python\s+',
+            r'^bash\s+',
+            r'^import\s+\w+',
+            # Generic HTTP
+            r'"url"\s*:',
+            r'"timeout"\s*:',
+            # Generic Hadoop/YARN
+            r'hadoop\.\w+\s*=',                # hadoop.fs.defaultFS=hdfs://
+            r'yarn\.\w+\s*=',                  # yarn.resourcemanager.address=
+        ])
+
+    # Patterns to exclude (stack traces, error messages)
+    exclude_patterns = [
+        r'spark\.scheduler\.',             # spark.scheduler.DAGScheduler
+        r'spark\.executor\.\w+Executor',   # spark.executor.Executor
+        r'spark\.deploy\.',                # spark.deploy.yarn.Client
+        r'spark\.sql\.\w+\$',              # spark.sql.DataFrame$$anon
+        r'spark\.rdd\.',                   # spark.rdd.RDD
+        r'flink\.runtime\.',               # flink.runtime.TaskExecutor
+        r'flink\.execution\.',             # flink.execution.graph
+        r'\.scala:\d+',                    # Scala file line reference
+        r'\.\w+\(',                        # Method call pattern
+        r'\bException\b',                  # Exception lines
+        r'\bError\b',                      # Error lines (unless config)
     ]
 
     config_lines = []
@@ -44,7 +243,25 @@ def extract_config_lines(log_content: str) -> List[str]:
         if not stripped:
             continue
 
-        # Check if line contains any config pattern
+        # Skip stack trace lines
+        if re.search(r'\.\w+\(', stripped):
+            continue
+        if re.search(r'\.scala:\d+', stripped):
+            continue
+
+        # Skip exception/error lines (but keep config)
+        if re.search(r'\bException\b', stripped) and 'spark-submit' not in stripped and 'flink run' not in stripped:
+            continue
+        if re.search(r'\bSparkException\b', stripped):
+            continue
+        if re.search(r'\bFlinkException\b', stripped):
+            continue
+
+        # Skip lines that match exclude patterns
+        if any(re.search(p, stripped) for p in exclude_patterns):
+            continue
+
+        # Check if line contains actual config pattern
         for pattern in config_patterns:
             if re.search(pattern, stripped, re.IGNORECASE):
                 config_lines.append(stripped)
@@ -92,7 +309,7 @@ def extract_error_blocks(log_content: str) -> List[str]:
         r'\bPermission denied\b',           # Shell permission error
         r'\bConnection refused\b',          # Network connection error
         r'\bno space left\b',               # Disk full error
-        r'\bCannot connect\b',              # Connection error
+        r'\bCannot connect\b',              # Connection connection
         r'\bFailed to connect\b',           # curl/wget connection error
         r'\bCommunications link failure\b', # DataX/MySQL connection error
         # DataX/MySQL/Database error patterns
@@ -103,6 +320,11 @@ def extract_error_blocks(log_content: str) -> List[str]:
         # Spark/YARN error patterns
         r'\bContainer killed\b',             # YARN container killed
         r'\bPath.*does not exist\b',         # Spark/HDFS path not found
+        # DolphinScheduler Worker failure patterns
+        r'\bprocess has exited\b',           # Task process exited (DS Worker log)
+        r'\bexitStatusCode\s*[=:]\s*[1-9]',  # Non-zero exit code (failure)
+        r'\bSend task execute status: FAILURE\b', # DS failure notification
+        r'\bFinalize task instance\b',       # DS task finalization (context for failure)
         # Additional Shell/Linux error patterns
         r'^ls:.*No such file',              # ls file not found
         r'^cat:.*No such file',             # cat file not found
@@ -359,48 +581,72 @@ def validate_extraction(original: str, extracted: Dict[str, Any]) -> bool:
 
 def preprocess_log(log_content: str, task_type: str = None) -> Dict[str, Any]:
     """
-    Preprocess log content to extract key information.
+    Preprocess log content to extract key information based on task type.
 
-    This is the main entry point that performs all extractions:
-    1. Extract configuration lines
-    2. Extract error blocks
-    3. Extract application ID
-    4. Extract data metrics (from log text only)
-    5. Extract OSS/HDFS paths (用于 ossutil 验证)
-    6. Extract broadcast info (新增 - 深度分析)
-    7. Extract join strategies (新增 - 深度分析)
-    8. Extract stage timing (新增 - 深度分析)
-    9. Analyze log timestamps (新增 - 深度分析)
-    10. Extract executor events (新增 - 深度分析)
+    This is the main entry point that performs intelligent extraction:
+
+    **智能提取特性**:
+    1. 自适应策略: 根据 task_type 选择不同的配置提取模式
+       - SPARK: spark.executor.memory, driverMemory, numExecutors
+       - FLINK: flink.parallelism, taskmanager.memory, jobManagerMemory
+       - DATAX: speed.bytes, channel, reader/writer config
+       - SHELL/PYTHON: 脚本路径、参数、import 语句
+       - HTTP/API: url, timeout, retry
+       - SQL/HIVE: SQL语句、hive设置
+
+    2. 错误块提取: 智能识别错误块，捕获完整堆栈和相关上下文
+       - Java/Python/Flink 通用异常模式
+       - Shell 命令错误 (Permission denied, No such file)
+       - 数据库错误 (MySQL, Oracle, PostgreSQL)
+       - DolphinScheduler Worker 失败标记
+
+    3. 去噪过滤: 排除堆栈跟踪中的类名干扰，只保留真正的配置信息
+
+    4. 关键信息提取: 不固定截取，而是提取:
+       - 配置行 (resource settings)
+       - 错误块 (ERROR/FATAL + stack trace)
+       - OSS/HDFS 路径 (用于 ossutil 验证)
+       - Application ID (application_xxx)
+       - Executor 事件 (added/removed/lost)
+       - Stage 时间信息 (性能分析)
+       - Join Strategy 选择 (执行计划分析)
+       - Broadcast 大小 (广播超时诊断)
 
     注意：不会在此调用 YARN/Spark History Server API。
     真实资源数据获取在 Spark Skill 的 RESOURCE_SUGGESTED 分析时按需调用。
 
     Args:
         log_content: The raw log content to process
-        task_type: Optional task type (e.g., 'spark', 'flink') for specialized processing
+        task_type: Task type for specialized processing:
+                   - SPARK/SPARKSQL: Spark 配置和错误
+                   - FLINK: Flink 配置和异常
+                   - DATAX: DataX speed/channel 和数据库错误
+                   - SHELL/PYTHON: 脚本路径和 Shell 错误
+                   - HTTP/API: URL/timeout 配置
+                   - SQL/HIVE: SQL语句和 Hive 设置
+                   - None/Unknown: 使用通用模式
 
     Returns:
         Dictionary containing:
-        - config_lines: List of configuration lines
+        - config_lines: List of configuration lines (task type specific)
         - error_blocks: List of error blocks
         - app_info: Dict containing app_id (Application ID or None)
         - data_metrics: Dictionary with input_bytes, shuffle_read_bytes,
                        shuffle_write_bytes, memory_spilled (from text)
         - oss_paths: List of OSS/HDFS paths found in log
-        - broadcast_info: Broadcast size information (新增)
-        - join_strategies: Join strategy selection info (新增)
-        - stage_timing: Stage timing information (新增)
-        - timestamp_analysis: Log timestamp analysis (新增)
-        - executor_events: Executor lifecycle events (新增)
+        - broadcast_info: Broadcast size information
+        - join_strategies: Join strategy selection info
+        - stage_timing: Stage timing information
+        - timestamp_analysis: Log timestamp analysis
+        - executor_events: Executor lifecycle events
     """
     return {
-        "config_lines": extract_config_lines(log_content),
+        "config_lines": extract_config_lines(log_content, task_type),
         "error_blocks": extract_error_blocks(log_content),
         "app_info": {"app_id": extract_app_id(log_content)},
         "data_metrics": _extract_spark_metrics(log_content),
         "oss_paths": extract_oss_paths(log_content),
-        # 新增字段 - 深度分析
+        # 深度分析字段
         "broadcast_info": extract_broadcast_info(log_content),
         "join_strategies": extract_join_strategy(log_content),
         "stage_timing": extract_stage_timing(log_content),

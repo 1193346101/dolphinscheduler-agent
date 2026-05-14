@@ -458,7 +458,8 @@ class YARNLogTool:
         self,
         application_id: str,
         container_id: str,
-        extract_strategy: str = "smart"
+        extract_strategy: str = "smart",
+        task_type: str = "SPARK"
     ) -> Dict[str, Any]:
         """
         智能提取 Container 日志
@@ -473,13 +474,17 @@ class YARNLogTool:
                 - "head_tail": 首2000 + 尾3000
                 - "errors_only": 只提取错误块
                 - "full": 完整日志（限100KB）
+            task_type: 任务类型（默认 SPARK）
+                - SPARK: Spark Executor 日志
+                - FLINK: Flink TaskManager 日志
+                - DATAX: DataX Worker 日志
 
         Returns:
             {
                 "container_id": container_id,
                 "raw_content": 完整日志（限100KB）,
                 "error_blocks": 错误块列表,
-                "config_lines": Spark配置行,
+                "config_lines": 任务配置行（根据 task_type 提取）,
                 "executor_events": Executor生命周期事件,
                 "summary": {"head": ..., "tail": ...},
                 "extract_stats": {"total_length": ..., "error_block_count": ...}
@@ -515,7 +520,7 @@ class YARNLogTool:
                 )
 
                 result["error_blocks"] = extract_error_blocks(full_log)
-                result["config_lines"] = extract_config_lines(full_log)
+                result["config_lines"] = extract_config_lines(full_log, task_type)
                 result["executor_events"] = extract_executor_events(full_log)
 
                 # Fallback: 如果无错误块，使用首尾截取
