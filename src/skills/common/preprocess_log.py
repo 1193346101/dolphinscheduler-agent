@@ -71,12 +71,13 @@ def extract_config_lines(log_content: str, task_type: str = None) -> List[str]:
             r'-ytm\s+\S+',                     # -ytm 4096 (taskManagerMemory)
             r'-yn\s+\d+',                      # -yn 2 (numberTaskManagers)
             r'-ys\s+\d+',                      # -ys 2 (slotsPerTaskManager)
-            # Flink config keys
+            # Flink config keys (支持多级属性名如 taskmanager.memory.process.size)
             r'flink\.parallelism\s*[=:]',      # flink.parallelism: 4
             r'pipeline\.name\s*[=:]',          # pipeline.name: MyJob
-            r'taskmanager\.memory\.\w+\s*[=:]', # taskmanager.memory.process.size: 4096
+            r'taskmanager\.memory\.[\w.]+\s*[=:]', # taskmanager.memory.process.size: 4096
+            r'taskmanager\.[\w.]+\s*[=:]',      # taskmanager.* 通用
             r'state\.backend\s*[=:]',          # state.backend: rocksdb
-            r'checkpoint\s*\.\w+\s*[=:]',      # checkpoint.interval: 60000
+            r'checkpoint\.[\w.]+\s*[=:]',      # checkpoint.interval: 60000
             # JSON config (DS Flink task)
             r'"jobManagerMemory"\s*:',        # "jobManagerMemory": "1024"
             r'"taskManagerMemory"\s*:',       # "taskManagerMemory": "4096"
