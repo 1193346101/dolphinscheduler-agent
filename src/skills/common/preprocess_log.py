@@ -321,11 +321,11 @@ def extract_error_blocks(log_content: str) -> List[str]:
         # Spark/YARN error patterns
         r'\bContainer killed\b',             # YARN container killed
         r'\bPath.*does not exist\b',         # Spark/HDFS path not found
-        # DolphinScheduler Worker failure patterns
-        r'\bprocess has exited\b',           # Task process exited (DS Worker log)
+        # DolphinScheduler Worker failure patterns（需要非零退出码）
+        r'process has exited.*exitStatusCode\s*[=:]\s*[1-9]',  # DS Worker 进程退出且失败
         r'\bexitStatusCode\s*[=:]\s*[1-9]',  # Non-zero exit code (failure)
         r'\bSend task execute status: FAILURE\b', # DS failure notification
-        r'\bFinalize task instance\b',       # DS task finalization (context for failure)
+        r'\bFinalize task instance\b.*FAILURE',       # DS task finalization with FAILURE
         # Additional Shell/Linux error patterns
         r'^ls:.*No such file',              # ls file not found
         r'^cat:.*No such file',             # cat file not found
@@ -404,6 +404,9 @@ def extract_error_blocks(log_content: str) -> List[str]:
                 in_error_block = False
             continue
 
+        # 优先检查 Caused by（例外链延续），即使匹配 error_start 也作为延续处理
+        is_caused_by = stripped.startswith('Caused by:') or re.search(r'^Caused by:', stripped)
+
         # Check if this line starts a new error block
         is_error_start = any(
             re.search(pattern, stripped, re.IGNORECASE)
@@ -421,7 +424,10 @@ def extract_error_blocks(log_content: str) -> List[str]:
                            re.match(r'^[A-Z][a-zA-Z]+Error:', stripped) or \
                            re.match(r'^[A-Z][a-zA-Z]+Exception', stripped)
 
-        if is_error_start:
+        # Caused by 优先作为延续（例外链），不开启新块
+        if is_caused_by and in_error_block:
+            current_block.append(line)
+        elif is_error_start:
             # Save previous block if exists
             if current_block:
                 error_blocks.append('\n'.join(current_block))
@@ -1352,17 +1358,24 @@ def fetch_historical_logs(
 WARN_CRITICAL_PATTERNS = [
     r'GC overhead limit exceeded',           # GC 警告（OOM 前兆）
     r'GC pause.*exceeds',                    # GC 停顿过长
-    r'Shuffle fetch failed.*retrying',       # Shuffle 重试
-    r'Executor lost.*heartbeat timeout',     # Executor 丢失
+    r'Shuffle fetch failed.*retry',          # Shuffle 重试
+    r'Executor lost.*heartbeat',             # Executor 丢失
     r'Memory pressure detected',             # 内存压力
     r'Low memory',                           # 低内存警告
     r'Slow task detected',                   # 慢任务
     r'Skew detected',                        # 数据倾斜
-    r'Connection timeout.*retrying',         # 连接超时重试
-    r'Retrying connection',                  # 重试连接
+    r'Connection.*retry',                    # 连接重试
+    r'Retrying.*connection',                 # 重试连接
+    r'Retry.*attempt.*failed',               # 重试失败
     r'Remote shuffle server unavailable',    # Shuffle 服务不可用
     r'Container memory limit exceeded',      # 容器内存超限警告
     r'BlockManager heartbeat timeout',       # BlockManager 超时
+    r'Checkpoint timeout',                   # Flink checkpoint 超时
+    r'Task execution timeout',               # DS 任务执行超时
+    r'Task timeout',                         # 任务超时
+    r'execution time exceeds',               # 执行时间超限
+    r'Heartbeat timeout',                    # 心跳超时
+    r'Job stuck',                            # 任务卡住
 ]
 
 # 错误优先级关键词（分数越高优先级越高）
@@ -1510,14 +1523,13 @@ def rank_error_blocks(error_blocks: List[str]) -> List[str]:
     return [block for score, block in ranked]
 
 
-def summarize_error_block(block: str, max_lines: int = 5) -> str:
+def summarize_error_block(block: str, max_lines: int = 10) -> str:
     """
     错误块摘要：只保留关键行
 
     保留：
     - 第一行（错误描述）
-    - 异常类型行
-    - Caused by 行（root cause）
+    - 所有 Caused by 行（完整异常链）
     - 最多 max_lines 行
 
     Args:
@@ -1533,10 +1545,10 @@ def summarize_error_block(block: str, max_lines: int = 5) -> str:
 
     summary_lines = [lines[0]]  # 第一行
 
-    # 查找关键行
+    # 查找所有关键行
     for line in lines[1:]:
         stripped = line.strip()
-        # Caused by 行
+        # 所有 Caused by 行都保留（root cause 在最后一个）
         if stripped.startswith('Caused by:'):
             summary_lines.append(stripped)
         # 异常类型行（独立一行）
@@ -1552,7 +1564,7 @@ def extract_root_cause(error_blocks: List[str]) -> str:
     从错误块提取根本原因（root cause）
 
     优先级：
-    1. 最后一个 Caused by（Java 异常链）
+    1. 最后一个 Caused by（Java 异常链的 root cause）
     2. 第一个高优先级错误块的第一行
 
     Args:
@@ -1564,12 +1576,14 @@ def extract_root_cause(error_blocks: List[str]) -> str:
     if not error_blocks:
         return ""
 
-    # 先从已排序的第一个（最高优先级）错误块找 Caused by
+    # 从已排序的第一个（最高优先级）错误块找 Caused by
     first_block = error_blocks[0]
 
     # 找所有 Caused by，最后一个是最根本原因
     caused_by_matches = re.findall(r'Caused by:\s*(.+)', first_block)
     if caused_by_matches:
+        # 直接返回最后一个 Caused by（真正的 root cause）
+        # 不再检查中间层级，因为最后一个才是最根本的原因
         return caused_by_matches[-1].strip()
 
     # 没有 Caused by，返回第一行
