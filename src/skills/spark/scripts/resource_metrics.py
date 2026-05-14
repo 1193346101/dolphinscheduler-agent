@@ -1024,7 +1024,24 @@ def fetch_spark_environment(application_id: str) -> Dict[str, Any]:
         return {"error": "SPARK_HISTORY_URL not configured"}
 
     base_url = settings.SPARK_HISTORY_URL.rstrip("/")
-    url = f"{base_url}/api/v1/applications/{application_id}/environment"
+
+    # 获取 attemptId（默认 1）
+    try:
+        app_url = f"{base_url}/api/v1/applications/{application_id}"
+        app_resp = requests.get(app_url, timeout=10)
+        if app_resp.status_code == 200:
+            app_data = app_resp.json()
+            attempts = app_data.get("attempts", [])
+            if attempts:
+                attempt_id = attempts[0].get("attemptId", "1")
+            else:
+                attempt_id = "1"
+        else:
+            attempt_id = "1"
+    except:
+        attempt_id = "1"
+
+    url = f"{base_url}/api/v1/applications/{application_id}/{attempt_id}/environment"
 
     try:
         response = requests.get(url, timeout=30)
@@ -1032,7 +1049,18 @@ def fetch_spark_environment(application_id: str) -> Dict[str, Any]:
             return {"error": f"HTTP {response.status_code}"}
 
         env_data = response.json()
-        spark_props = env_data.get("sparkProperties", {})
+        spark_props_raw = env_data.get("sparkProperties", [])
+
+        # 解析嵌套 list 格式 [["key", "value"], ...]
+        spark_props = {}
+        if isinstance(spark_props_raw, list):
+            for item in spark_props_raw:
+                if isinstance(item, list) and len(item) == 2:
+                    spark_props[item[0]] = item[1]
+                elif isinstance(item, dict) and 'key' in item and 'value' in item:
+                    spark_props[item['key']] = item['value']
+        elif isinstance(spark_props_raw, dict):
+            spark_props = spark_props_raw
 
         # 映射到 DolphinScheduler UI 配置
         config_mapping = {
@@ -1048,19 +1076,19 @@ def fetch_spark_environment(application_id: str) -> Dict[str, Any]:
         ds_config = {}
         for spark_key, ds_key in config_mapping.items():
             if spark_key in spark_props:
-                # 解析值（去掉单位，如 "8g" -> "8g" 保持原样）
                 ds_config[ds_key] = spark_props[spark_key]
 
-        # 提取版本信息
-        runtime = {}
-        for key in spark_props:
-            if "version" in key.lower():
-                runtime[key] = spark_props[key]
+        # 提取 Runtime 信息
+        runtime_data = env_data.get("runtime", {})
+        runtime = {
+            "java_version": runtime_data.get("javaVersion", ""),
+            "scala_version": runtime_data.get("scalaVersion", ""),
+        }
 
         return {
             "spark_properties": spark_props,
             "hadoop_properties": env_data.get("hadoopProperties", {}),
-            "classpath_entries": list(env_data.get("classpathEntries", {}).keys()),
+            "classpath_entries": list(env_data.get("classpathEntries", {}).keys()) if isinstance(env_data.get("classpathEntries"), dict) else [],
             "ds_config": ds_config,
             "runtime": runtime,
         }
