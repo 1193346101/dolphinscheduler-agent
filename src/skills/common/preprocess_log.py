@@ -586,7 +586,9 @@ def preprocess_log(log_content: str, task_type: str = None) -> Dict[str, Any]:
 
     提取内容：
     - config_lines: 配置行（按 task_type 匹配正则）
-    - error_blocks: 错误块（ERROR/FATAL + 堆栈）
+    - error_blocks: 错误块（排序、去重、摘要）
+    - warn_critical: 关键 WARN 信息（OOM 前兆等）
+    - root_cause: 根本原因
     - app_info: Application ID
     - oss_paths: OSS/HDFS 路径
     - executor_events: Executor 生命周期事件
@@ -601,9 +603,20 @@ def preprocess_log(log_content: str, task_type: str = None) -> Dict[str, Any]:
     Returns:
         提取结果字典
     """
+    # 使用改进的错误提取
+    errors_summary = extract_errors_summary(log_content)
+
     return {
         "config_lines": extract_config_lines(log_content, task_type),
-        "error_blocks": extract_error_blocks(log_content),
+        # 改进后的错误提取
+        "error_blocks": errors_summary["error_blocks"],
+        "warn_critical": errors_summary["warn_critical"],
+        "root_cause": errors_summary["root_cause"],
+        "error_stats": {
+            "raw_count": errors_summary["error_count"],
+            "unique_count": errors_summary["unique_count"],
+        },
+        # 原有字段
         "app_info": {"app_id": extract_app_id(log_content)},
         "data_metrics": _extract_spark_metrics(log_content),
         "oss_paths": extract_oss_paths(log_content),
@@ -747,13 +760,21 @@ __all__ = [
     "preprocess_log",
     "extract_oss_paths",
     "fetch_real_spark_metrics",
-    # 新增函数
+    # 深度分析函数
     "extract_broadcast_info",
     "extract_join_strategy",
     "extract_stage_timing",
     "analyze_log_timestamps",
     "extract_executor_events",
     "fetch_historical_logs",
+    # 错误提取改进函数
+    "extract_warn_critical",
+    "extract_exception_type",
+    "deduplicate_errors",
+    "rank_error_blocks",
+    "summarize_error_block",
+    "extract_root_cause",
+    "extract_errors_summary",
 ]
 
 
@@ -1321,3 +1342,288 @@ def fetch_historical_logs(
         result["error"] = str(e)
 
     return result
+
+
+# ============================================================================
+# 错误提取改进函数
+# ============================================================================
+
+# WARN 级别但关键的模式（OOM 前兆、资源问题等）
+WARN_CRITICAL_PATTERNS = [
+    r'GC overhead limit exceeded',           # GC 警告（OOM 前兆）
+    r'GC pause.*exceeds',                    # GC 停顿过长
+    r'Shuffle fetch failed.*retrying',       # Shuffle 重试
+    r'Executor lost.*heartbeat timeout',     # Executor 丢失
+    r'Memory pressure detected',             # 内存压力
+    r'Low memory',                           # 低内存警告
+    r'Slow task detected',                   # 慢任务
+    r'Skew detected',                        # 数据倾斜
+    r'Connection timeout.*retrying',         # 连接超时重试
+    r'Retrying connection',                  # 重试连接
+    r'Remote shuffle server unavailable',    # Shuffle 服务不可用
+    r'Container memory limit exceeded',      # 容器内存超限警告
+    r'BlockManager heartbeat timeout',       # BlockManager 超时
+]
+
+# 错误优先级关键词（分数越高优先级越高）
+ERROR_PRIORITY_KEYWORDS = [
+    ("OutOfMemoryError", 10),          # OOM 最高优先级
+    ("GC overhead limit exceeded", 10),
+    ("Memory limit exceeded", 9),
+    ("Container killed", 9),           # 容器被杀
+    ("Executor lost", 8),
+    ("heartbeat timeout", 8),
+    ("FetchFailedException", 8),       # Shuffle 失败
+    ("SparkException: Job aborted", 7),
+    ("Job aborted", 7),
+    ("Task failed", 6),
+    ("Stage failed", 6),
+    ("Communications link failure", 6), # 数据库连接失败
+    ("Access denied", 5),
+    ("Permission denied", 5),
+    ("Duplicate entry", 5),
+    ("process has exited", 5),         # DS Worker 进程退出
+    ("exitStatusCode", 5),             # DS 非零退出码
+    ("Exception", 4),                  # 通用异常
+    ("Error", 3),                      # 通用错误
+    ("FATAL", 2),
+    ("ERROR", 1),
+]
+
+
+def extract_warn_critical(log_content: str) -> List[str]:
+    """
+    提取 WARN 级别但关键的信息（OOM 前兆、资源问题）
+
+    这些信息虽然不是 ERROR，但对诊断很重要。
+
+    Args:
+        log_content: 日志内容
+
+    Returns:
+        关键 WARN 信息列表
+    """
+    if not log_content:
+        return []
+
+    warn_criticals = []
+    lines = log_content.split('\n')
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        # 检查是否匹配关键 WARN 模式
+        for pattern in WARN_CRITICAL_PATTERNS:
+            if re.search(pattern, stripped, re.IGNORECASE):
+                warn_criticals.append(stripped)
+                break
+
+    return warn_criticals
+
+
+def extract_exception_type(block: str) -> str:
+    """
+    提取错误块的异常类型（用于去重）
+
+    Args:
+        block: 错误块
+
+    Returns:
+        异常类型字符串
+    """
+    # Java: java.lang.OutOfMemoryError, org.apache.spark.SparkException
+    match = re.search(r'(java|org|com)\.[a-z]+\.[A-Z][a-zA-Z]*(?:Exception|Error)?', block)
+    if match:
+        return match.group(0)
+
+    # Python: FileNotFoundError, ModuleNotFoundError
+    match = re.search(r'[A-Z][a-zA-Z]+Error', block)
+    if match:
+        return match.group(0)
+
+    # Shell/通用: Permission denied, Connection refused
+    match = re.search(r'(Permission denied|Connection refused|No such file|command not found)', block, re.IGNORECASE)
+    if match:
+        return match.group(0).lower()
+
+    # DS Worker: process has exited, exitStatusCode
+    match = re.search(r'(process has exited|exitStatusCode)', block, re.IGNORECASE)
+    if match:
+        return match.group(0).lower()
+
+    return "unknown"
+
+
+def deduplicate_errors(error_blocks: List[str]) -> List[str]:
+    """
+    同类错误只保留第一个（去重）
+
+    Args:
+        error_blocks: 错误块列表
+
+    Returns:
+        去重后的错误块列表
+    """
+    if not error_blocks:
+        return []
+
+    seen_types = set()
+    unique_blocks = []
+
+    for block in error_blocks:
+        exception_type = extract_exception_type(block)
+        if exception_type not in seen_types:
+            seen_types.add(exception_type)
+            unique_blocks.append(block)
+
+    return unique_blocks
+
+
+def rank_error_blocks(error_blocks: List[str]) -> List[str]:
+    """
+    按严重程度排序错误块（root cause 排在前面）
+
+    检查完整错误块（包括 Caused by），而不是只检查第一行。
+
+    Args:
+        error_blocks: 错误块列表
+
+    Returns:
+        排序后的错误块列表
+    """
+    if not error_blocks:
+        return []
+
+    ranked = []
+    for block in error_blocks:
+        score = 0
+        # 检查完整错误块（包括 Caused by）
+        for keyword, weight in ERROR_PRIORITY_KEYWORDS:
+            if keyword.lower() in block.lower():
+                score = max(score, weight)
+        ranked.append((score, block))
+
+    # 按分数降序排序
+    ranked.sort(key=lambda x: x[0], reverse=True)
+    return [block for score, block in ranked]
+
+
+def summarize_error_block(block: str, max_lines: int = 5) -> str:
+    """
+    错误块摘要：只保留关键行
+
+    保留：
+    - 第一行（错误描述）
+    - 异常类型行
+    - Caused by 行（root cause）
+    - 最多 max_lines 行
+
+    Args:
+        block: 错误块
+        max_lines: 最大行数
+
+    Returns:
+        摘要后的错误块
+    """
+    lines = block.strip().split('\n')
+    if len(lines) <= max_lines:
+        return block
+
+    summary_lines = [lines[0]]  # 第一行
+
+    # 查找关键行
+    for line in lines[1:]:
+        stripped = line.strip()
+        # Caused by 行
+        if stripped.startswith('Caused by:'):
+            summary_lines.append(stripped)
+        # 异常类型行（独立一行）
+        elif re.match(r'^[a-z]+\.[a-z]+\.[A-Z]', stripped) or re.match(r'^[A-Z][a-zA-Z]+Error', stripped):
+            if len(summary_lines) < max_lines:
+                summary_lines.append(stripped)
+
+    return '\n'.join(summary_lines)
+
+
+def extract_root_cause(error_blocks: List[str]) -> str:
+    """
+    从错误块提取根本原因（root cause）
+
+    优先级：
+    1. 最后一个 Caused by（Java 异常链）
+    2. 第一个高优先级错误块的第一行
+
+    Args:
+        error_blocks: 错误块列表（已排序）
+
+    Returns:
+        Root cause 字符串
+    """
+    if not error_blocks:
+        return ""
+
+    # 先从已排序的第一个（最高优先级）错误块找 Caused by
+    first_block = error_blocks[0]
+
+    # 找所有 Caused by，最后一个是最根本原因
+    caused_by_matches = re.findall(r'Caused by:\s*(.+)', first_block)
+    if caused_by_matches:
+        return caused_by_matches[-1].strip()
+
+    # 没有 Caused by，返回第一行
+    lines = first_block.strip().split('\n')
+    return lines[0] if lines else ""
+
+
+def extract_errors_summary(log_content: str, max_blocks: int = 10) -> Dict[str, Any]:
+    """
+    综合错误提取（整合所有改进）
+
+    流程：
+    1. 提取所有 ERROR/FATAL 错误块
+    2. 提取关键 WARN 信息
+    3. 去重
+    4. 按优先级排序
+    5. 摘要（限制行数）
+    6. 提取 root cause
+
+    Args:
+        log_content: 日志内容
+        max_blocks: 最大返回错误块数量
+
+    Returns:
+        {
+            error_blocks: 排序去重后的错误块列表
+            warn_critical: 关键 WARN 信息
+            root_cause: 根本原因
+            error_count: 原始错误块数量
+            unique_count: 去重后数量
+        }
+    """
+    # 1. 提取原始错误块
+    raw_errors = extract_error_blocks(log_content)
+
+    # 2. 提取关键 WARN
+    warn_critical = extract_warn_critical(log_content)
+
+    # 3. 去重
+    unique_errors = deduplicate_errors(raw_errors)
+
+    # 4. 排序
+    ranked_errors = rank_error_blocks(unique_errors)
+
+    # 5. 摘要 + 限制数量
+    summarized_errors = [summarize_error_block(block) for block in ranked_errors[:max_blocks]]
+
+    # 6. 提取 root cause
+    root_cause = extract_root_cause(ranked_errors)
+
+    return {
+        "error_blocks": summarized_errors,
+        "warn_critical": warn_critical,
+        "root_cause": root_cause,
+        "error_count": len(raw_errors),
+        "unique_count": len(unique_errors),
+    }
