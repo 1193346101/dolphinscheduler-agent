@@ -175,25 +175,25 @@ class DSCLIClient:
 
     # ============ Task Instance ============
 
-    def get_task_logs(self, task_instance_id: int, tail: int = 1000) -> CLIResult:
+    def get_task_logs(self, task_instance_id: int) -> CLIResult:
         """
-        获取任务日志（全量获取足够行数以包含配置和错误）
+        获取任务完整日志（使用 download-log API）
 
-        用户要求：
-        - 前200行是任务配置信息
-        - 后300行是错误信息
+        DS 3.2.0 使用 download-log API 返回完整日志文件，不再截取。
+        Agent端通过 preprocess_log.py 的 extract_error_blocks() 等函数智能提取：
+        - config_lines: Spark配置（spark.executor.memory等）
+        - error_blocks: ERROR/FATAL 错误块
+        - executor_events: Executor生命周期事件
 
         Args:
             task_instance_id: 任务实例 ID
-            tail: 返回最后 N 行（默认1000行，包含配置+错误）
 
         Returns:
-            CLIResult
+            CLIResult (stdout 是完整日志文本)
         """
         return self._run_command([
             "task-instance", "log",
             "--raw",
-            "--tail", str(tail),
             str(task_instance_id)
         ], timeout=60)
 
@@ -477,13 +477,245 @@ class DSCLIClient:
             "--project", str(project_code)
         ])
 
-    def workflow_run(self, project_code: int, workflow_code: int) -> CLIResult:
-        """启动工作流"""
+    def workflow_run(
+        self,
+        project_code: int,
+        workflow_code: int,
+        worker_group: str = "all_worker",
+        tenant: str = None,
+    ) -> CLIResult:
+        """
+        启动工作流
+
+        Args:
+            project_code: 项目编码
+            workflow_code: 工作流编码
+            worker_group: Worker 组（默认 all_worker）
+            tenant: 租户（默认项目名称）
+
+        Returns:
+            CLIResult
+        """
+        # 如果没有指定 tenant，使用项目名称作为默认值
+        if not tenant:
+            tenant = "default"
+
         return self._run_command([
             "workflow", "run",
             str(workflow_code),
-            "--project", str(project_code)
+            "--project", str(project_code),
+            "--worker-group", worker_group,
+            "--tenant", tenant,
         ])
+
+    # ============ 深度分析新增方法 ============
+
+    def get_workflow_lineage(self, project_code: int, workflow_code: int) -> CLIResult:
+        """
+        获取工作流血缘图
+
+        用于隐式依赖分析。
+
+        Args:
+            project_code: 项目编码
+            workflow_code: 工作流编码
+
+        Returns:
+            CLIResult (stdout 是 JSON 格式的血缘信息)
+        """
+        return self._run_command([
+            "workflow", "lineage", "get",
+            str(workflow_code),
+            "--project", str(project_code)
+        ], timeout=60)
+
+    def get_workflow_dependent_tasks(
+        self,
+        project_code: int,
+        workflow_code: int,
+        task_code: int = None
+    ) -> CLIResult:
+        """
+        获取工作流依赖任务列表
+
+        Args:
+            project_code: 项目编码
+            workflow_code: 工作流编码
+            task_code: 任务编码（可选，查询特定任务的依赖）
+
+        Returns:
+            CLIResult
+        """
+        args = [
+            "workflow", "lineage", "dependent-tasks",
+            str(workflow_code),
+            "--project", str(project_code)
+        ]
+        if task_code:
+            args.extend(["--task", str(task_code)])
+        return self._run_command(args, timeout=60)
+
+    def get_schedule(self, project_code: int, schedule_id: int) -> CLIResult:
+        """
+        获取单个调度详情
+
+        用于调度时间优化分析。
+
+        Args:
+            project_code: 项目编码
+            schedule_id: 调度 ID
+
+        Returns:
+            CLIResult (stdout 是 JSON 格式的调度配置)
+        """
+        return self._run_command([
+            "schedule", "get",
+            str(schedule_id),
+            "--project", str(project_code)
+        ], timeout=30)
+
+    def preview_schedule(self, schedule_id: int) -> CLIResult:
+        """
+        预览调度触发时间
+
+        Args:
+            schedule_id: 调度 ID
+
+        Returns:
+            CLIResult (stdout 是未来几次触发时间列表)
+        """
+        return self._run_command([
+            "schedule", "preview",
+            str(schedule_id)
+        ], timeout=30)
+
+    def get_workflow_instance(self, instance_id: int) -> CLIResult:
+        """
+        获取单个实例详情
+
+        用于并发实例冲突检测。
+
+        Args:
+            instance_id: 实例 ID
+
+        Returns:
+            CLIResult (stdout 是 JSON 格式的实例详情)
+        """
+        return self._run_command([
+            "workflow-instance", "get",
+            str(instance_id)
+        ], timeout=30)
+
+    def list_tasks(self, project_code: int, workflow_code: int) -> CLIResult:
+        """
+        列出工作流中的任务定义
+
+        Args:
+            project_code: 项目编码
+            workflow_code: 工作流编码
+
+        Returns:
+            CLIResult (stdout 是 JSON 格式的任务列表)
+        """
+        return self._run_command([
+            "task", "list",
+            "--project", str(project_code),
+            "--workflow", str(workflow_code)
+        ], timeout=60)
+
+    def get_task_definition(
+        self,
+        project_code: int,
+        workflow_code: int,
+        task_code: int
+    ) -> CLIResult:
+        """
+        获取单个任务定义详情
+
+        Args:
+            project_code: 项目编码
+            workflow_code: 工作流编码
+            task_code: 任务编码
+
+        Returns:
+            CLIResult
+        """
+        return self._run_command([
+            "task", "get",
+            str(task_code),
+            "--project", str(project_code),
+            "--workflow", str(workflow_code)
+        ], timeout=30)
+
+    def list_task_instances(
+        self,
+        project_code: int,
+        workflow_instance_id: int
+    ) -> CLIResult:
+        """
+        列出工作流实例中的任务实例
+
+        用于历史分析时获取任务实例列表。
+
+        Args:
+            project_code: 项目编码
+            workflow_instance_id: 工作流实例 ID
+
+        Returns:
+            CLIResult (stdout 是 JSON 格式的任务实例列表)
+        """
+        return self._run_command([
+            "task-instance", "list",
+            "--project", str(project_code),
+            "--workflow-instance", str(workflow_instance_id)
+        ], timeout=60)
+
+    def workflow_instance_stop(self, instance_id: int) -> CLIResult:
+        """
+        停止正在运行的工作流实例
+
+        Args:
+            instance_id: 实例 ID
+
+        Returns:
+            CLIResult
+        """
+        return self._run_command([
+            "workflow-instance", "stop",
+            str(instance_id)
+        ], timeout=30)
+
+    def workflow_offline(self, project_code: int, workflow_code: int) -> CLIResult:
+        """
+        下线工作流
+
+        Args:
+            project_code: 项目编码
+            workflow_code: 工作流编码
+
+        Returns:
+            CLIResult
+        """
+        return self._run_command([
+            "workflow", "offline",
+            str(workflow_code),
+            "--project", str(project_code)
+        ], timeout=30)
+
+    def schedule_offline(self, schedule_id: int) -> CLIResult:
+        """
+        下线调度
+
+        Args:
+            schedule_id: 调度 ID
+
+        Returns:
+            CLIResult
+        """
+        return self._run_command([
+            "schedule", "offline",
+            str(schedule_id)
+        ], timeout=30)
 
 
 __all__ = ["DSCLIClient", "CLIResult"]

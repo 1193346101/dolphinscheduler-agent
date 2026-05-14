@@ -4,9 +4,12 @@ fetch_logs node
 Get Spark task logs - using dsctl CLI + Spark History + YARN
 
 日志获取顺序：
-1. dsctl Driver Logs (前200行配置 + 后300行错误)
+1. dsctl Driver Logs (完整日志，包含配置、执行、失败信息)
 2. Spark History Event Log (提取配置、错误事件)
 3. YARN Application Info (状态、诊断信息)
+
+DS 3.2.0 使用 download-log API 返回完整日志，不再截取。
+Agent端通过 preprocess_log.py 智能提取关键信息。
 """
 
 import json
@@ -20,14 +23,12 @@ from ...integrations.dsctl_wrapper import DSCLIClient
 
 def fetch_logs(state: AgentState) -> AgentState:
     """
-    Get logs - dsctl 已经返回完整日志的前200行+后300行
+    Get logs - dsctl download-log API 返回完整日志
 
-    dsctl 日志格式：
-    [TASK CONFIG - First 200 lines]
-    ...（任务配置：driverMemory, executorMemory 等）
-
-    [ERROR INFO - Last 300 lines]
-    ...（错误堆栈和诊断信息）
+    日志内容包含：
+    - 任务配置（driverMemory, executorMemory等）
+    - 执行过程（Application report轮询）
+    - 失败信息（exitStatusCode, process has exited, FINALIZE_SESSION）
     """
     print("\n" + "="*50)
     print("[3/10] fetch_logs - Fetch logs")
@@ -49,7 +50,7 @@ def fetch_logs(state: AgentState) -> AgentState:
     task_type = state.get("task_type", "UNKNOWN")
     print(f"  >> Task type: {task_type}")
 
-    # 1. Use dsctl CLI to get driver logs (already formatted: config + error)
+    # 1. Use dsctl CLI to get driver logs (complete log via download-log API)
     driver_logs = None
     log_fetch_error = None
 
@@ -76,7 +77,7 @@ def fetch_logs(state: AgentState) -> AgentState:
                         task_instance_id = None
 
         if task_instance_id:
-            # dsctl now returns: first 200 lines (config) + last 300 lines (error)
+            # dsctl download-log API returns complete log
             result = dsctl.get_task_logs(task_instance_id)
             if result.success:
                 driver_logs = result.stdout
