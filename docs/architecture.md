@@ -544,48 +544,260 @@ class AlertAgent:
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 5.3 Chat Agent (`src/agent/chat_agent.py`)
+### 5.3 Chat Agent (`src/chat/`)
 
 **职责**: 对话交互，理解用户意图并执行操作
 
+**核心重构 (2026-05-13)**:
+- 移除死板的关键词匹配，改用纯 LLM 解析意图
+- 危险操作（run_workflow, recover_failure）需要用户确认后才执行
+- 查询操作直接执行，无需确认
+
+#### 5.3.1 LangGraph 流程架构
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                           Chat Agent 处理流程                                 │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│  钉钉消息 → dingtalk_stream.py                                                │
+│          ↓                                                                    │
+│      ChatGraph.invoke(state)                                                  │
+│          ↓                                                                    │
+│      parse_intent_node（纯 LLM 解析，移除关键词匹配）                           │
+│          ↓                                                                    │
+│      route_intent()                                                           │
+│          ↓                                                                    │
+│      ┌─────────────────────────────────────┐                                 │
+│      │ 危险操作（run_workflow/recover_failure）│                              │
+│      │                                      │                                 │
+│      │   → request_confirmation_node       │                                 │
+│      │       ↓                              │                                 │
+│      │   发送确认请求到钉钉                  │                                 │
+│      │       ↓                              │                                 │
+│      │   END（等待用户回复）                 │                                 │
+│      │                                      │                                 │
+│      │   用户回复"确认" → dingtalk_stream    │                                 │
+│      │       ↓                              │                                 │
+│      │   check_confirmation_node            │                                 │
+│      │       ↓                              │                                 │
+│      │   确认 → execute_node                │                                 │
+│      │       ↓                              │                                 │
+│      │   format_response_node → END         │                                 │
+│      └─────────────────────────────────────┘                                 │
+│                                                                               │
+│      查询操作（query_workflow/query_status等）                                 │
+│          ↓                                                                    │
+│      直接执行 → format_response_node → END                                    │
+│                                                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 5.3.2 状态定义 (ChatState)
+
 ```python
-class ChatAgent:
+class ChatState(TypedDict, total=False):
+    # Input Stage
+    message: str                   # 用户消息
+    user_id: str                   # 用户 ID
+    conversation_id: str           # 会话 ID
+    
+    # Intent Parsing Stage
+    intent_type: str               # 意图类型
+    query_type: Optional[str]      # 血缘查询类型
+    
+    # Parameters Stage  
+    workflow_code: Optional[str]   # 工作流编码
+    workflow_name: Optional[str]   # 工作流名称
+    project_name: Optional[str]    # 项目名称
+    confirmation_params: Optional[Dict[str, Any]]  # 解析出的参数
+    
+    # Confirmation Stage（新增）
+    pending_confirmation: bool     # 是否等待确认
+    confirmation_message: Optional[str]  # 确认消息
+    confirmed_action: Optional[str]      # 待确认操作
+    confirmation_status: Optional[str]   # pending/confirmed/rejected
+    confirmation_id: Optional[str]       # 确认 ID
+    execute_approved: bool              # 执行已批准
+    
+    # Response Stage
+    response_content: Optional[str]  # 响应内容
+    error_message: Optional[str]     # 错误信息
+```
+
+#### 5.3.3 意图解析节点 (parse_intent_node)
+
+**纯 LLM 解析，移除关键词匹配**：
+
+```python
+def parse_intent_node(state: ChatState) -> ChatState:
     """
-    对话交互 Agent
+    解析用户消息意图（纯 LLM 解析模式）
     
-    ★ Agent 特征:
-    1. 使用 LLM 理解用户意图
-    2. 从对话中提取参数
-    3. 构建 CLI 命令
-    4. 评估风险决定执行还是审批
-    
-    工具集:
-    - understand_intent: 理解用户意图
-    - extract_parameters: 提取参数
-    - build_cli_command: 构建 CLI 命令
-    - assess_risk: 评估风险等级
-    - execute_cli_command: 执行 CLI 命令
-    - request_approval: 发起审批
-    - reply_to_user: 回复用户
-    
-    支持的意图:
-    - run_workflow: "运行 a项目的工作流xxx"
-    - backfill: "补数日期 2026-01-01 到 2026-01-10"
-    - query_status: "工作流xxx现在什么状态"
-    - query_logs: "查看工作流xxx的最新日志"
-    - recover_failure: "恢复工作流xxx的失败任务"
-    - analyze_lineage: "分析表xxx的上下游血缘"
+    流程:
+    1. 直接使用 LLM 解析意图
+    2. 上下文参数补全
+    3. 记录对话记忆
     """
+    message = state.get("message", "")
     
-    tools = [
-        understand_intent_tool,
-        extract_parameters_tool,
-        build_cli_command_tool,
-        assess_risk_tool,
-        execute_cli_command_tool,
-        request_approval_tool,
-        reply_to_user_tool,
-    ]
+    # 纯 LLM 解析（移除关键词匹配）
+    result = parse_with_llm(message, context_summary)
+    
+    return {
+        **state,
+        "intent_type": result.get("intent_type", "unknown"),
+        "workflow_code": result.get("workflow_code"),
+        "workflow_name": result.get("workflow_name"),
+        "project_name": result.get("project_name"),
+        "confirmation_params": result.get("params", {}),  # 保存参数供确认流程使用
+    }
+```
+
+**LLM Prompt 设计**：
+
+```
+分析用户消息，理解用户意图，返回 JSON。
+
+支持的意图类型：
+1. run_workflow - 执行/运行工作流（关键词: 执行、运行、启动）
+2. query_workflow - 查询工作流列表（关键词: 工作流列表、有哪些工作流）
+3. query_workflow_instances - 查工作流实例（关键词: 实例、执行了、运行记录）
+4. query_status - 查询工作流状态（关键词: 状态、运行情况）
+5. recover_failure - 恢复失败工作流（关键词: 恢复、重跑）
+...
+
+返回 JSON:
+{
+  "intent_type": "意图类型",
+  "workflow_code": "工作流编码（数字）",
+  "workflow_name": "工作流名称",
+  "project_name": "项目名称",
+  "params": {"worker_group": "all_worker", "tenant": "项目名称"}
+}
+```
+
+#### 5.3.4 确认流程节点
+
+**request_confirmation_node**: 发送确认请求
+
+```python
+def request_confirmation_node(state: ChatState) -> ChatState:
+    """请求用户确认节点"""
+    intent_type = state.get("intent_type")
+    params = state.get("confirmation_params", {})
+    
+    # 构建确认消息
+    confirmation_msg = build_confirmation_message(intent_type, params)
+    
+    # 生成确认 ID
+    confirmation_id = f"confirm_{user_id}_{uuid.uuid4().hex[:8]}"
+    
+    # 发送钉钉确认消息
+    dingtalk.send_notification(
+        title=f"操作确认 - {intent_type}",
+        content=confirmation_msg,
+    )
+    
+    return {
+        **state,
+        "pending_confirmation": True,
+        "confirmation_id": confirmation_id,
+        "confirmation_status": "pending",
+    }
+```
+
+**check_confirmation_node**: 检查确认状态
+
+```python
+def check_confirmation_node(state: ChatState) -> ChatState:
+    """检查用户确认状态"""
+    confirmation_status = state.get("confirmation_status", "pending")
+    
+    if confirmation_status == "confirmed":
+        return {...state, "execute_approved": True}
+    elif confirmation_status == "rejected":
+        return {...state, "response_content": "操作已取消"}
+```
+
+#### 5.3.5 执行节点检查确认状态
+
+**run_workflow_node / recover_failure_node**: 执行前检查确认
+
+```python
+def run_workflow_node(state: ChatState) -> ChatState:
+    """手动运行工作流"""
+    execute_approved = state.get("execute_approved", False)
+    
+    if not execute_approved:
+        return {
+            **state,
+            "response_content": "❌ 操作未获批准，未执行。请先发送运行指令并确认。",
+        }
+    
+    # 执行工作流...
+```
+
+#### 5.3.6 钉钉确认回复处理
+
+**dingtalk_stream.py**: 处理用户确认/取消回复
+
+```python
+async def process(self, callback_message: CallbackMessage):
+    content = message.get_text_list()[0]
+    
+    # 检查是否是确认/取消回复
+    if content.strip() in ["确认", "✅", "同意", "执行"]:
+        # 查找用户的待确认请求
+        pending_state = get_pending_confirmation_by_user(user_id)
+        update_confirmation_status(confirmation_id, "confirmed")
+        # 重新执行流程
+        result_state = self.chat_graph.invoke(pending_state)
+    
+    elif content.strip() in ["取消", "❌", "拒绝"]:
+        update_confirmation_status(confirmation_id, "rejected")
+        self.reply_markdown("操作取消", "❌ 操作已取消")
+```
+
+#### 5.3.7 支持的意图类型
+
+| 意图 | 示例 | 是否需要确认 | 说明 |
+|------|------|-------------|------|
+| run_workflow | "执行 ad_monitor 的 agent-test 工作流" | ✅ 需要 | 危险操作 |
+| recover_failure | "恢复实例 123456" | ✅ 需要 | 危险操作 |
+| query_workflow | "ad_monitor 有哪些工作流" | ❌ 不需要 | 查询操作 |
+| query_workflow_instances | "今天运行了哪些工作流" | ❌ 不需要 | 查询操作 |
+| query_status | "工作流 12345 的状态" | ❌ 不需要 | 查询操作 |
+| query_logs | "查看实例 123456 的日志" | ❌ 不需要 | 查询操作 |
+| scan_graph | "扫描 ad_monitor 图谱" | ❌ 不需要 | 查询操作 |
+| lineage_query | "工作流 12345 的下游" | ❌ 不需要 | 查询操作 |
+
+#### 5.3.8 默认参数规则
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| worker_group | all_worker | 默认 Worker 组 |
+| tenant | project_name | 默认租户为项目名称（如 ad_monitor 项目用 ad_monitor 租户） |
+
+#### 5.3.9 文件结构
+
+```
+src/chat/
+├── state.py                    # ChatState 定义（含确认字段）
+├── graph.py                    # LangGraph 流程定义（含确认路由）
+├── nodes/
+│   ├── parse_intent.py         # 意图解析节点（纯 LLM）
+│   ├── request_confirmation.py # 请求确认节点（新增）
+│   ├── check_confirmation.py   # 检查确认节点（新增）
+│   ├── run_workflow.py         # 运行工作流节点（检查确认）
+│   ├── recover_failure.py      # 恢复失败节点（检查确认）
+│   └── ...其他节点
+└── tools/
+    └── intent_context.py       # 多轮对话上下文管理
+
+src/integrations/
+└── dingtalk_stream.py          # 钉钉 Stream（处理确认回复）
+```
 ```
 
 ---
@@ -756,9 +968,172 @@ def collect_daily_task_metrics(date: str):
     # 存储: data/metrics/{date}.json
 ```
 
+## 七、Token 消耗统计
+
+### 7.1 Token 消耗追踪
+
+Agent 在执行过程中会自动追踪 LLM Token 消耗，并在通知中展示。
+
+**统计位置**：
+
+| 模块 | 文件 | Token 追踪 |
+|------|------|------------|
+| `workflow/state.py` | AgentState | `token_consumption`, `token_details` |
+| `chat/state.py` | ChatState | `token_consumption`, `token_details` |
+| `tools/llm_client.py` | LLMClient | `MODEL_TOKEN_RULES`, `count_tokens()` |
+
+### 7.2 模型 Tokenizer 规则配置
+
+**根据配置的模型选择对应的 tokenizer**：
+
+```python
+MODEL_TOKEN_RULES = {
+    # OpenAI GPT 系列：使用 tiktoken（精确计算）
+    "gpt-4": {"type": "tiktoken", "encoding": "cl100k_base"},
+    "gpt-4o": {"type": "tiktoken", "encoding": "o200k_base"},
+    "gpt-3.5-turbo": {"type": "tiktoken", "encoding": "cl100k_base"},
+
+    # Claude 系列：估算（Anthropic 未公开 tokenizer）
+    "claude-3-opus": {"type": "estimate", "chinese_ratio": 1.5, "english_ratio": 4},
+    "claude-3-sonnet": {"type": "estimate", "chinese_ratio": 1.5, "english_ratio": 4},
+    "claude-sonnet-4-6": {"type": "estimate", "chinese_ratio": 1.5, "english_ratio": 4},
+
+    # GLM 系列：估算（智谱未公开 tokenizer，中文略好）
+    "glm-4": {"type": "estimate", "chinese_ratio": 1.2, "english_ratio": 4},
+    "glm-5": {"type": "estimate", "chinese_ratio": 1.2, "english_ratio": 4},
+
+    # 默认
+    "default": {"type": "estimate", "chinese_ratio": 1.5, "english_ratio": 4},
+}
+```
+
+### 7.3 Token 计算函数
+
+```python
+def count_tokens(text: str, model: str) -> int:
+    """
+    根据模型计算 Token 数量
+
+    优先级：
+    1. 使用 tiktoken（如果模型支持且已安装）
+    2. 使用模型特定的估算规则
+    3. 使用默认估算规则
+    """
+    rule = MODEL_TOKEN_RULES.get(model, MODEL_TOKEN_RULES["default"])
+
+    if rule["type"] == "tiktoken":
+        import tiktoken
+        enc = tiktoken.get_encoding(rule["encoding"])
+        return len(enc.encode(text))
+    else:
+        return estimate_tokens(text, rule["chinese_ratio"], rule["english_ratio"])
+```
+
+### 7.4 API 真实 Token 获取
+
+优先获取 API 返回的真实 Token 使用量：
+
+```python
+# Anthropic 格式
+usage = response.json().get("usage", {})
+input_tokens = usage.get("input_tokens", 0)
+output_tokens = usage.get("output_tokens", 0)
+
+# OpenAI 格式（备用）
+input_tokens = usage.get("prompt_tokens", 0)
+output_tokens = usage.get("completion_tokens", 0)
+```
+
+### 7.5 LLM 调用点与 Token 消耗
+
+**告警流程 (Alert Agent)**：
+
+| 节点 | LLM 调用条件 | Token 消耗范围 |
+|------|--------------|----------------|
+| `analyze` | AUTO_FIXABLE | 0 tokens |
+| `analyze` | RESOURCE_SUGGESTED | ~1500-2000 tokens |
+| `analyze` | KNOWN_NEEDS_LLM | ~1500-2000 tokens |
+| `analyze` | UNKNOWN | ~3000 tokens |
+| 其他节点 | 无 LLM 调用 | 0 tokens |
+
+**对话流程 (Chat Agent)**：
+
+| 节点 | LLM 调用条件 | Token 消耗范围 |
+|------|--------------|----------------|
+| `parse_intent` | 明确关键词 | 0 tokens |
+| `parse_intent` | 模糊表达 | ~400-900 tokens |
+| `parse_intent` | 多轮对话 | ~500-1000 tokens/轮 |
+| 其他节点 | 无 LLM 调用 | 0 tokens |
+
+### 7.6 通知展示
+
+钉钉通知中会显示 Token 消耗统计：
+
+```
+### Token 消耗
+- **总计:** 1800 tokens
+- **analyze_resource:** input=1200, output=600
+```
+
 ---
 
-## 七、自动风险评估与修复
+## 八、错误分析报告
+
+### 8.1 报告生成功能
+
+**设计目标**: 生成完整的错误分析报告，让用户验证 Agent 分析逻辑是否正确。
+
+**文件位置**：
+
+| 文件 | 功能 |
+|------|------|
+| `tools/report_generator.py` | 生成 HTML + JSON 格式报告 |
+| `api/report_api.py` | 报告查看 API 端点 |
+
+### 8.2 报告存储目录
+
+```
+data/reports/
+└── 2026-05-13/                 # 按日期分组
+    └── 12345/                   # 工作流 code
+        └── report_143022_111/   # 报告 ID（时间+task_code）
+            ├── report.html      # HTML 页面（用户友好）
+            └── report.json      # JSON 数据（程序可解析）
+```
+
+### 8.3 报告内容
+
+| 章节 | 内容 |
+|------|------|
+| 基本信息 | 项目、工作流、任务、实例 ID |
+| 分析流程 | 每个节点的输入/输出 |
+| 错误分析 | Skill 预判结果、LLM 分析结果、错误类型、分析过程、推理依据 |
+| 资源数据 | Driver 日志配置、YARN ResourceManager、Spark History Server 数据 |
+| 风险评估 | 风险等级、下游任务数、风险因素 |
+| 修复建议 | 动作类型、配置变更 |
+| 执行结果 | 执行状态、命令输出 |
+| Token 消耗 | 总消耗、各节点明细 |
+
+### 8.4 报告 API 端点
+
+```
+GET /report/list                    # 报告列表
+GET /report/{report_id}             # 查看报告（HTML）
+GET /report/{report_id}/json        # 查看报告（JSON）
+```
+
+### 8.5 钉钉通知集成
+
+通知底部添加报告链接：
+
+```
+### 📋 详细分析报告
+[点击查看完整分析报告](http://host:port/report/{report_id})
+```
+
+---
+
+## 九、自动风险评估与修复
 
 ### 7.1 风险等级定义 (`src/security/risk_assessor.py`)
 

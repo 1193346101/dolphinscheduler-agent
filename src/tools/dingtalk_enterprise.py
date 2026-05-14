@@ -132,8 +132,11 @@ class DingTalkEnterpriseTool:
         execution_results: List[Dict],
         execution_success: bool,
         ds_url: str,
+        token_consumption: int = 0,
+        token_details: Dict = None,
+        report_url: str = None,
     ) -> Dict:
-        """构建错误通知内容（增强版）"""
+        """构建错误通知内容（增强版，含 Token 消耗和报告链接）"""
         title = f"DolphinScheduler Agent 执行结果"
 
         # 执行状态图标
@@ -186,6 +189,30 @@ class DingTalkEnterpriseTool:
 {exec_result_text or '未执行'}
 
 ---
+
+### Token 消耗
+- **总计:** {token_consumption} tokens
+"""
+
+        # 添加 Token 详情（如果有）
+        if token_details:
+            for detail_name, detail in token_details.items():
+                if isinstance(detail, dict):
+                    content += f"- **{detail_name}:** input={detail.get('input_tokens', 0)}, output={detail.get('output_tokens', 0)}\n"
+
+        # 添加报告链接（如果有）
+        if report_url:
+            content += f"""
+---
+
+### 📋 详细分析报告
+[点击查看完整分析报告]({report_url})
+
+报告包含完整的分析过程、Skill 预判结果、LLM 验证、资源数据、风险评估等详细信息。
+"""
+
+        content += f"""
+---
 [查看工作流]({ds_url}/#/workflow/{workflow_code})
 """
 
@@ -193,6 +220,7 @@ class DingTalkEnterpriseTool:
             "title": title,
             "content": content,
             "single_url": f"{ds_url}/#/workflow/{workflow_code}",
+            "report_url": report_url,
         }
 
     def build_approval_request(

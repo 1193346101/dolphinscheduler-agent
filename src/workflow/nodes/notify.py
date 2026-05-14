@@ -59,6 +59,9 @@ def notify_dingtalk(state: AgentState) -> AgentState:
         error_analysis = state.get("error_analysis", {})
         execution_results = state.get("execution_results", [])
         execution_success = state.get("execution_success", False)
+        token_consumption = state.get("token_consumption", 0)
+        token_details = state.get("token_details", {})
+        report_url = state.get("report_url", "")
 
         content = tool.build_error_notification(
             task_type=state.get("task_type", ""),
@@ -74,7 +77,10 @@ def notify_dingtalk(state: AgentState) -> AgentState:
             suggested_actions=state.get("suggested_actions", []),
             execution_results=execution_results,
             execution_success=execution_success,
-            ds_url=project_config.get("ds_api_url", "")
+            ds_url=project_config.get("ds_api_url", ""),
+            token_consumption=token_consumption,
+            token_details=token_details,
+            report_url=report_url,
         )
         buttons = None
 

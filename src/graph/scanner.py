@@ -19,7 +19,7 @@ from .models import (
     TableNode,
     ClassNode,
 )
-from .code_searcher import CodeSearcher
+from .code_searcher import CodeSearcher, extract_project_from_jar
 from .sql_parser import SQLParser
 from ..integrations.dsctl_wrapper import DSCLIClient, CLIResult
 
@@ -304,13 +304,23 @@ class GraphScanner:
         )
         graph.nodes.tasks.append(task_node)
 
-        # 如果有 Spark main class，解析类文件中的表
+        # If Spark main class, extract project from jar and parse tables
         if spark_main_class:
+            # Extract project name from mainJar (more reliable than DS project name)
+            main_jar = task_params.get("mainJar", {})
+            jar_name = ""
+            if isinstance(main_jar, dict):
+                jar_name = main_jar.get("resourceName", "")
+            elif isinstance(main_jar, str):
+                jar_name = main_jar
+
+            code_project_name = extract_project_from_jar(jar_name) or project_name
+
             self._parse_class_tables(
                 spark_main_class,
                 task_code,
                 graph,
-                project_name,
+                code_project_name,
                 all_tables
             )
 

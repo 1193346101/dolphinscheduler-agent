@@ -66,6 +66,9 @@ class Settings:
     # YARN ResourceManager（全局默认）
     YARN_RM_URL: str = field(default_factory=lambda: os.getenv("YARN_RM_URL", ""))
     YARN_RM_TIMEOUT: int = field(default_factory=lambda: int(os.getenv("YARN_RM_TIMEOUT", "30")))
+    # YARN LDAP 认证（用于 Knox Gateway）
+    YARN_USERNAME: str = field(default_factory=lambda: os.getenv("YARN_USERNAME", ""))
+    YARN_PASSWORD: str = field(default_factory=lambda: os.getenv("YARN_PASSWORD", ""))
 
     # API 服务
     API_HOST: str = field(default_factory=lambda: os.getenv("API_HOST", "0.0.0.0"))

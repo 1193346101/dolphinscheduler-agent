@@ -13,6 +13,7 @@ Skill 是快速预判器:
 """
 
 import json
+import re
 from pathlib import Path
 from typing import Optional, Dict, Any
 
@@ -62,21 +63,114 @@ class SparkSkill(BaseSkill):
 
     def analyze(self, log_content: str, context: AlertContext) -> ErrorAnalysis:
         """
-        分析 Spark 任务错误 - 使用公共 pattern_matcher + LLM fallback
+        分析 Spark 任务错误 - Driver 日志配置优先 + History/YARN 深度分析
 
         流程:
-        1. preprocess_log - 日志预处理
+        1. preprocess_log - 日志预处理（从 Driver 日志提取配置、错误块）
         2. PatternMatcher.match - 模式匹配
-        3. _validate_oss_paths - OSS 路径验证
-        4. _build_analysis - 构建 ErrorAnalysis
-        5. UNKNOWN -> analyze_with_llm_fallback - LLM 分析并记录候选
+        3. 按需调用 History/YARN API 获取深度分析数据（仅用于补充 metrics 和诊断）
+        4. _validate_oss_paths - OSS 路径验证
+        5. _build_analysis - 构建 ErrorAnalysis（配置来自 Driver 日志）
+
+        数据来源策略：
+        - Driver 日志：**配置信息主要来源**（spark.driver.memory 等）
+        - Spark History Server：Executor metrics、Shuffle 数据量（用于深度分析建议）
+        - YARN ResourceManager：容器诊断信息（用于错误定位）
         """
-        # 1. 日志预处理
+        # 1. 日志预处理（从 Driver 日志提取配置、错误块）
         preprocessed = preprocess_log(log_content, task_type="spark")
+        config_lines = preprocessed.get("config_lines", [])  # Driver 日志配置
         error_blocks = preprocessed.get("error_blocks", [])
         app_info = preprocessed.get("app_info", {})
         data_metrics = preprocessed.get("data_metrics", {})
         oss_paths = preprocessed.get("oss_paths", [])
+        app_id = app_info.get("app_id")
+
+        # 从 Driver 日志配置行解析 Spark 配置（主要来源）
+        current_config = {}
+
+        # 打印前 5 行 config_lines 帮助调试格式
+        if config_lines:
+            print(f"[SparkSkill] Sample config_lines (first 5):")
+            for i, line in enumerate(config_lines[:5]):
+                print(f"  [{i}] {line[:100]}")
+
+        spark_config_pattern = re.compile(
+            r'(spark\.(?:driver|executor)\.(?:memory|cores|instances))\s*[=:->]\s*(\S+)',
+            re.IGNORECASE
+        )
+
+        for line in config_lines:
+            # 使用正则匹配，支持多种格式：
+            # - spark.driver.memory=4g
+            # - Setting spark.driver.memory=4g
+            # - spark.driver.memory: 4g
+            # - spark.driver.memory -> 4g
+            match = spark_config_pattern.search(line)
+            if match:
+                key = match.group(1).lower()  # spark.driver.memory
+                value = match.group(2)        # 4g
+
+                # 映射 Spark 配置名到 DolphinScheduler UI 参数名
+                if key == "spark.driver.memory":
+                    current_config["driver_memory"] = value
+                elif key == "spark.driver.cores":
+                    current_config["driver_cores"] = value
+                elif key == "spark.executor.memory":
+                    current_config["executor_memory"] = value
+                elif key == "spark.executor.cores":
+                    current_config["executor_cores"] = value
+                elif key == "spark.executor.instances":
+                    current_config["executor_instances"] = value
+
+        print(f"[SparkSkill] Driver config: {current_config}")
+
+        # 按需获取补充信息（从 History Server 和 YARN）- 仅用于深度分析，不覆盖配置
+        real_metrics = {}
+        yarn_info = {}
+
+        if app_id:
+            # 先判断是否需要深度分析
+            need_deep_analysis = False
+            if not error_blocks:
+                need_deep_analysis = True
+            else:
+                matcher = self._get_matcher()
+                match_result = matcher.match("\n".join(error_blocks))
+                if match_result.category in ["RESOURCE_SUGGESTED", "UNKNOWN"]:
+                    need_deep_analysis = True
+
+            if need_deep_analysis:
+                try:
+                    from ..common.preprocess_log import fetch_real_spark_metrics
+                    real_data = fetch_real_spark_metrics(app_id)
+                    # 只获取 metrics 数据，不使用 real_config
+                    real_metrics = real_data.get("data_metrics", {})
+                    yarn_info = real_data.get("yarn_info", {})
+
+                    # YARN diagnostics 补充错误信息
+                    if yarn_info.get("diagnostics"):
+                        diagnostics_block = f"[YARN Diagnostics] {yarn_info['diagnostics']}"
+                        if diagnostics_block not in error_blocks:
+                            error_blocks.append(diagnostics_block)
+
+                    # Spark Executor metrics 补充
+                    spark_metrics = real_data.get("spark_metrics", {})
+                    if spark_metrics:
+                        data_metrics = {**data_metrics, **spark_metrics}
+
+                except Exception as e:
+                    print(f"[SparkSkill] Failed to fetch deep analysis data: {e}", file=__import__('sys').stderr)
+
+        # 合并 metrics 数据（用于深度分析建议）
+        combined_metrics = {**data_metrics, **real_metrics}
+
+        # 存入 preprocessed（注意：current_config 来自 Driver 日志）
+        preprocessed["config_lines"] = config_lines
+        preprocessed["current_config"] = current_config  # Driver 日志解析的配置
+        preprocessed["data_metrics"] = combined_metrics
+        preprocessed["yarn_info"] = yarn_info
+        preprocessed["error_blocks"] = error_blocks
 
         # 没有错误块时返回 UNKNOWN（交给 LLM）
         if not error_blocks:
@@ -87,7 +181,7 @@ class SparkSkill(BaseSkill):
                 original_log_error=log_content[:300],
                 analysis_process="无错误块提取",
                 reasoning="日志预处理未发现错误信息，交给 LLM 分析",
-                spark_app_id=app_info.get("app_id"),
+                spark_app_id=app_id,
                 data_metrics=data_metrics,
             )
             return self.analyze_with_llm_fallback(log_content, initial, context)
@@ -204,10 +298,65 @@ class SparkSkill(BaseSkill):
 
         elif category == ErrorCategory.RESOURCE_SUGGESTED:
             # RESOURCE_SUGGESTED: Skill 智能计算初步建议
+            # 只有资源类问题时才调用 YARN/Spark History Server API（按需获取）
+            app_id = app_info.get("app_id")
+            data_metrics = preprocessed.get("data_metrics", {})
+
+            # 按需获取真实资源数据
+            real_metrics = {}
+            real_config = {}
+            yarn_diagnostics = ""
+
+            if app_id:
+                try:
+                    from ..common.preprocess_log import fetch_real_spark_metrics
+                    real_data = fetch_real_spark_metrics(app_id)
+                    real_metrics = real_data.get("data_metrics", {})
+                    real_config = real_data.get("current_config", {})
+                    yarn_info = real_data.get("yarn_info", {})
+                    if yarn_info:
+                        yarn_diagnostics = yarn_info.get("diagnostics", "")
+                except Exception as e:
+                    print(f"[SparkSkill] Failed to fetch real metrics: {e}", file=__import__('sys').stderr)
+
+            # 合并真实数据到 data_metrics
+            combined_metrics = {**data_metrics, **real_metrics}
+            if yarn_diagnostics:
+                combined_metrics["yarn_diagnostics"] = yarn_diagnostics
+
+            # 优先从 config_lines（Driver 日志）解析配置，再用 real_config 补充
+            current_config = {}
+            spark_config_pattern = re.compile(
+                r'(spark\.(?:driver|executor)\.(?:memory|cores|instances))\s*[=:->]\s*(\S+)',
+                re.IGNORECASE
+            )
+
+            for line in config_lines:
+                match = spark_config_pattern.search(line)
+                if match:
+                    key = match.group(1).lower()
+                    value = match.group(2)
+                    if key == "spark.driver.memory":
+                        current_config["driver_memory"] = value
+                    elif key == "spark.driver.cores":
+                        current_config["driver_cores"] = value
+                    elif key == "spark.executor.memory":
+                        current_config["executor_memory"] = value
+                    elif key == "spark.executor.cores":
+                        current_config["executor_cores"] = value
+                    elif key == "spark.executor.instances":
+                        current_config["executor_instances"] = value
+
+            # 用 real_config（来自 Spark History Server）补充缺失的配置
+            if real_config:
+                for key in ["driver_memory", "driver_cores", "executor_memory", "executor_cores", "executor_instances"]:
+                    if key not in current_config and key in real_config:
+                        current_config[key] = real_config[key]
+
             skill_suggestion = self._calculate_resource_suggestion(
                 match_result.error_type,
-                config_lines,
-                preprocessed.get("data_metrics", {}),
+                current_config,
+                combined_metrics,
                 app_info,
             )
             llm_hint = match_result.hint
@@ -297,7 +446,7 @@ class SparkSkill(BaseSkill):
     def _calculate_resource_suggestion(
         self,
         error_type: str,
-        config_lines: list,
+        current_config: Dict[str, Any],
         data_metrics: Dict[str, Any],
         app_info: Dict[str, Any],
     ) -> Optional[Dict[str, Any]]:
@@ -306,12 +455,21 @@ class SparkSkill(BaseSkill):
 
         Args:
             error_type: 错误类型
-            config_lines: 配置行列表
-            data_metrics: 数据量指标
+            current_config: 当前配置（来自 History Server 或 config_lines）
+                - driver_memory: Driver内存数
+                - driver_cores: Driver核心数
+                - executor_memory: Executor内存数
+                - executor_cores: Executor核心数
+                - executor_instances: Executor数量
+            data_metrics: 数据量指标（来自 History Server）
+                - memory_spilled: 内存溢出量（MB）
+                - peak_memory: 峰值内存（MB）
+                - shuffle_read: Shuffle读取量（MB）
+                - yarn_diagnostics: YARN诊断信息
             app_info: 应用信息
 
         Returns:
-            资源建议字典或 None
+            资源建议字典或 None（只包含 DolphinScheduler 支持的参数）
         """
         scripts_dir = Path(__file__).parent / "scripts"
         calculate_script = scripts_dir / "calculate_resource.py"
@@ -325,21 +483,11 @@ class SparkSkill(BaseSkill):
             calc_module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(calc_module)
 
-            # 提取当前配置
-            current_config = {}
-            for line in config_lines:
-                if "=" in line:
-                    key, value = line.split("=", 1)
-                    key = key.strip()
-                    if key.startswith("spark."):
-                        current_config[key] = value.strip()
-
             # 调用计算函数
-            if hasattr(calc_module, 'calculate'):
-                result = calc_module.calculate(error_type, current_config, data_metrics)
-                return result
-            elif hasattr(calc_module, 'build_resource_suggestion'):
-                result = calc_module.build_resource_suggestion(error_type, current_config, data_metrics, app_info)
+            if hasattr(calc_module, 'build_resource_suggestion'):
+                result = calc_module.build_resource_suggestion(
+                    error_type, current_config, data_metrics, app_info
+                )
                 return result
 
         except Exception as e:

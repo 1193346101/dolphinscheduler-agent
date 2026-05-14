@@ -7,7 +7,7 @@ from .calculate_resource import (
     format_memory_from_mb,
     calculate_resource_suggestion,
     calculate_executor_count_suggestion,
-    get_comprehensive_suggestion,
+    build_resource_suggestion,
 )
 
 __all__ = [
@@ -15,5 +15,5 @@ __all__ = [
     "format_memory_from_mb",
     "calculate_resource_suggestion",
     "calculate_executor_count_suggestion",
-    "get_comprehensive_suggestion",
+    "build_resource_suggestion",
 ]

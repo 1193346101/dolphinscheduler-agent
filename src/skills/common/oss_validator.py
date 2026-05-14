@@ -335,9 +335,57 @@ def get_oss_validator() -> OSSValidator:
     return OSSValidator()
 
 
+def check_partition_with_history(
+    partition_path: str,
+    days: int = 7
+) -> Dict:
+    """
+    检查分区并对比历史数据
+
+    用于判断文件数量/大小是否异常（与历史对比）。
+
+    Args:
+        partition_path: 分区路径（如 oss://bucket/path/dt=2026-05-13/）
+        days: 历史对比天数
+
+    Returns:
+        {
+            current: {exists, file_count, total_size_mb}
+            baseline: {avg_file_count, avg_total_size_mb, min_file_count, max_file_count, sample_count}
+            anomalies: [{type, severity, message}]
+            severity: CRITICAL/HIGH/MEDIUM/LOW/NORMAL
+            recommendation: 建议
+        }
+    """
+    from .oss_partition_analyzer import analyze_partition_health
+
+    result = analyze_partition_health(partition_path, days)
+
+    return {
+        "current": {
+            "exists": result.current_partition.exists,
+            "file_count": result.current_partition.file_count,
+            "total_size_mb": result.current_partition.total_size_bytes // (1024 * 1024),
+            "avg_file_size_kb": result.current_partition.avg_file_size_bytes // 1024,
+            "partition_date": result.current_partition.partition_date,
+        },
+        "baseline": {
+            "avg_file_count": round(result.baseline.avg_file_count, 1),
+            "avg_total_size_mb": round(result.baseline.avg_total_size_bytes / (1024 * 1024), 1),
+            "min_file_count": result.baseline.min_file_count,
+            "max_file_count": result.baseline.max_file_count,
+            "sample_count": result.baseline.sample_count,
+        },
+        "anomalies": result.anomalies,
+        "severity": result.severity,
+        "recommendation": result.recommendation,
+    }
+
+
 __all__ = [
     "OSSValidator",
     "OSSConfig",
     "OSSCheckResult",
     "get_oss_validator",
+    "check_partition_with_history",
 ]

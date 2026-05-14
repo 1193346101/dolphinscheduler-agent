@@ -1,0 +1,274 @@
+{
+  "project_code": "11598158952448",
+  "project_name": "ad_monitor",
+  "scan_time": "2026-05-14T11:44:32.015874",
+  "summary": "项目共 29 个工作流 | 检测到 0 个隐式依赖 | 其中 0 个未显式配置（需关注） | 发现 43 个血缘准确性问题",
+  "statistics": {
+    "total_workflows": 29,
+    "implicit_dependencies": 0,
+    "missing_dependencies": 0,
+    "configured_dependencies": 0,
+    "accuracy_issues": 43
+  },
+  "missing_dependencies": [],
+  "accuracy_issues": [
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/ads_ak_spot_freq_day_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/ads_ak_spot_freq_day_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/ads_ak_spot_county_freq_day_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/ads_ak_spot_county_freq_day_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/ads_ak_spot_freq_total_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/ads_ak_spot_freq_total_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/ads_ak_spot_county_freq_total_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/ads_ak_spot_county_freq_total_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/ads_ak_spot_monitor_day_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/ads_ak_spot_monitor_day_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/ads_ak_spot_monitor_county_day_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/ads_ak_spot_monitor_county_day_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/ads_ak_adid_monitor_day_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/ads_ak_adid_monitor_day_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/ads_ak_adid_monitor_county_day_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/ads_ak_adid_monitor_county_day_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/ads_ak_spot_req_day_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/ads_ak_spot_req_day_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/ads_ak_adid_req_day_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/ads_ak_adid_req_day_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/base_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/base_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/ipip_base_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/ipip_base_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/impression_mark_total_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/impression_mark_total_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/impression_province_total_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/impression_province_total_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/ak_monitor_freq_total_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/ak_monitor_freq_total_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/impression_media_total_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/impression_media_total_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/ak_deal_screen_size_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/ak_deal_screen_size_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/impression_mark_freq_total_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/impression_mark_freq_total_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/impression_media_freq_total_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/impression_media_freq_total_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/impression_province_freq_total_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/impression_province_freq_total_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/ak_monitor_county_freq_total_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/ak_monitor_county_freq_total_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/impression_mark_day_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/impression_mark_day_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/impression_province_day_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/impression_province_day_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/ak_plan_freq_week_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/ak_plan_freq_week_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/ak_deal_freq_week_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/ak_deal_freq_week_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/impression_media_day_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/impression_media_day_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/ak_monitor_freq_week_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/ak_monitor_freq_week_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/impression_collide_report",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/impression_collide_report 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/impression_county_collide_report",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/impression_county_collide_report 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "INPUT_TABLE_NO_PRODUCER",
+      "severity": "LOW",
+      "table_name": "hdfs:/original/ad_monitor/huan_ad_monitor_impression_log/",
+      "message": "输入层表 hdfs:/original/ad_monitor/huan_ad_monitor_impression_log/ 无生产者（可能来自外部数据源）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/dws/impression_log_pre/",
+      "message": "输出层表 hdfs:/project/ad_monitor/dws/impression_log_pre/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "INPUT_TABLE_NO_PRODUCER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ods/huan_ad_monitor_impression_log_orc/",
+      "message": "输入层表 hdfs:/project/ad_monitor/ods/huan_ad_monitor_impression_log_orc/ 无生产者（可能来自外部数据源）"
+    },
+    {
+      "type": "INPUT_TABLE_NO_PRODUCER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/dwd/impression_log/",
+      "message": "输入层表 hdfs:/project/ad_monitor/dwd/impression_log/ 无生产者（可能来自外部数据源）"
+    },
+    {
+      "type": "INPUT_TABLE_NO_PRODUCER",
+      "severity": "LOW",
+      "table_name": "hdfs:/original/ad_monitor/huan_ad_monitor_click_log/",
+      "message": "输入层表 hdfs:/original/ad_monitor/huan_ad_monitor_click_log/ 无生产者（可能来自外部数据源）"
+    },
+    {
+      "type": "INPUT_TABLE_NO_PRODUCER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/dwd/click_log/",
+      "message": "输入层表 hdfs:/project/ad_monitor/dwd/click_log/ 无生产者（可能来自外部数据源）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/dws/click_log_pre/",
+      "message": "输出层表 hdfs:/project/ad_monitor/dws/click_log_pre/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "INPUT_TABLE_NO_PRODUCER",
+      "severity": "LOW",
+      "table_name": "hdfs:/original/ad_monitor/huan_ad_monitor_middle_log/",
+      "message": "输入层表 hdfs:/original/ad_monitor/huan_ad_monitor_middle_log/ 无生产者（可能来自外部数据源）"
+    },
+    {
+      "type": "INPUT_TABLE_NO_PRODUCER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/dwd/middle_log/",
+      "message": "输入层表 hdfs:/project/ad_monitor/dwd/middle_log/ 无生产者（可能来自外部数据源）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/dws/middle_log_pre/",
+      "message": "输出层表 hdfs:/project/ad_monitor/dws/middle_log_pre/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/impression_mark_freq_day_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/impression_mark_freq_day_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/impression_media_freq_day_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/impression_media_freq_day_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/impression_province_freq_day_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/impression_province_freq_day_report/ 无消费者（可能是最终报表）"
+    },
+    {
+      "type": "OUTPUT_TABLE_NO_CONSUMER",
+      "severity": "LOW",
+      "table_name": "hdfs:/project/ad_monitor/ads/ak_monitor_county_freq_week_report/",
+      "message": "输出层表 hdfs:/project/ad_monitor/ads/ak_monitor_county_freq_week_report/ 无消费者（可能是最终报表）"
+    }
+  ]
+}

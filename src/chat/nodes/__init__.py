@@ -15,6 +15,8 @@ from .query_status import query_status_node
 from .query_logs import query_logs_node
 from .recover_failure import recover_failure_node
 from .run_workflow import run_workflow_node
+from .request_confirmation import request_confirmation_node
+from .check_confirmation import check_confirmation_node
 
 __all__ = [
     "parse_intent_node",
@@ -28,4 +30,6 @@ __all__ = [
     "query_logs_node",
     "recover_failure_node",
     "run_workflow_node",
+    "request_confirmation_node",
+    "check_confirmation_node",
 ]

@@ -1,0 +1,671 @@
+{
+  "project_code": "11598158952448",
+  "project_name": "ad_monitor",
+  "scan_time": "2026-05-14T11:57:40.512447",
+  "summary": "工作流: 图谱 29 vs DS 29 | 任务: 图谱 166 vs DS 166 | 发现问题: 7 HIGH, 57 MEDIUM | 工作流匹配率: 100.0%",
+  "statistics": {
+    "workflows_graph": 29,
+    "workflows_ds": 29,
+    "tasks_graph": 166,
+    "tasks_ds": 166
+  },
+  "accuracy_metrics": {
+    "workflow_match_rate": 1.0,
+    "task_match_rate": 1.0,
+    "dependency_match_rate": 1.0,
+    "class_count": 0,
+    "table_count": 43,
+    "produces_edge_count": 0,
+    "consumes_edge_count": 73
+  },
+  "issues": [
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599826665352"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.upgrade.ImpressionMarkDayReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11598188089988"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.upgrade.ClickLogOrc  映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11598178397192"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.ads.spot.AkSpotFreqDayReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11598189672194",
+        "21614073121697"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.upgrade.ImpressionLog 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599819950339"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.ipipCounty.IpIpBaseReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599826665358"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.upgrade.AkDealFreqWeekReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11600006534915"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.dws.DwsAkPlatformImpViewReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11598189672197",
+        "21614073121700"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.upgrade.ImpressionLogPre 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599840142466"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.ipipCounty.ImpressionMediaFreqDayReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11598180699905"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorcCountyReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11598179392260"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorDayReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599821572616"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.upgrade.ImpressionProvinceTotalReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11598186765572"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.upgrade.MiddleLogOrc  映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11598186765569"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.upgrade.MiddleLog  映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599823357446"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.ipipCounty.ImpressionMarkFreqTotalReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11600006534914"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.dws.DwsAkPlatformTrafficeStyleImpViewReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599823357447"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqTotalReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599821572615"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.upgrade.ImpressionMarkTotalReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599826665353"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.upgrade.ImpressionMediaDayReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11600006534916"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.dws.DwsAkPlatformCityImpViewReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11598178397190"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.ads.spot.AkSpotFreqTotalReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11598180699906"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorDayReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11598184562436"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.ads.spot.AdsAkSpotReqDayReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599840142467"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqDayReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11598184562435"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.ads.adid.AdsAkAdidReqDayReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599826665359"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.upgrade.AkMonitorFreqWeekReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599818692995"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.ods.huan_ad_monitor_access_log_orc 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11598179392259"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorcCountyReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "14936257423907",
+        "14936514111904"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.ads.AdsMiddleTerminalDayPvReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599823357450",
+        "20354293498912"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.HuanAdTerminalDayPvReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599826665357"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.upgrade.AkPlanFreqWeekReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599834736899"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.ipipCounty.ImpressionCountyCollideReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11600006534913"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.dwd.DwdImpressionMultiDimDistinctMac 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11600006534920"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.dwd.DwdImpressionFilterFlatmapHadid 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "14936257423905"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.ads.AdsImpTerminalDayPvReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599819950343"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.upgrade.BaseReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11598188089985"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.upgrade.ClickLog  映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "21614073121701",
+        "11598189672198"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.dmp.HuanAdMonitorImpressionLogStatistics 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599818692997"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.ads.AdMonitorAccessLogDiffPeriod0520 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "14936257423906",
+        "14936515045025"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.ads.AdsClickTerminalDayPvReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599834736898"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.upgrade.ImpressionCollideReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11600006534921"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.dwd.DwdImpressionMultiDimCount 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11598178397191"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.ads.spot.AkSpotCountyFreqDayReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599821572617"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.upgrade.ImpressionMediaTotalReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599821572620"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.upgrade.AkDealScreenSizeReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11598186765570"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.upgrade.MiddleLogPre  映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599823357449"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.ipipCounty.AkMonitorCountyFreqTotalReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599840142465"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.ipipCounty.ImpressionMarkFreqDayReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11598188089986"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.upgrade.ClickLogPre 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599826665354"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.upgrade.ImpressionProvinceDayReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "20876668664867",
+        "21614073121699",
+        "11598189672196",
+        "20941254587936"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.upgrade.ImpressionLogOrc 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11598178397189"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.ads.spot.AkSpotCountyFreqTotalReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599821572621"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.upgrade.AkMonitorFreqTotalReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11598186765571",
+        "11599818692994",
+        "11598188089987",
+        "21614073121696",
+        "11599832730113",
+        "21614073121698",
+        "11598189672193",
+        "11598189672195"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.hive.AddPartition 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599840142468"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.ipipCounty.AkMonitorCountyFreqWeekReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599818692993"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.dwd.DwdHuanAdMonitorAccessLogPretreat 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "CLASS_TASK_MAPPING",
+      "severity": "MEDIUM",
+      "expected": [
+        "11599823357448"
+      ],
+      "actual": [],
+      "details": "类 tv.huan.ad.monitor.ipipCounty.ImpressionMediaFreqTotalReport 映射的任务不一致",
+      "evidence": {}
+    },
+    {
+      "category": "TABLE_NO_PRODUCER",
+      "severity": "HIGH",
+      "expected": "有生产者",
+      "actual": "无",
+      "details": "表 hdfs:/original/ad_monitor/huan_ad_monitor_impression_log/ 无生产者（数据来源不明）",
+      "evidence": {}
+    },
+    {
+      "category": "TABLE_NO_PRODUCER",
+      "severity": "HIGH",
+      "expected": "有生产者",
+      "actual": "无",
+      "details": "表 hdfs:/project/ad_monitor/ods/huan_ad_monitor_impression_log_orc/ 无生产者（数据来源不明）",
+      "evidence": {}
+    },
+    {
+      "category": "TABLE_NO_PRODUCER",
+      "severity": "HIGH",
+      "expected": "有生产者",
+      "actual": "无",
+      "details": "表 hdfs:/project/ad_monitor/dwd/impression_log/ 无生产者（数据来源不明）",
+      "evidence": {}
+    },
+    {
+      "category": "TABLE_NO_PRODUCER",
+      "severity": "HIGH",
+      "expected": "有生产者",
+      "actual": "无",
+      "details": "表 hdfs:/original/ad_monitor/huan_ad_monitor_click_log/ 无生产者（数据来源不明）",
+      "evidence": {}
+    },
+    {
+      "category": "TABLE_NO_PRODUCER",
+      "severity": "HIGH",
+      "expected": "有生产者",
+      "actual": "无",
+      "details": "表 hdfs:/project/ad_monitor/dwd/click_log/ 无生产者（数据来源不明）",
+      "evidence": {}
+    },
+    {
+      "category": "TABLE_NO_PRODUCER",
+      "severity": "HIGH",
+      "expected": "有生产者",
+      "actual": "无",
+      "details": "表 hdfs:/original/ad_monitor/huan_ad_monitor_middle_log/ 无生产者（数据来源不明）",
+      "evidence": {}
+    },
+    {
+      "category": "TABLE_NO_PRODUCER",
+      "severity": "HIGH",
+      "expected": "有生产者",
+      "actual": "无",
+      "details": "表 hdfs:/project/ad_monitor/dwd/middle_log/ 无生产者（数据来源不明）",
+      "evidence": {}
+    }
+  ],
+  "issue_summary": {
+    "total": 64,
+    "high": 7,
+    "medium": 57,
+    "low": 0
+  }
+}

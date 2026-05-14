@@ -144,7 +144,7 @@ class LLMClient:
   - action_type: 动作类型（modify_script/modify_config/rerun/suggested）
   - description: 动作描述
   - script_changes: 脚本修改内容（字典格式，key 是日志中实际出现的错误内容，value 是正确替换内容）
-    例如：脚本中有 "ech hello"，则 script_changes 为 {"ech hello": "echo hello"} 或 {"ech": "echo"}
+    例如：脚本中有 "ech hello"，则 script_changes 为 dict，key="ech hello", value="echo hello"
   - config_changes: 配置修改内容（字典格式）
 - can_auto_fix: 是否可以自动修复（true/false）
 - confidence: 分析置信度（0.0-1.0）

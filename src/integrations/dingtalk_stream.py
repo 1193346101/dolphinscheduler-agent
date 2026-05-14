@@ -6,6 +6,7 @@
 支持消息类型：
 1. 用户对话消息 - 通过 ChatAgent 处理
 2. DolphinScheduler 告警 JSON - 通过 AlertWorkflow 处理
+3. 确认/取消回复 - 处理危险操作的确认流程
 """
 
 import json
@@ -19,6 +20,10 @@ from dingtalk_stream.chatbot import ChatbotMessage, CallbackMessage, AckMessage
 from ..config import settings
 from ..chat.graph import get_chat_graph
 from ..chat.state import create_chat_state
+from ..chat.nodes.request_confirmation import (
+    get_pending_confirmation_by_user,
+    update_confirmation_status,
+)
 from ..workflow.graph import AlertWorkflowGraph
 
 
@@ -30,6 +35,10 @@ ALERT_JSON_PATTERNS = [
     r'"taskType"\s*:',
     r'"alerts"\s*:',
 ]
+
+# 确认关键词
+CONFIRM_KEYWORDS = ["确认", "✅", "同意", "执行", "是", "ok", "yes"]
+CANCEL_KEYWORDS = ["取消", "❌", "拒绝", "不", "否", "cancel", "no"]
 
 
 def is_alert_json(content: str) -> bool:
@@ -122,6 +131,12 @@ class DingTalkStreamHandler(dingtalk_stream.ChatbotHandler):
                 print("[dingtalk-stream] 识别为告警 JSON，启动告警处理流程")
                 return await self._handle_alert(content, message)
 
+            # === 检查是否为确认/取消回复 ===
+            content_stripped = content.strip().lower()
+            if content_stripped in CONFIRM_KEYWORDS or content_stripped in CANCEL_KEYWORDS:
+                print("[dingtalk-stream] 识别为确认回复，查找待确认请求")
+                return await self._handle_confirmation_reply(content, message)
+
             # === 对话消息处理 ===
             print("[dingtalk-stream] 识别为对话消息，启动对话处理流程")
 
@@ -158,6 +173,63 @@ class DingTalkStreamHandler(dingtalk_stream.ChatbotHandler):
             except:
                 print(f"[dingtalk-stream] 无法回复: {e}")
             return AckMessage.STATUS_OK, "error"
+
+    async def _handle_confirmation_reply(self, content: str, message: ChatbotMessage) -> Tuple[int, str]:
+        """
+        处理确认/取消回复
+
+        Args:
+            content: 消息内容
+            message: 钉钉消息对象
+
+        Returns:
+            (status_code, response_message) 元组
+        """
+        user_id = message.sender_staff_id or "unknown"
+        content_stripped = content.strip().lower()
+
+        # 查找用户的待确认请求
+        pending_state = get_pending_confirmation_by_user(user_id)
+
+        if not pending_state:
+            print(f"[dingtalk-stream] 用户 {user_id} 无待确认请求")
+            self.reply_text("没有待确认的操作，请发送新的指令", message)
+            return AckMessage.STATUS_OK, "no_pending"
+
+        confirmation_id = pending_state.get("confirmation_id", "")
+        confirmed_action = pending_state.get("confirmed_action", "")
+
+        print(f"[dingtalk-stream] 找到待确认请求: {confirmation_id}, 操作: {confirmed_action}")
+
+        if content_stripped in CONFIRM_KEYWORDS:
+            # 用户确认
+            print(f"[dingtalk-stream] 用户确认执行: {confirmed_action}")
+            update_confirmation_status(confirmation_id, "confirmed")
+
+            # 更新状态并重新执行
+            pending_state["confirmation_status"] = "confirmed"
+            pending_state["execute_approved"] = True
+            pending_state["pending_confirmation"] = False
+
+            # 通过 LangGraph 流程执行
+            result_state = self.chat_graph.invoke(pending_state)
+
+            # 提取回复内容
+            response_content = result_state.get("response_content", "操作执行完成")
+            print(f"[dingtalk-stream] 确认回复长度: {len(response_content)} 字符")
+
+            self.reply_markdown("执行结果", response_content, message)
+            return AckMessage.STATUS_OK, "confirmed"
+
+        elif content_stripped in CANCEL_KEYWORDS:
+            # 用户取消
+            print(f"[dingtalk-stream] 用户取消操作: {confirmed_action}")
+            update_confirmation_status(confirmation_id, "rejected")
+
+            self.reply_markdown("操作取消", "❌ 操作已取消，未执行。", message)
+            return AckMessage.STATUS_OK, "cancelled"
+
+        return AckMessage.STATUS_OK, "unknown"
 
     async def _handle_alert(self, content: str, message: ChatbotMessage) -> Tuple[int, str]:
         """

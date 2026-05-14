@@ -1,0 +1,174 @@
+{
+  "alert_processing": {
+    "passed": 8,
+    "failed": 3,
+    "tests": [
+      {
+        "name": "日志工具初始化",
+        "passed": false,
+        "details": "YARNLogTool.__init__() missing 1 required positional argument: 'gateway_url'"
+      },
+      {
+        "name": "extract_error_blocks",
+        "passed": true,
+        "details": "提取2个错误块"
+      },
+      {
+        "name": "extract_config_lines",
+        "passed": true,
+        "details": "配置行提取功能存在"
+      },
+      {
+        "name": "extract_executor_events",
+        "passed": true,
+        "details": "事件提取功能存在"
+      },
+      {
+        "name": "SparkAnalyzer导入",
+        "passed": false,
+        "details": "module 'src.skills.spark.analyzer' has no attribute 'SparkAnalyzer'"
+      },
+      {
+        "name": "OSSValidator初始化",
+        "passed": false,
+        "details": "缺少分析方法"
+      },
+      {
+        "name": "ReportGenerator.generate_report",
+        "passed": true,
+        "details": ""
+      },
+      {
+        "name": "RiskAssessTool",
+        "passed": true,
+        "details": "1个方法"
+      },
+      {
+        "name": "GraphImpactTool",
+        "passed": true,
+        "details": "2个方法"
+      },
+      {
+        "name": "OOM错误识别",
+        "passed": true,
+        "details": "正确识别OutOfMemoryError"
+      },
+      {
+        "name": "Shuffle失败识别",
+        "passed": true,
+        "details": "正确识别Shuffle错误"
+      }
+    ]
+  },
+  "lineage": {
+    "passed": 18,
+    "failed": 3,
+    "tests": [
+      {
+        "name": "DSCLIClient.list_workflows",
+        "passed": true,
+        "details": ""
+      },
+      {
+        "name": "DSCLIClient.describe_workflow",
+        "passed": true,
+        "details": ""
+      },
+      {
+        "name": "DSCLIClient.list_schedules",
+        "passed": true,
+        "details": ""
+      },
+      {
+        "name": "list_workflows实际调用",
+        "passed": true,
+        "details": "返回29个工作流"
+      },
+      {
+        "name": "project_resolver.resolve",
+        "passed": true,
+        "details": "ad_monitor -> 11598158952448"
+      },
+      {
+        "name": "jar提取: ad-monitor-1.0-jar-with-depend...",
+        "passed": true,
+        "details": "-> ad-monitor"
+      },
+      {
+        "name": "jar提取: data-product-2.0.jar...",
+        "passed": true,
+        "details": "-> data-product"
+      },
+      {
+        "name": "jar提取: hdfs://ha-nn/path/ad-monitor-1...",
+        "passed": true,
+        "details": "-> ad-monitor"
+      },
+      {
+        "name": "SQL解析: INSERT OVERWRITE TABLE db.outp...",
+        "passed": true,
+        "details": ""
+      },
+      {
+        "name": "SQL解析: SELECT a.*, b.name FROM db.tab...",
+        "passed": false,
+        "details": "output=[], input=['db.table1']"
+      },
+      {
+        "name": "类文件搜索",
+        "passed": true,
+        "details": "n\\ad\\monitor\\upgrade\\ImpressionMarkDayReport.scala"
+      },
+      {
+        "name": "图谱数据加载",
+        "passed": true,
+        "details": "wf=29, task=166, class=59"
+      },
+      {
+        "name": "工作流/任务数据",
+        "passed": true,
+        "details": ""
+      },
+      {
+        "name": "类映射数据",
+        "passed": true,
+        "details": "59个类"
+      },
+      {
+        "name": "输出表关系",
+        "passed": true,
+        "details": "55条produces边"
+      },
+      {
+        "name": "ImplicitDependencyDetector",
+        "passed": false,
+        "details": "缺少检测方法"
+      },
+      {
+        "name": "文件存在: index.html",
+        "passed": true,
+        "details": ""
+      },
+      {
+        "name": "文件存在: project_list.js",
+        "passed": true,
+        "details": ""
+      },
+      {
+        "name": "文件存在: ad_monitor/graph_data.js",
+        "passed": true,
+        "details": ""
+      },
+      {
+        "name": "project_list.js格式",
+        "passed": true,
+        "details": ""
+      },
+      {
+        "name": "HTML展示测试",
+        "passed": false,
+        "details": "'gbk' codec can't decode byte 0xac in position 176: illegal multibyte sequence"
+      }
+    ]
+  }
+}

@@ -4,7 +4,10 @@ LangGraph Flow Definition - Define complete conversation flow graph.
 This module defines the state machine flow for chat conversations,
 orchestrating the nodes through conditional routing.
 
-重构版：支持所有意图类型，添加缺失节点和路由
+重构版：
+1. 支持所有意图类型
+2. 添加确认流程（dangerous operations）
+3. 危险操作需要用户确认后才执行
 """
 
 from langgraph.graph import StateGraph, END
@@ -23,6 +26,12 @@ from .nodes import (
     recover_failure_node,
     run_workflow_node,
 )
+from .nodes.request_confirmation import request_confirmation_node
+from .nodes.check_confirmation import check_confirmation_node
+
+
+# Dangerous operations that require confirmation
+DANGEROUS_OPERATIONS = ["run_workflow", "recover_failure"]
 
 
 def route_intent(state: ChatState) -> str:
@@ -36,7 +45,18 @@ def route_intent(state: ChatState) -> str:
         Route name for the next node
     """
     intent = state.get("intent_type", "unknown")
+    pending_confirmation = state.get("pending_confirmation", False)
+    confirmation_status = state.get("confirmation_status", "")
 
+    # 如果正在等待确认状态检查
+    if pending_confirmation and confirmation_status in ["confirmed", "rejected"]:
+        return "check_confirmation"
+
+    # 危险操作需要确认
+    if intent in DANGEROUS_OPERATIONS and not state.get("execute_approved", False):
+        return "request_confirmation"
+
+    # 查询操作直接执行
     ROUTE_MAP = {
         "scan_graph": "scan_graph",
         "lineage_query": "lineage_query",
@@ -45,11 +65,11 @@ def route_intent(state: ChatState) -> str:
         "query_workflow_instances": "query_workflow_instances",
         "query_status": "query_status",
         "query_logs": "query_logs",
-        "recover_failure": "recover_failure",
-        "run_workflow": "run_workflow",
+        "recover_failure": "recover_failure",  # 确认后会到这里
+        "run_workflow": "run_workflow",  # 确认后会到这里
         "help": "format_response",
         "unknown": "format_response",
-        "query_task_instances": "query_logs",  # 使用query_logs节点处理
+        "query_task_instances": "query_logs",
     }
 
     return ROUTE_MAP.get(intent, "unknown")
@@ -61,17 +81,11 @@ def create_chat_graph():
 
     Flow:
     User message -> parse_intent -> route (branch)
-      - scan_graph -> scan_graph_node -> format_response
-      - lineage_query -> query_lineage_node -> format_response
-      - visualize_lineage -> visualize_node -> format_response
-      - query_workflow -> query_workflow_node -> format_response
-      - query_workflow_instances -> query_workflow_instances_node -> format_response
-      - query_status -> query_status_node -> format_response
-      - query_logs -> query_logs_node -> format_response
-      - recover_failure -> recover_failure_node -> format_response
-      - run_workflow -> run_workflow_node -> format_response
-      - help -> format_response (direct return)
-      - unknown -> format_response (return cannot understand)
+      - Dangerous operations (run_workflow/recover_failure):
+        -> request_confirmation -> END (wait for user)
+        User replies "确认" -> check_confirmation -> execute -> format_response
+      - Query operations:
+        -> direct execute -> format_response -> END
 
     Returns:
         Compiled LangGraph graph
@@ -80,6 +94,8 @@ def create_chat_graph():
 
     # Add all nodes
     graph.add_node("parse_intent", parse_intent_node)
+    graph.add_node("request_confirmation", request_confirmation_node)
+    graph.add_node("check_confirmation", check_confirmation_node)
     graph.add_node("scan_graph", scan_graph_node)
     graph.add_node("lineage_query", query_lineage_node)
     graph.add_node("visualize", visualize_node)
@@ -99,6 +115,8 @@ def create_chat_graph():
         "parse_intent",
         route_intent,
         {
+            "request_confirmation": "request_confirmation",
+            "check_confirmation": "check_confirmation",
             "scan_graph": "scan_graph",
             "lineage_query": "lineage_query",
             "visualize": "visualize",
@@ -110,6 +128,20 @@ def create_chat_graph():
             "run_workflow": "run_workflow",
             "help": "format_response",
             "unknown": "format_response",
+        },
+    )
+
+    # Confirmation flow edges
+    # request_confirmation -> END (wait for user reply)
+    graph.add_edge("request_confirmation", END)
+
+    # check_confirmation -> route based on execute_approved
+    graph.add_conditional_edges(
+        "check_confirmation",
+        lambda state: "execute" if state.get("execute_approved", False) else "format_response",
+        {
+            "execute": "parse_intent",  # 回到意图路由执行操作
+            "format_response": "format_response",
         },
     )
 
@@ -149,4 +181,5 @@ __all__ = [
     "create_chat_graph",
     "get_chat_graph",
     "route_intent",
+    "DANGEROUS_OPERATIONS",
 ]

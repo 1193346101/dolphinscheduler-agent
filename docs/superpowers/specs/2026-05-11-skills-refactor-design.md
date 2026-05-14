@@ -43,11 +43,14 @@ skills/
 │   ├── SKILL.md
 │   ├── spark_patterns.md
 │   └── scripts/
-│       ├── match_error.py
+│       ├── match_error.py         # 使用 pattern_matcher 匹配
 │       ├── analyze_traceback.py
-│       └── build_fix.py           # 构建修复方案（AUTO_FIXABLE）
-│       └── calculate_resource.py  # 资源建议计算（最高2倍）
+│       ├── build_fix.py           # 构建修复方案（AUTO_FIXABLE）
+│       ├── calculate_resource.py  # 资源建议计算（只返回5个参数）
+│       └── resource_metrics.py    # YARN/Spark History API（获取真实数据）
 │
+├── common/
+│   ├── pattern_matcher.py         # 公共模式匹配模块（新增）
 ├── python-error-analyzer/
 │   ├── SKILL.md
 │   ├── python_patterns.md

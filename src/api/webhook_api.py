@@ -29,6 +29,10 @@ app = FastAPI(title="DolphinScheduler Agent API")
 from ..chat.api import router as dingtalk_router
 app.include_router(dingtalk_router)
 
+# 注册报告路由
+from ..api.report_api import router as report_router
+app.include_router(report_router)
+
 # 初始化组件
 approval_workflow = ApprovalWorkflow()
 approval_tool = ApprovalTool()

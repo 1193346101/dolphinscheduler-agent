@@ -18,6 +18,7 @@ class ChatState(TypedDict, total=False):
     2. Intent parsing stage - Intent type and query parameters
     3. Query stage - Lineage query results
     4. Response stage - Formatted response content
+    5. Confirmation stage - User confirmation for dangerous operations
     """
 
     # ==================== Input Stage ====================
@@ -65,6 +66,22 @@ class ChatState(TypedDict, total=False):
     # Error message if query failed
     error_message: Optional[str]
 
+    # ==================== Confirmation Stage ====================
+    # Whether waiting for user confirmation
+    pending_confirmation: bool
+    # Confirmation request message content
+    confirmation_message: Optional[str]
+    # Action type waiting for confirmation (run_workflow, recover_failure)
+    confirmed_action: Optional[str]
+    # Parameters for the action to be executed
+    confirmation_params: Optional[Dict[str, Any]]
+    # Confirmation status: "pending" | "confirmed" | "rejected"
+    confirmation_status: Optional[str]
+    # Unique confirmation ID for tracking
+    confirmation_id: Optional[str]
+    # Whether execution is approved after confirmation
+    execute_approved: bool
+
 
 def create_chat_state(
     message: str,
@@ -98,6 +115,14 @@ def create_chat_state(
         "result_data": None,
         "response_content": None,
         "error_message": None,
+        # Confirmation fields
+        "pending_confirmation": False,
+        "confirmation_message": None,
+        "confirmed_action": None,
+        "confirmation_params": None,
+        "confirmation_status": None,
+        "confirmation_id": None,
+        "execute_approved": False,
     }
 
 

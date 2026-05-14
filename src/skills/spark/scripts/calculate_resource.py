@@ -1,11 +1,26 @@
 """
-Spark 资源建议计算脚本
+Spark 资源智能计算脚本
 
-根据错误类型、数据指标、当前配置和集群限制计算资源调整建议。
+基于历史成功数据预测 + 规则引擎兜底，计算资源调整建议。
+
+核心逻辑：
+1. 历史预测：分析历史数据量与内存使用关系，预测当前任务需要的配置（最准确）
+2. Driver 处理：单独计算 driver_memory（Driver OOM 时）
+3. Executor 内存：基于溢出量或预测峰值
+4. Executor 数量：基于 Shuffle 数据量计算并行度
+5. 规则兜底：无数据时保守翻倍
+
+DolphinScheduler Spark 任务支持的参数：
+- Driver核心数 (spark.driver.cores) - 固定，不调整
+- Driver内存数 (spark.driver.memory) - 需调整
+- Executor数量 (spark.executor.instances) - 需调整
+- Executor内存数 (spark.executor.memory) - 需调整
+- Executor核心数 (spark.executor.cores) - 固定为1，不调整
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import re
+import statistics
 
 
 def parse_memory_to_mb(memory_str: str) -> int:
@@ -21,7 +36,7 @@ def parse_memory_to_mb(memory_str: str) -> int:
     if not memory_str:
         return 0
 
-    memory_str = memory_str.strip().lower()
+    memory_str = str(memory_str).strip().lower()
 
     # 提取数字和单位
     match = re.match(r'^(\d+(?:\.\d+)?)\s*([gmkt]?)$', memory_str)
@@ -62,6 +77,435 @@ def format_memory_from_mb(memory_mb: int) -> str:
         return f"{memory_mb}m"
 
 
+def predict_config_from_history(
+    historical_instances: List[Dict],
+    current_data_size_mb: int,
+) -> Dict[str, Any]:
+    """
+    基于历史成功数据预测当前任务需要的配置
+
+    分析历史数据量与内存使用的关系，预测当前任务峰值内存。
+
+    Args:
+        historical_instances: 历史成功任务的 metrics 列表
+            [{date, input_bytes_mb, peak_memory_mb, shuffle_read_mb, shuffle_write_mb,
+              executor_memory, executor_instances, success}]
+        current_data_size_mb: 当前任务数据量
+
+    Returns:
+        预测结果 {
+            executor_memory: 建议内存,
+            executor_instances: 建议 Executor 数量,
+            predicted_peak_mb: 预测峰值内存,
+            memory_per_data_ratio: 数据量到内存的转换系数,
+            confidence: HIGH/MEDIUM/LOW,
+            reasoning: 说明,
+        }
+    """
+    # 过滤成功案例
+    success_cases = [h for h in historical_instances if h.get("success") and h.get("peak_memory_mb")]
+
+    if len(success_cases) < 3:
+        return {
+            "confidence": "LOW",
+            "reasoning": f"历史成功案例不足（{len(success_cases)}个），无法预测",
+        }
+
+    # ========== 分析数据量与内存的关系 ==========
+
+    data_sizes = [h.get("input_bytes_mb", 0) for h in success_cases]
+    peak_memories = [h.get("peak_memory_mb", 0) for h in success_cases]
+
+    # 基础计算：平均值比例
+    avg_data = statistics.mean(data_sizes) if data_sizes else 0
+    avg_peak = statistics.mean(peak_memories) if peak_memories else 0
+
+    if avg_data <= 0:
+        return {"confidence": "LOW", "reasoning": "历史数据量无效"}
+
+    base_ratio = avg_peak / avg_data
+
+    # 进阶计算：斜率（数据量变化对内存的影响）
+    memory_per_data = base_ratio
+
+    if len(success_cases) >= 5:
+        # 按数据量排序，分大小组
+        sorted_cases = sorted(success_cases, key=lambda x: x.get("input_bytes_mb", 0))
+
+        mid = len(sorted_cases) // 2
+        small_cases = sorted_cases[:mid]
+        large_cases = sorted_cases[mid:]
+
+        avg_small_data = statistics.mean([c.get("input_bytes_mb", 0) for c in small_cases])
+        avg_small_peak = statistics.mean([c.get("peak_memory_mb", 0) for c in small_cases])
+        avg_large_data = statistics.mean([c.get("input_bytes_mb", 0) for c in large_cases])
+        avg_large_peak = statistics.mean([c.get("peak_memory_mb", 0) for c in large_cases])
+
+        data_diff = avg_large_data - avg_small_data
+        peak_diff = avg_large_peak - avg_small_peak
+
+        if data_diff > 0:
+            # 斜率：每增加 1MB 数据，内存增加多少 MB
+            memory_per_data = peak_diff / data_diff
+
+    # ========== 预测当前任务峰值内存 ==========
+
+    predicted_peak_mb = current_data_size_mb * memory_per_data
+
+    # 加安全余量（30%，确保能执行完成）
+    suggested_memory_mb = int(predicted_peak_mb * 1.3)
+
+    # 确保不低于历史最小配置
+    historical_memories = [
+        parse_memory_to_mb(h.get("executor_memory", "2g"))
+        for h in success_cases
+        if h.get("executor_memory")
+    ]
+    if historical_memories:
+        min_memory_mb = min(historical_memories)
+        suggested_memory_mb = max(suggested_memory_mb, min_memory_mb)
+
+    # ========== 预测 Executor 数量（基于 Shuffle） ==========
+
+    # 计算历史 Shuffle 与数据量的关系
+    shuffle_totals = [
+        h.get("shuffle_read_mb", 0) + h.get("shuffle_write_mb", 0)
+        for h in success_cases
+    ]
+
+    avg_shuffle_per_data = statistics.mean(shuffle_totals) / avg_data if avg_data > 0 and statistics.mean(shuffle_totals) > 0 else 0
+
+    predicted_shuffle_mb = current_data_size_mb * avg_shuffle_per_data
+
+    # 每个 Executor 处理 2GB Shuffle 数据
+    suggested_instances = max(2, int(predicted_shuffle_mb / 2048))
+
+    # 基于历史 Executor 数量范围调整
+    historical_instances_list = [
+        h.get("executor_instances", 10)
+        for h in success_cases
+        if h.get("executor_instances")
+    ]
+    if historical_instances_list:
+        min_instances = min(historical_instances_list)
+        max_instances = max(historical_instances_list)
+        suggested_instances = max(min_instances, min(suggested_instances, max_instances * 2))
+
+    # ========== 构建结果 ==========
+
+    confidence = "HIGH" if len(success_cases) >= 5 else "MEDIUM"
+
+    reasoning = (
+        f"基于{len(success_cases)}个历史成功案例，"
+        f"数据量{current_data_size_mb // 1024}GB预估峰值{predicted_peak_mb // 1024}GB "
+        f"(比例1:{memory_per_data:.2f})，建议内存{format_memory_from_mb(suggested_memory_mb)}"
+    )
+
+    if predicted_shuffle_mb > 2048:
+        reasoning += f"，Shuffle预估{predicted_shuffle_mb // 1024}GB建议{ suggested_instances}个Executor"
+
+    return {
+        "executor_memory": format_memory_from_mb(suggested_memory_mb),
+        "executor_instances": suggested_instances,
+        "predicted_peak_mb": predicted_peak_mb,
+        "memory_per_data_ratio": memory_per_data,
+        "confidence": confidence,
+        "method": "history_prediction",
+        "reasoning": reasoning,
+        "sample_count": len(success_cases),
+    }
+
+
+def calculate_driver_suggestion(
+    error_type: str,
+    current_config: Dict[str, str],
+    data_metrics: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    计算 Driver 内存建议（单独处理 Driver 相关错误）
+
+    Args:
+        error_type: 错误类型 (oom_driver, oom_driver_direct 等)
+        current_config: 当前配置
+        data_metrics: 数据指标
+
+    Returns:
+        Driver 内存建议
+    """
+    current_driver_mem = parse_memory_to_mb(current_config.get("driver_memory", "1g"))
+
+    # 获取溢出量
+    spilled_mb = data_metrics.get("memory_spilled_mb", 0)
+
+    if spilled_mb > 0:
+        # 有溢出数据：当前 + 溢出量
+        suggested_driver_mb = current_driver_mem + spilled_mb
+        reasoning = f"Driver溢出{spilled_mb}MB，内存从{format_memory_from_mb(current_driver_mem)}增至{format_memory_from_mb(suggested_driver_mb)}"
+    else:
+        # 无数据：保守翻倍
+        suggested_driver_mb = current_driver_mem * 2
+        reasoning = f"Driver内存问题，建议从{format_memory_from_mb(current_driver_mem)}翻倍至{format_memory_from_mb(suggested_driver_mb)}"
+
+    # 限制最大值（通常 Driver 不需要太大）
+    max_driver_mb = 8 * 1024  # 8GB
+    if suggested_driver_mb > max_driver_mb:
+        suggested_driver_mb = max_driver_mb
+        reasoning += f"，已达上限{format_memory_from_mb(max_driver_mb)}"
+
+    return {
+        "driver_memory": format_memory_from_mb(suggested_driver_mb),
+        "reasoning": reasoning,
+        "method": "driver_oom",
+    }
+
+
+def calculate_executor_memory_suggestion(
+    current_config: Dict[str, str],
+    data_metrics: Dict[str, Any],
+    prediction_result: Optional[Dict] = None,
+) -> Dict[str, Any]:
+    """
+    计算 Executor 内存建议
+
+    优先级：
+    1. 历史预测结果
+    2. 溢出量
+    3. 峰值内存
+    4. 翻倍兜底
+
+    Args:
+        current_config: 当前配置
+        data_metrics: 数据指标
+        prediction_result: 历史预测结果（如果有）
+
+    Returns:
+        Executor 内存建议
+    """
+    current_mem = parse_memory_to_mb(current_config.get("executor_memory", "4g"))
+
+    # 优先使用历史预测
+    if prediction_result and prediction_result.get("executor_memory"):
+        return {
+            "executor_memory": prediction_result["executor_memory"],
+            "reasoning": prediction_result.get("reasoning", "历史预测"),
+            "method": prediction_result.get("method", "history_prediction"),
+            "confidence": prediction_result.get("confidence", "MEDIUM"),
+        }
+
+    # 溢出量计算
+    spilled_mb = data_metrics.get("memory_spilled_mb", 0)
+    if spilled_mb > 0:
+        suggested_mb = current_mem + spilled_mb
+        return {
+            "executor_memory": format_memory_from_mb(suggested_mb),
+            "reasoning": f"溢出{spilled_mb}MB，内存增至{format_memory_from_mb(suggested_mb)}",
+            "method": "oom_spill",
+            "confidence": "HIGH",
+        }
+
+    # 峰值内存计算
+    peak_mb = data_metrics.get("peak_memory_mb", 0)
+    if peak_mb > 0:
+        # 峰值 + 30% 余量
+        suggested_mb = int(peak_mb * 1.3)
+        return {
+            "executor_memory": format_memory_from_mb(suggested_mb),
+            "reasoning": f"峰值{peak_mb}MB，预留30%余量",
+            "method": "peak_memory",
+            "confidence": "MEDIUM",
+        }
+
+    # 翻倍兜底
+    suggested_mb = current_mem * 2
+    return {
+        "executor_memory": format_memory_from_mb(suggested_mb),
+        "reasoning": f"无数据支撑，保守翻倍至{format_memory_from_mb(suggested_mb)}",
+        "method": "fallback_double",
+        "confidence": "LOW",
+    }
+
+
+def calculate_executor_instances_suggestion(
+    current_config: Dict[str, str],
+    data_metrics: Dict[str, Any],
+    prediction_result: Optional[Dict] = None,
+) -> Dict[str, Any]:
+    """
+    计算 Executor 数量建议（基于 Shuffle 数据量）
+
+    Args:
+        current_config: 当前配置
+        data_metrics: 数据指标
+        prediction_result: 历史预测结果（如果有）
+
+    Returns:
+        Executor 数量建议
+    """
+    current_instances = int(current_config.get("executor_instances", 10))
+
+    # 优先使用历史预测
+    if prediction_result and prediction_result.get("executor_instances"):
+        predicted_instances = prediction_result["executor_instances"]
+        if predicted_instances > current_instances:
+            return {
+                "executor_instances": predicted_instances,
+                "reasoning": f"历史预测建议{predicted_instances}个Executor",
+                "method": "history_prediction",
+            }
+
+    # Shuffle 数据量计算
+    shuffle_mb = data_metrics.get("shuffle_read_mb", 0) + data_metrics.get("shuffle_write_mb", 0)
+
+    if shuffle_mb < 2048:  # < 2GB，不需要调整
+        return {}
+
+    # 每个 Executor 处理 2GB Shuffle
+    suggested_instances = max(2, shuffle_mb // 2048)
+
+    # 不超过当前配置的2倍（避免过度调整）
+    max_instances = current_instances * 2
+    suggested_instances = min(suggested_instances, max_instances)
+
+    # 限制集群上限
+    cluster_max_instances = 100
+    suggested_instances = min(suggested_instances, cluster_max_instances)
+
+    if suggested_instances > current_instances:
+        return {
+            "executor_instances": suggested_instances,
+            "reasoning": f"Shuffle {shuffle_mb // 1024}GB，建议{ suggested_instances}个Executor（每Executor处理2GB）",
+            "method": "shuffle_parallelism",
+        }
+
+    return {}
+
+
+def build_smart_resource_suggestion(
+    error_type: str,
+    current_config: Dict[str, str],
+    data_metrics: Dict[str, Any],
+    historical_logs: Optional[List[Dict]] = None,
+    current_data_size_mb: int = 0,
+) -> Dict[str, Any]:
+    """
+    构建智能资源建议（主入口函数）
+
+    Args:
+        error_type: 错误类型
+        current_config: 当前配置
+            - driver_memory: Driver 内存
+            - executor_memory: Executor 内存
+            - executor_instances: Executor 数量
+        data_metrics: 数据指标
+            - memory_spilled_mb: 内存溢出量
+            - peak_memory_mb: 峰值内存
+            - shuffle_read_mb: Shuffle 读取量
+            - shuffle_write_mb: Shuffle 写入量
+            - input_bytes_mb: 输入数据量
+        historical_logs: 历史成功日志的 metrics（最近7天）
+        current_data_size_mb: 当前任务数据量
+
+    Returns:
+        {
+            suggested_config: {driver_memory, executor_memory, executor_instances},
+            reasoning: 说明,
+            method: history_prediction/rule_engine/fallback,
+            confidence: HIGH/MEDIUM/LOW,
+            executor_cores: 1,  # 固定值
+        }
+    """
+    suggested_config = {}
+    reasoning_parts = []
+    method = "rule_engine"
+    confidence = "LOW"
+
+    # ========== 1. Driver 相关错误（单独处理）==========
+    driver_errors = ["oom_driver", "oom_driver_direct", "driver_memory_insufficient"]
+    is_driver_error = error_type in driver_errors
+
+    if is_driver_error:
+        driver_suggestion = calculate_driver_suggestion(error_type, current_config, data_metrics)
+        suggested_config["driver_memory"] = driver_suggestion["driver_memory"]
+        reasoning_parts.append(driver_suggestion["reasoning"])
+        method = driver_suggestion.get("method", "driver_oom")
+        confidence = driver_suggestion.get("confidence", "MEDIUM")
+
+    # ========== 2. Executor 相关错误（主流程）==========
+    executor_errors = [
+        "oom_executor", "oom_offheap", "container_killed_memory", "gc_overhead",
+        "shuffle_timeout", "shuffle_failed", "executor_lost_heartbeat",
+        "executor_memory_insufficient"
+    ]
+    is_executor_error = error_type in executor_errors
+
+    if is_executor_error or not is_driver_error:
+        # 尝试历史预测
+        prediction_result = None
+
+        if historical_logs and len(historical_logs) >= 3 and current_data_size_mb > 0:
+            prediction_result = predict_config_from_history(historical_logs, current_data_size_mb)
+
+            if prediction_result.get("confidence") in ["HIGH", "MEDIUM"]:
+                # 历史预测成功
+                suggested_config["executor_memory"] = prediction_result["executor_memory"]
+
+                if prediction_result.get("executor_instances"):
+                    suggested_config["executor_instances"] = prediction_result["executor_instances"]
+
+                reasoning_parts.append(prediction_result["reasoning"])
+                method = "history_prediction"
+                confidence = prediction_result["confidence"]
+
+        # 如果历史预测失败，使用规则引擎
+        if not suggested_config.get("executor_memory"):
+            mem_suggestion = calculate_executor_memory_suggestion(
+                current_config, data_metrics, prediction_result
+            )
+            suggested_config["executor_memory"] = mem_suggestion["executor_memory"]
+            reasoning_parts.append(mem_suggestion["reasoning"])
+            method = mem_suggestion.get("method", "rule_engine")
+            confidence = mem_suggestion.get("confidence", "LOW")
+
+        # Executor 数量建议
+        if not suggested_config.get("executor_instances"):
+            instances_suggestion = calculate_executor_instances_suggestion(
+                current_config, data_metrics, prediction_result
+            )
+            if instances_suggestion:
+                suggested_config["executor_instances"] = instances_suggestion["executor_instances"]
+                reasoning_parts.append(instances_suggestion["reasoning"])
+
+    # ========== 3. 集群限制检查 ==========
+    max_executor_memory_mb = 16 * 1024  # 16GB
+    max_driver_memory_mb = 8 * 1024     # 8GB
+
+    if suggested_config.get("executor_memory"):
+        suggested_mem_mb = parse_memory_to_mb(suggested_config["executor_memory"])
+        if suggested_mem_mb > max_executor_memory_mb:
+            suggested_config["executor_memory"] = format_memory_from_mb(max_executor_memory_mb)
+            reasoning_parts.append(f"Executor内存已达上限{format_memory_from_mb(max_executor_memory_mb)}")
+
+    if suggested_config.get("driver_memory"):
+        suggested_driver_mb = parse_memory_to_mb(suggested_config["driver_memory"])
+        if suggested_driver_mb > max_driver_memory_mb:
+            suggested_config["driver_memory"] = format_memory_from_mb(max_driver_memory_mb)
+            reasoning_parts.append(f"Driver内存已达上限{format_memory_from_mb(max_driver_memory_mb)}")
+
+    # ========== 4. 构建最终结果 ==========
+
+    return {
+        "suggested_config": suggested_config,
+        "reasoning": " | ".join(reasoning_parts) if reasoning_parts else "无建议",
+        "method": method,
+        "confidence": confidence,
+        "executor_cores": 1,  # 固定值，不调整
+        "driver_cores": 1,    # 固定值，不调整
+        "current_config": current_config,
+    }
+
+
+# ========== 兼容旧接口（保持向后兼容） ==========
+
 def calculate_resource_suggestion(
     error_type: str,
     data_metrics: Dict[str, Any],
@@ -69,259 +513,80 @@ def calculate_resource_suggestion(
     cluster_limit: Dict[str, str]
 ) -> Dict[str, Any]:
     """
-    计算 Spark 资源建议。
+    计算资源建议（兼容旧接口）
 
-    Args:
-        error_type: 错误类型，如 "oom_executor", "container_killed_memory" 等
-        data_metrics: 数据指标，包含:
-            - memory_spilled: 内存溢出量（MB 或字符串如 "2g"）
-            - peak_memory: 峰值内存使用
-            - shuffle_read: Shuffle 读取量
-            - shuffle_write: Shuffle 写入量
-        current_config: 当前配置，包含:
-            - executor_memory: Executor 内存
-            - executor_memory_overhead: Executor 内存开销
-            - driver_memory: Driver 内存
-            - driver_memory_overhead: Driver 内存开销
-        cluster_limit: 集群限制，包含:
-            - max_executor_memory: 最大 Executor 内存
-            - max_driver_memory: 最大 Driver 内存
-            - max_executors_per_app: 每个 App 最大 Executor 数
-
-    Returns:
-        资源建议字典，包含:
-        - suggested_memory: str - 建议的内存配置
-        - reason: str - 建议原因
-        - current_memory: str - 当前内存配置
-        - max_limit: str - 集群限制
-        - warning: str - 警告信息（如果达到限制）
+    已废弃，建议使用 build_smart_resource_suggestion
     """
-    # 确定是 executor 还是 driver 相关的错误
-    is_driver_error = error_type in [
-        "oom_driver",
-        "oom_driver_direct",
-        "driver_memory_insufficient"
-    ]
-
-    # 获取当前内存配置
-    if is_driver_error:
-        current_memory_str = current_config.get("driver_memory", "1g")
-        overhead_str = current_config.get("driver_memory_overhead", "256m")
-        max_limit_str = cluster_limit.get("max_driver_memory", "8g")
-        resource_type = "driver"
-    else:
-        current_memory_str = current_config.get("executor_memory", "2g")
-        overhead_str = current_config.get("executor_memory_overhead", "512m")
-        max_limit_str = cluster_limit.get("max_executor_memory", "16g")
-        resource_type = "executor"
-
-    # 转换为 MB
-    current_memory_mb = parse_memory_to_mb(current_memory_str)
-    overhead_mb = parse_memory_to_mb(overhead_str)
-    max_limit_mb = parse_memory_to_mb(max_limit_str)
-
-    # 获取溢出内存
-    memory_spilled_raw = data_metrics.get("memory_spilled", 0)
-    if isinstance(memory_spilled_raw, str):
-        memory_spilled_mb = parse_memory_to_mb(memory_spilled_raw)
-    else:
-        memory_spilled_mb = int(memory_spilled_raw)
-
-    # 获取峰值内存（如果有）
-    peak_memory_raw = data_metrics.get("peak_memory", 0)
-    if isinstance(peak_memory_raw, str):
-        peak_memory_mb = parse_memory_to_mb(peak_memory_raw)
-    else:
-        peak_memory_mb = int(peak_memory_raw)
-
-    # 计算建议内存
-    suggested_memory_mb = 0
-    reason = ""
-
-    if memory_spilled_mb > 0:
-        # 情况1: 有内存溢出，添加溢出量到当前配置
-        suggested_memory_mb = current_memory_mb + memory_spilled_mb + overhead_mb
-        reason = (
-            f"检测到内存溢出 {format_memory_from_mb(memory_spilled_mb)}，"
-            f"建议在当前 {format_memory_from_mb(current_memory_mb)} 基础上增加溢出量"
-        )
-    elif peak_memory_mb > 0:
-        # 情况2: 有峰值内存数据，基于峰值计算
-        # 预留 20% 的安全余量
-        suggested_memory_mb = int(peak_memory_mb * 1.2)
-        reason = (
-            f"基于峰值内存使用 {format_memory_from_mb(peak_memory_mb)}，"
-            f"预留 20% 安全余量"
-        )
-    else:
-        # 情况3: 无溢出数据，加倍当前配置（最大2倍）
-        suggested_memory_mb = current_memory_mb * 2
-        reason = (
-            f"未检测到内存溢出数据，建议将 {resource_type} 内存从 "
-            f"{format_memory_from_mb(current_memory_mb)} 加倍"
-        )
-
-    # 确保最小值
-    min_memory_mb = 512  # 最小 512MB
-    suggested_memory_mb = max(suggested_memory_mb, min_memory_mb)
-
-    # 检查是否超过集群限制
-    warning = None
-    if suggested_memory_mb > max_limit_mb:
-        warning = (
-            f"建议内存 {format_memory_from_mb(suggested_memory_mb)} 超过集群限制 "
-            f"{format_memory_from_mb(max_limit_mb)}，已调整为最大限制"
-        )
-        suggested_memory_mb = max_limit_mb
-
-    # 检查是否已达到限制
-    if suggested_memory_mb == max_limit_mb:
-        warning = (
-            f"警告: {resource_type} 内存已达集群最大限制 "
-            f"{format_memory_from_mb(max_limit_mb)}，可能需要优化任务或申请更多资源配额"
-        )
-
-    # 根据错误类型调整建议
-    config_changes = {}
-    if error_type == "oom_executor":
-        config_changes = {
-            "spark.executor.memory": format_memory_from_mb(suggested_memory_mb),
-            "spark.executor.memoryOverhead": format_memory_from_mb(overhead_mb),
-        }
-    elif error_type == "oom_driver":
-        config_changes = {
-            "spark.driver.memory": format_memory_from_mb(suggested_memory_mb),
-            "spark.driver.memoryOverhead": format_memory_from_mb(overhead_mb),
-        }
-    elif error_type == "oom_offheap":
-        # 对于 offheap OOM，额外建议开启 offheap
-        config_changes = {
-            "spark.memory.offHeap.enabled": "true",
-            "spark.memory.offHeap.size": format_memory_from_mb(suggested_memory_mb // 2),
-        }
-        reason += "，并建议开启 offHeap 内存"
-    elif error_type == "container_killed_memory":
-        config_changes = {
-            "spark.executor.memory": format_memory_from_mb(suggested_memory_mb),
-            "spark.executor.memoryOverhead": format_memory_from_mb(overhead_mb + 256),  # 额外增加开销
-        }
-        reason += "，同时增加 memoryOverhead 以避免容器被终止"
-    elif error_type == "gc_overhead":
-        # GC overhead 通常需要更多内存和调整内存比例
-        config_changes = {
-            "spark.executor.memory": format_memory_from_mb(suggested_memory_mb),
-            "spark.executor.memoryOverhead": format_memory_from_mb(suggested_memory_mb // 4),
-            "spark.memory.fraction": "0.6",
-            "spark.memory.storageFraction": "0.3",
-        }
-        reason += "，并建议调整内存比例以减少 GC 压力"
-    else:
-        # 默认配置
-        if is_driver_error:
-            config_changes = {
-                "spark.driver.memory": format_memory_from_mb(suggested_memory_mb),
-            }
-        else:
-            config_changes = {
-                "spark.executor.memory": format_memory_from_mb(suggested_memory_mb),
-            }
-
-    return {
-        "suggested_memory": format_memory_from_mb(suggested_memory_mb),
-        "reason": reason,
-        "current_memory": format_memory_from_mb(current_memory_mb),
-        "max_limit": format_memory_from_mb(max_limit_mb),
-        "warning": warning,
-        "config_changes": config_changes,
-        "resource_type": resource_type,
-    }
+    return build_smart_resource_suggestion(
+        error_type=error_type,
+        current_config=current_config,
+        data_metrics=data_metrics,
+        historical_logs=None,
+        current_data_size_mb=data_metrics.get("input_bytes_mb", 0),
+    )
 
 
-def calculate_executor_count_suggestion(
-    data_metrics: Dict[str, Any],
-    current_config: Dict[str, Any],
-    cluster_limit: Dict[str, str]
-) -> Dict[str, Any]:
-    """
-    计算 Executor 数量建议。
-
-    Args:
-        data_metrics: 数据指标
-        current_config: 当前配置
-        cluster_limit: 集群限制
-
-    Returns:
-        Executor 数量建议
-    """
-    current_executors = current_config.get("executor_count", 2)
-    max_executors = int(cluster_limit.get("max_executors_per_app", 100))
-
-    # 基于数据量或并行度计算
-    shuffle_read_mb = 0
-    shuffle_read_raw = data_metrics.get("shuffle_read", 0)
-    if isinstance(shuffle_read_raw, str):
-        shuffle_read_mb = parse_memory_to_mb(shuffle_read_raw)
-    else:
-        shuffle_read_mb = int(shuffle_read_raw)
-
-    # 每个 executor 处理 2GB 数据
-    suggested_executors = max(2, (shuffle_read_mb + 2047) // 2048)
-    suggested_executors = min(suggested_executors, max_executors)
-
-    warning = None
-    if suggested_executors > current_executors * 2:
-        warning = (
-            f"建议 Executor 数量 {suggested_executors} 远大于当前 {current_executors}，"
-            f"请确认是否需要如此高的并行度"
-        )
-
-    return {
-        "suggested_executors": suggested_executors,
-        "current_executors": current_executors,
-        "max_limit": max_executors,
-        "warning": warning,
-        "reason": f"基于 Shuffle 数据量 {format_memory_from_mb(shuffle_read_mb)} 计算"
-    }
-
-
-# 便捷函数：综合资源建议
-def get_comprehensive_suggestion(
+def build_resource_suggestion(
     error_type: str,
-    data_metrics: Dict[str, Any],
     current_config: Dict[str, str],
-    cluster_limit: Dict[str, str]
-) -> Dict[str, Any]:
+    data_metrics: Dict[str, Any],
+    app_info: Dict[str, Any]
+) -> Optional[Dict[str, Any]]:
     """
-    获取综合资源建议。
+    构建 Spark 资源建议（兼容 analyzer.py 调用）
 
     Args:
         error_type: 错误类型
-        data_metrics: 数据指标
-        current_config: 当前配置
-        cluster_limit: 集群限制
+        current_config: 当前 Spark 配置
+        data_metrics: 数据量指标
+        app_info: App 信息
 
     Returns:
-        综合资源建议
+        资源建议字典或 None
     """
-    memory_suggestion = calculate_resource_suggestion(
-        error_type, data_metrics, current_config, cluster_limit
+    # 非资源类错误不返回建议
+    resource_errors = [
+        "oom_executor", "oom_driver", "oom_driver_direct", "oom_offheap",
+        "container_killed_memory", "gc_overhead",
+        "shuffle_timeout", "shuffle_failed", "executor_lost_heartbeat",
+        "driver_memory_insufficient", "executor_memory_insufficient"
+    ]
+
+    if error_type not in resource_errors:
+        return None
+
+    result = build_smart_resource_suggestion(
+        error_type=error_type,
+        current_config=current_config,
+        data_metrics=data_metrics,
+        historical_logs=None,
+        current_data_size_mb=data_metrics.get("input_bytes_mb", 0),
     )
 
-    executor_suggestion = calculate_executor_count_suggestion(
-        data_metrics, current_config, cluster_limit
-    )
+    if not result.get("suggested_config"):
+        return None
 
     return {
-        "memory": memory_suggestion,
-        "executors": executor_suggestion,
-        "recommended_configs": memory_suggestion.get("config_changes", {}),
+        "suggested_config": result["suggested_config"],
+        "reasoning": result["reasoning"],
+        "current_config": result.get("current_config", current_config),
+        "method": result.get("method", "rule_engine"),
+        "confidence": result.get("confidence", "LOW"),
     }
 
 
 __all__ = [
+    # 工具函数
     "parse_memory_to_mb",
     "format_memory_from_mb",
+    # 核心计算函数
+    "predict_config_from_history",
+    "calculate_driver_suggestion",
+    "calculate_executor_memory_suggestion",
+    "calculate_executor_instances_suggestion",
+    # 主入口函数
+    "build_smart_resource_suggestion",
+    # 兼容旧接口
     "calculate_resource_suggestion",
-    "calculate_executor_count_suggestion",
-    "get_comprehensive_suggestion",
+    "build_resource_suggestion",
 ]

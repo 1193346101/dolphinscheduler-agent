@@ -1,6 +1,282 @@
 {
-  "generated_at": "2026-05-11T19:48:24.276382",
+  "generated_at": "2026-05-14T13:50:01.090553",
   "table_consumers": {
+    "ak_china_region_info_view": {
+      "workflows": [
+        "11598178397184",
+        "11598179392256",
+        "11598180699776",
+        "11599819950336",
+        "11599823357440",
+        "11599834736896",
+        "11599840142464"
+      ],
+      "tasks": [
+        "11598178397189",
+        "11598178397191",
+        "11598179392259",
+        "11598180699905",
+        "11599819950339",
+        "11599823357446",
+        "11599823357447",
+        "11599823357448",
+        "11599823357449",
+        "11599834736899",
+        "11599840142465",
+        "11599840142466",
+        "11599840142467",
+        "11599840142468"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.spot.AkSpotCountyFreqTotalReport",
+        "tv.huan.ad.monitor.ads.spot.AkSpotCountyFreqDayReport",
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorcCountyReport",
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorcCountyReport",
+        "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionMarkFreqTotalReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqTotalReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionMediaFreqTotalReport",
+        "tv.huan.ad.monitor.ipipCounty.AkMonitorCountyFreqTotalReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionCountyCollideReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionMarkFreqDayReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionMediaFreqDayReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqDayReport",
+        "tv.huan.ad.monitor.ipipCounty.AkMonitorCountyFreqWeekReport"
+      ]
+    },
+    "view_region_info_temp": {
+      "workflows": [
+        "11598178397184",
+        "11598179392256",
+        "11598180699776",
+        "11599819950336",
+        "11599823357440"
+      ],
+      "tasks": [
+        "11598178397189",
+        "11598178397191",
+        "11598179392259",
+        "11598180699905",
+        "11599819950339",
+        "11599823357446",
+        "11599823357447",
+        "11599823357448",
+        "11599823357449"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.spot.AkSpotCountyFreqTotalReport",
+        "tv.huan.ad.monitor.ads.spot.AkSpotCountyFreqDayReport",
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorcCountyReport",
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorcCountyReport",
+        "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionMarkFreqTotalReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqTotalReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionMediaFreqTotalReport",
+        "tv.huan.ad.monitor.ipipCounty.AkMonitorCountyFreqTotalReport"
+      ]
+    },
+    "ad_monitor.impression_log_pre": {
+      "workflows": [
+        "11598178397184",
+        "11598179392256",
+        "11598180699776",
+        "11599819950336",
+        "11599821572608",
+        "11599823357440"
+      ],
+      "tasks": [
+        "11598178397189",
+        "11598179392259",
+        "11598179392260",
+        "11598180699905",
+        "11598180699906",
+        "11599819950339",
+        "11599819950343",
+        "11599821572615",
+        "11599821572616",
+        "11599821572617",
+        "11599821572620",
+        "11599823357446",
+        "11599823357447",
+        "11599823357448",
+        "11599823357449"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.spot.AkSpotCountyFreqTotalReport",
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorcCountyReport",
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorDayReport",
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorcCountyReport",
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorDayReport",
+        "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport",
+        "tv.huan.ad.monitor.upgrade.BaseReport",
+        "tv.huan.ad.monitor.upgrade.ImpressionMarkTotalReport",
+        "tv.huan.ad.monitor.upgrade.ImpressionProvinceTotalReport",
+        "tv.huan.ad.monitor.upgrade.ImpressionMediaTotalReport",
+        "tv.huan.ad.monitor.upgrade.AkDealScreenSizeReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionMarkFreqTotalReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqTotalReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionMediaFreqTotalReport",
+        "tv.huan.ad.monitor.ipipCounty.AkMonitorCountyFreqTotalReport"
+      ]
+    },
+    "view_result": {
+      "workflows": [
+        "11598178397184",
+        "11598179392256",
+        "11598180699776",
+        "11598184562432",
+        "11598188089984",
+        "11598189672192",
+        "11599818692992",
+        "11599819950336",
+        "11599821572608",
+        "11599823357440",
+        "11599826665344",
+        "11599840142464",
+        "11600006534922",
+        "21614073121702"
+      ],
+      "tasks": [
+        "11598178397189",
+        "11598178397190",
+        "11598178397191",
+        "11598178397192",
+        "11598179392259",
+        "11598179392260",
+        "11598180699905",
+        "11598180699906",
+        "11598184562435",
+        "11598184562436",
+        "11598188089986",
+        "11598189672194",
+        "11599818692997",
+        "11599819950339",
+        "11599819950343",
+        "11599821572615",
+        "11599821572616",
+        "11599821572617",
+        "11599821572620",
+        "11599821572621",
+        "11599823357446",
+        "11599823357447",
+        "11599823357448",
+        "11599823357449",
+        "11599826665352",
+        "11599826665353",
+        "11599826665354",
+        "11599826665357",
+        "11599826665358",
+        "11599826665359",
+        "11599840142465",
+        "11599840142466",
+        "11599840142467",
+        "11599840142468",
+        "11600006534913",
+        "11600006534914",
+        "11600006534915",
+        "11600006534916",
+        "11600006534920",
+        "11600006534921",
+        "21614073121697"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.spot.AkSpotCountyFreqTotalReport",
+        "tv.huan.ad.monitor.ads.spot.AkSpotFreqTotalReport",
+        "tv.huan.ad.monitor.ads.spot.AkSpotCountyFreqDayReport",
+        "tv.huan.ad.monitor.ads.spot.AkSpotFreqDayReport",
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorcCountyReport",
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorDayReport",
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorcCountyReport",
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorDayReport",
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidReqDayReport",
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotReqDayReport",
+        "tv.huan.ad.monitor.upgrade.ClickLogPre",
+        "tv.huan.ad.monitor.ads.AdMonitorAccessLogDiffPeriod0520",
+        "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport",
+        "tv.huan.ad.monitor.upgrade.BaseReport",
+        "tv.huan.ad.monitor.upgrade.ImpressionMarkTotalReport",
+        "tv.huan.ad.monitor.upgrade.ImpressionProvinceTotalReport",
+        "tv.huan.ad.monitor.upgrade.ImpressionMediaTotalReport",
+        "tv.huan.ad.monitor.upgrade.AkDealScreenSizeReport",
+        "tv.huan.ad.monitor.upgrade.AkMonitorFreqTotalReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionMarkFreqTotalReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqTotalReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionMediaFreqTotalReport",
+        "tv.huan.ad.monitor.ipipCounty.AkMonitorCountyFreqTotalReport",
+        "tv.huan.ad.monitor.upgrade.ImpressionMarkDayReport",
+        "tv.huan.ad.monitor.upgrade.ImpressionMediaDayReport",
+        "tv.huan.ad.monitor.upgrade.ImpressionProvinceDayReport",
+        "tv.huan.ad.monitor.upgrade.AkPlanFreqWeekReport",
+        "tv.huan.ad.monitor.upgrade.AkDealFreqWeekReport",
+        "tv.huan.ad.monitor.upgrade.AkMonitorFreqWeekReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionMarkFreqDayReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionMediaFreqDayReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqDayReport",
+        "tv.huan.ad.monitor.ipipCounty.AkMonitorCountyFreqWeekReport",
+        "tv.huan.ad.monitor.dwd.DwdImpressionMultiDimDistinctMac",
+        "tv.huan.ad.monitor.dws.DwsAkPlatformTrafficeStyleImpViewReport",
+        "tv.huan.ad.monitor.dws.DwsAkPlatformImpViewReport",
+        "tv.huan.ad.monitor.dws.DwsAkPlatformCityImpViewReport",
+        "tv.huan.ad.monitor.dwd.DwdImpressionFilterFlatmapHadid",
+        "tv.huan.ad.monitor.dwd.DwdImpressionMultiDimCount",
+        "tv.huan.ad.monitor.upgrade.ImpressionLog"
+      ]
+    },
+    "ad_monitor.impression_log": {
+      "workflows": [
+        "11598178397184",
+        "11598179392256",
+        "11598180699776",
+        "11598189672192",
+        "11599819950336",
+        "11599821572608",
+        "11599826665344",
+        "11599834736896",
+        "11599840142464",
+        "21614073121702"
+      ],
+      "tasks": [
+        "11598178397191",
+        "11598179392259",
+        "11598179392260",
+        "11598180699905",
+        "11598180699906",
+        "11598189672197",
+        "11599819950339",
+        "11599819950343",
+        "11599821572620",
+        "11599826665352",
+        "11599826665353",
+        "11599826665354",
+        "11599826665357",
+        "11599834736898",
+        "11599834736899",
+        "11599840142465",
+        "11599840142466",
+        "11599840142467",
+        "21614073121700"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.spot.AkSpotCountyFreqDayReport",
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorcCountyReport",
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorDayReport",
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorcCountyReport",
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorDayReport",
+        "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport",
+        "tv.huan.ad.monitor.upgrade.BaseReport",
+        "tv.huan.ad.monitor.upgrade.AkDealScreenSizeReport",
+        "tv.huan.ad.monitor.upgrade.ImpressionMarkDayReport",
+        "tv.huan.ad.monitor.upgrade.ImpressionMediaDayReport",
+        "tv.huan.ad.monitor.upgrade.ImpressionProvinceDayReport",
+        "tv.huan.ad.monitor.upgrade.AkPlanFreqWeekReport",
+        "tv.huan.ad.monitor.upgrade.ImpressionCollideReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionCountyCollideReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionMarkFreqDayReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionMediaFreqDayReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqDayReport",
+        "tv.huan.ad.monitor.upgrade.ImpressionLogPre"
+      ]
+    },
     "hdfs:/project/ad_monitor/ads/ads_ak_spot_freq_day_report/": {
       "workflows": [
         "11598178397184",
@@ -44,6 +320,195 @@
         "21098221600288"
       ],
       "classes": []
+    },
+    "ad_monitor.click_log": {
+      "workflows": [
+        "11598179392256",
+        "11598180699776",
+        "11598188089984",
+        "11599819950336"
+      ],
+      "tasks": [
+        "11598179392259",
+        "11598179392260",
+        "11598180699905",
+        "11598180699906",
+        "11598188089986",
+        "11599819950339",
+        "11599819950343"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorcCountyReport",
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorDayReport",
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorcCountyReport",
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorDayReport",
+        "tv.huan.ad.monitor.upgrade.ClickLogPre",
+        "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport",
+        "tv.huan.ad.monitor.upgrade.BaseReport"
+      ]
+    },
+    "ad_monitor.middle_log": {
+      "workflows": [
+        "11598179392256",
+        "11598180699776",
+        "11599819950336"
+      ],
+      "tasks": [
+        "11598179392259",
+        "11598179392260",
+        "11598180699905",
+        "11598180699906",
+        "11599819950339",
+        "11599819950343"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorcCountyReport",
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorDayReport",
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorcCountyReport",
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorDayReport",
+        "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport",
+        "tv.huan.ad.monitor.upgrade.BaseReport"
+      ]
+    },
+    "view_day_log": {
+      "workflows": [
+        "11598179392256",
+        "11598180699776"
+      ],
+      "tasks": [
+        "11598179392259",
+        "11598180699905"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorcCountyReport",
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorcCountyReport"
+      ]
+    },
+    "ad_monitor.click_log_pre": {
+      "workflows": [
+        "11598179392256",
+        "11598180699776",
+        "11599819950336"
+      ],
+      "tasks": [
+        "11598179392259",
+        "11598179392260",
+        "11598180699905",
+        "11598180699906",
+        "11599819950339",
+        "11599819950343"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorcCountyReport",
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorDayReport",
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorcCountyReport",
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorDayReport",
+        "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport",
+        "tv.huan.ad.monitor.upgrade.BaseReport"
+      ]
+    },
+    "ad_monitor.middle_log_pre": {
+      "workflows": [
+        "11598179392256",
+        "11598180699776",
+        "11599819950336"
+      ],
+      "tasks": [
+        "11598179392259",
+        "11598179392260",
+        "11598180699905",
+        "11598180699906",
+        "11599819950339",
+        "11599819950343"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorcCountyReport",
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorDayReport",
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorcCountyReport",
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorDayReport",
+        "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport",
+        "tv.huan.ad.monitor.upgrade.BaseReport"
+      ]
+    },
+    "view_total_log": {
+      "workflows": [
+        "11598179392256",
+        "11598180699776"
+      ],
+      "tasks": [
+        "11598179392259",
+        "11598180699905"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorcCountyReport",
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorcCountyReport"
+      ]
+    },
+    "view_day_res": {
+      "workflows": [
+        "11598179392256",
+        "11598180699776"
+      ],
+      "tasks": [
+        "11598179392259",
+        "11598180699905"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorcCountyReport",
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorcCountyReport"
+      ]
+    },
+    "view_total_res": {
+      "workflows": [
+        "11598179392256",
+        "11598180699776"
+      ],
+      "tasks": [
+        "11598179392259",
+        "11598180699905"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorcCountyReport",
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorcCountyReport"
+      ]
+    },
+    "view_day": {
+      "workflows": [
+        "11598179392256",
+        "11598180699776",
+        "11598184562432"
+      ],
+      "tasks": [
+        "11598179392260",
+        "11598180699906",
+        "11598184562435",
+        "11598184562436"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorDayReport",
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorDayReport",
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidReqDayReport",
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotReqDayReport"
+      ]
+    },
+    "view_total": {
+      "workflows": [
+        "11598179392256",
+        "11598180699776",
+        "11598184562432"
+      ],
+      "tasks": [
+        "11598179392260",
+        "11598180699906",
+        "11598184562435",
+        "11598184562436"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorDayReport",
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorDayReport",
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidReqDayReport",
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotReqDayReport"
+      ]
     },
     "hdfs:/project/ad_monitor/ads/ads_ak_spot_monitor_day_report/": {
       "workflows": [
@@ -107,6 +572,452 @@
       ],
       "classes": []
     },
+    "view_campaign": {
+      "workflows": [
+        "11598188089984"
+      ],
+      "tasks": [
+        "11598188089986"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.ClickLogPre"
+      ]
+    },
+    "view_campaign_final": {
+      "workflows": [
+        "11598188089984",
+        "11598189672192",
+        "21614073121702"
+      ],
+      "tasks": [
+        "11598188089986",
+        "11598189672194",
+        "11598189672197",
+        "21614073121697",
+        "21614073121700"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.ClickLogPre",
+        "tv.huan.ad.monitor.upgrade.ImpressionLog",
+        "tv.huan.ad.monitor.upgrade.ImpressionLogPre"
+      ]
+    },
+    "view_mt_activity": {
+      "workflows": [
+        "11598189672192",
+        "21614073121702"
+      ],
+      "tasks": [
+        "11598189672194",
+        "11598189672197",
+        "21614073121697",
+        "21614073121700"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.ImpressionLog",
+        "tv.huan.ad.monitor.upgrade.ImpressionLogPre"
+      ]
+    },
+    "view_huan_union_ak_adx_promotion_plan": {
+      "workflows": [
+        "11598189672192",
+        "21614073121702"
+      ],
+      "tasks": [
+        "11598189672194",
+        "11598189672197",
+        "21614073121697",
+        "21614073121700"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.ImpressionLog",
+        "tv.huan.ad.monitor.upgrade.ImpressionLogPre"
+      ]
+    },
+    "view_huan_union_ak_strategy_union_freq": {
+      "workflows": [
+        "11598189672192",
+        "21614073121702"
+      ],
+      "tasks": [
+        "11598189672194",
+        "11598189672197",
+        "21614073121697",
+        "21614073121700"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.ImpressionLog",
+        "tv.huan.ad.monitor.upgrade.ImpressionLogPre"
+      ]
+    },
+    "view_huna_union_ak_direct_promotion_plan": {
+      "workflows": [
+        "11598189672192",
+        "21614073121702"
+      ],
+      "tasks": [
+        "11598189672194",
+        "11598189672197",
+        "21614073121697",
+        "21614073121700"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.ImpressionLog",
+        "tv.huan.ad.monitor.upgrade.ImpressionLogPre"
+      ]
+    },
+    "view_third_final": {
+      "workflows": [
+        "11598189672192",
+        "21614073121702"
+      ],
+      "tasks": [
+        "11598189672194",
+        "11598189672197",
+        "21614073121697",
+        "21614073121700"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.ImpressionLog",
+        "tv.huan.ad.monitor.upgrade.ImpressionLogPre"
+      ]
+    },
+    "ad_monitor.huan_ad_monitor_impression_log_orc": {
+      "workflows": [
+        "11598189672192",
+        "11599818692992",
+        "11599823357440",
+        "11600006534922",
+        "20354293498922",
+        "21614073121702"
+      ],
+      "tasks": [
+        "11598189672194",
+        "11598189672198",
+        "11599818692993",
+        "11599823357450",
+        "11600006534913",
+        "11600006534920",
+        "11600006534921",
+        "20354293498912",
+        "21614073121697",
+        "21614073121701"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.dwd.DwdHuanAdMonitorAccessLogPretreat",
+        "tv.huan.ad.monitor.dwd.DwdImpressionMultiDimDistinctMac",
+        "tv.huan.ad.monitor.dwd.DwdImpressionFilterFlatmapHadid",
+        "tv.huan.ad.monitor.dwd.DwdImpressionMultiDimCount",
+        "tv.huan.ad.monitor.HuanAdTerminalDayPvReport",
+        "tv.huan.ad.monitor.upgrade.ImpressionLog",
+        "tv.huan.ad.monitor.dmp.HuanAdMonitorImpressionLogStatistics"
+      ]
+    },
+    "view_mysql_result": {
+      "workflows": [
+        "11598189672192",
+        "21614073121702"
+      ],
+      "tasks": [
+        "11598189672197",
+        "21614073121700"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.ImpressionLogPre"
+      ]
+    },
+    "campaign_id_view": {
+      "workflows": [
+        "11598189672192",
+        "21614073121702"
+      ],
+      "tasks": [
+        "11598189672197",
+        "21614073121700"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.ImpressionLogPre"
+      ]
+    },
+    "ad_monitor.huan_ad_monitor_access_log_orc": {
+      "workflows": [
+        "11599818692992"
+      ],
+      "tasks": [
+        "11599818692993"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.dwd.DwdHuanAdMonitorAccessLogPretreat"
+      ]
+    },
+    "view_huan_ad_monitor_access_log_orc": {
+      "workflows": [
+        "11599818692992"
+      ],
+      "tasks": [
+        "11599818692993"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.dwd.DwdHuanAdMonitorAccessLogPretreat"
+      ]
+    },
+    "ad_monitor.huan_ad_monitor_access_log": {
+      "workflows": [
+        "11599818692992"
+      ],
+      "tasks": [
+        "11599818692995"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ods.huan_ad_monitor_access_log_orc"
+      ]
+    },
+    "ad_monitor.dwd_huan_ad_monitor_access_log_pretreat": {
+      "workflows": [
+        "11599818692992"
+      ],
+      "tasks": [
+        "11599818692997"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.AdMonitorAccessLogDiffPeriod0520"
+      ]
+    },
+    "view_mt_third_monitor": {
+      "workflows": [
+        "11599818692992"
+      ],
+      "tasks": [
+        "11599818692997"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.AdMonitorAccessLogDiffPeriod0520"
+      ]
+    },
+    "ad_monitor.ad_monitor_access_log_diff_period_0520": {
+      "workflows": [
+        "11599818692992"
+      ],
+      "tasks": [
+        "11599818692997"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.AdMonitorAccessLogDiffPeriod0520"
+      ]
+    },
+    "view_dwd_huan_ad_monitor_access_log_pretreat": {
+      "workflows": [
+        "11599818692992"
+      ],
+      "tasks": [
+        "11599818692997"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.AdMonitorAccessLogDiffPeriod0520"
+      ]
+    },
+    "view_union": {
+      "workflows": [
+        "11599818692992"
+      ],
+      "tasks": [
+        "11599818692997"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.AdMonitorAccessLogDiffPeriod0520"
+      ]
+    },
+    "ad_monitor.impression_county_collide_report": {
+      "workflows": [
+        "11599819950336"
+      ],
+      "tasks": [
+        "11599819950339"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport"
+      ]
+    },
+    "ad_monitor.impression_device_info": {
+      "workflows": [
+        "11599819950336"
+      ],
+      "tasks": [
+        "11599819950339",
+        "11599819950343"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport",
+        "tv.huan.ad.monitor.upgrade.BaseReport"
+      ]
+    },
+    "t3": {
+      "workflows": [
+        "11599819950336"
+      ],
+      "tasks": [
+        "11599819950339",
+        "11599819950343"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport",
+        "tv.huan.ad.monitor.upgrade.BaseReport"
+      ]
+    },
+    "t11": {
+      "workflows": [
+        "11599819950336"
+      ],
+      "tasks": [
+        "11599819950339",
+        "11599819950343"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport",
+        "tv.huan.ad.monitor.upgrade.BaseReport"
+      ]
+    },
+    "t2": {
+      "workflows": [
+        "11599819950336"
+      ],
+      "tasks": [
+        "11599819950339",
+        "11599819950343"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport",
+        "tv.huan.ad.monitor.upgrade.BaseReport"
+      ]
+    },
+    "t1": {
+      "workflows": [
+        "11599819950336"
+      ],
+      "tasks": [
+        "11599819950339",
+        "11599819950343"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport",
+        "tv.huan.ad.monitor.upgrade.BaseReport"
+      ]
+    },
+    "t4": {
+      "workflows": [
+        "11599819950336"
+      ],
+      "tasks": [
+        "11599819950339",
+        "11599819950343"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport",
+        "tv.huan.ad.monitor.upgrade.BaseReport"
+      ]
+    },
+    "t5": {
+      "workflows": [
+        "11599819950336"
+      ],
+      "tasks": [
+        "11599819950339",
+        "11599819950343"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport",
+        "tv.huan.ad.monitor.upgrade.BaseReport"
+      ]
+    },
+    "t6": {
+      "workflows": [
+        "11599819950336"
+      ],
+      "tasks": [
+        "11599819950339",
+        "11599819950343"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport",
+        "tv.huan.ad.monitor.upgrade.BaseReport"
+      ]
+    },
+    "t7": {
+      "workflows": [
+        "11599819950336"
+      ],
+      "tasks": [
+        "11599819950339",
+        "11599819950343"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport",
+        "tv.huan.ad.monitor.upgrade.BaseReport"
+      ]
+    },
+    "t8": {
+      "workflows": [
+        "11599819950336"
+      ],
+      "tasks": [
+        "11599819950339",
+        "11599819950343"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport",
+        "tv.huan.ad.monitor.upgrade.BaseReport"
+      ]
+    },
+    "t9": {
+      "workflows": [
+        "11599819950336"
+      ],
+      "tasks": [
+        "11599819950339",
+        "11599819950343"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport",
+        "tv.huan.ad.monitor.upgrade.BaseReport"
+      ]
+    },
+    "t10": {
+      "workflows": [
+        "11599819950336"
+      ],
+      "tasks": [
+        "11599819950339",
+        "11599819950343"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport",
+        "tv.huan.ad.monitor.upgrade.BaseReport"
+      ]
+    },
+    "t12": {
+      "workflows": [
+        "11599819950336"
+      ],
+      "tasks": [
+        "11599819950339",
+        "11599819950343"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport",
+        "tv.huan.ad.monitor.upgrade.BaseReport"
+      ]
+    },
+    "ad_monitor.impression_collide_report": {
+      "workflows": [
+        "11599819950336"
+      ],
+      "tasks": [
+        "11599819950343"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.BaseReport"
+      ]
+    },
     "hdfs:/project/ad_monitor/ads/base_report/": {
       "workflows": [
         "11599819950336",
@@ -128,6 +1039,149 @@
         "21098198561824"
       ],
       "classes": []
+    },
+    "view_pv": {
+      "workflows": [
+        "11599821572608",
+        "11599823357440",
+        "11599826665344",
+        "11599834736896",
+        "11599840142464"
+      ],
+      "tasks": [
+        "11599821572615",
+        "11599821572616",
+        "11599821572617",
+        "11599823357446",
+        "11599823357447",
+        "11599823357448",
+        "11599826665352",
+        "11599826665353",
+        "11599826665354",
+        "11599834736898",
+        "11599834736899",
+        "11599840142465",
+        "11599840142466",
+        "11599840142467"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.ImpressionMarkTotalReport",
+        "tv.huan.ad.monitor.upgrade.ImpressionProvinceTotalReport",
+        "tv.huan.ad.monitor.upgrade.ImpressionMediaTotalReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionMarkFreqTotalReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqTotalReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionMediaFreqTotalReport",
+        "tv.huan.ad.monitor.upgrade.ImpressionMarkDayReport",
+        "tv.huan.ad.monitor.upgrade.ImpressionMediaDayReport",
+        "tv.huan.ad.monitor.upgrade.ImpressionProvinceDayReport",
+        "tv.huan.ad.monitor.upgrade.ImpressionCollideReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionCountyCollideReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionMarkFreqDayReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionMediaFreqDayReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqDayReport"
+      ]
+    },
+    "mt_media_all_view": {
+      "workflows": [
+        "11599821572608",
+        "11599823357440",
+        "11599826665344",
+        "11599840142464",
+        "14936257423904",
+        "20354293498922"
+      ],
+      "tasks": [
+        "11599821572616",
+        "11599823357447",
+        "11599823357450",
+        "14936514111904",
+        "14936515045025",
+        "11599826665354",
+        "11599840142467",
+        "14936257423906",
+        "14936257423907",
+        "20354293498912"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.ImpressionProvinceTotalReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqTotalReport",
+        "tv.huan.ad.monitor.upgrade.ImpressionProvinceDayReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqDayReport",
+        "tv.huan.ad.monitor.ads.AdsClickTerminalDayPvReport",
+        "tv.huan.ad.monitor.ads.AdsMiddleTerminalDayPvReport",
+        "tv.huan.ad.monitor.HuanAdTerminalDayPvReport"
+      ]
+    },
+    "mt_media_view": {
+      "workflows": [
+        "11599821572608",
+        "11599823357440",
+        "11599826665344",
+        "11599840142464",
+        "14936257423904",
+        "20354293498922"
+      ],
+      "tasks": [
+        "11599821572616",
+        "11599823357447",
+        "11599823357450",
+        "14936514111904",
+        "14936515045025",
+        "11599826665354",
+        "11599840142467",
+        "14936257423906",
+        "14936257423907",
+        "20354293498912"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.ImpressionProvinceTotalReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqTotalReport",
+        "tv.huan.ad.monitor.upgrade.ImpressionProvinceDayReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqDayReport",
+        "tv.huan.ad.monitor.ads.AdsClickTerminalDayPvReport",
+        "tv.huan.ad.monitor.ads.AdsMiddleTerminalDayPvReport",
+        "tv.huan.ad.monitor.HuanAdTerminalDayPvReport"
+      ]
+    },
+    "impression_valid_view": {
+      "workflows": [
+        "11599821572608",
+        "11599823357440",
+        "11599826665344",
+        "11599840142464"
+      ],
+      "tasks": [
+        "11599821572616",
+        "11599823357447",
+        "11599826665354",
+        "11599840142467"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.ImpressionProvinceTotalReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqTotalReport",
+        "tv.huan.ad.monitor.upgrade.ImpressionProvinceDayReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqDayReport"
+      ]
+    },
+    "valid_view_pv": {
+      "workflows": [
+        "11599821572608",
+        "11599823357440",
+        "11599826665344",
+        "11599840142464"
+      ],
+      "tasks": [
+        "11599821572616",
+        "11599823357447",
+        "11599826665354",
+        "11599840142467"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.ImpressionProvinceTotalReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqTotalReport",
+        "tv.huan.ad.monitor.upgrade.ImpressionProvinceDayReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqDayReport"
+      ]
     },
     "hdfs:/project/ad_monitor/ads/impression_mark_total_report/": {
       "workflows": [
@@ -184,6 +1238,59 @@
       ],
       "classes": []
     },
+    "mt_activity_all_view": {
+      "workflows": [
+        "11599823357440",
+        "14936257423904",
+        "20354293498922"
+      ],
+      "tasks": [
+        "11599823357450",
+        "14936514111904",
+        "14936515045025",
+        "14936257423906",
+        "14936257423907",
+        "20354293498912"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.AdsClickTerminalDayPvReport",
+        "tv.huan.ad.monitor.ads.AdsMiddleTerminalDayPvReport",
+        "tv.huan.ad.monitor.HuanAdTerminalDayPvReport"
+      ]
+    },
+    "huan_ad_monitor_impression_log_orc_view": {
+      "workflows": [
+        "11599823357440",
+        "20354293498922"
+      ],
+      "tasks": [
+        "11599823357450",
+        "20354293498912"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.HuanAdTerminalDayPvReport"
+      ]
+    },
+    "size_view": {
+      "workflows": [
+        "11599823357440",
+        "14936257423904",
+        "20354293498922"
+      ],
+      "tasks": [
+        "11599823357450",
+        "14936514111904",
+        "14936515045025",
+        "14936257423906",
+        "14936257423907",
+        "20354293498912"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.AdsClickTerminalDayPvReport",
+        "tv.huan.ad.monitor.ads.AdsMiddleTerminalDayPvReport",
+        "tv.huan.ad.monitor.HuanAdTerminalDayPvReport"
+      ]
+    },
     "hdfs:/project/ad_monitor/ads/impression_mark_freq_total_report/": {
       "workflows": [
         "11599823357440",
@@ -227,6 +1334,71 @@
         "21098185202465"
       ],
       "classes": []
+    },
+    "middle_view": {
+      "workflows": [
+        "11599823357440",
+        "14936257423904"
+      ],
+      "tasks": [
+        "14936514111904",
+        "14936257423907"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.AdsMiddleTerminalDayPvReport"
+      ]
+    },
+    "ad_monitor.huan_ad_monitor_middle_log_orc": {
+      "workflows": [
+        "11599823357440",
+        "14936257423904"
+      ],
+      "tasks": [
+        "14936514111904",
+        "14936257423907"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.AdsMiddleTerminalDayPvReport"
+      ]
+    },
+    "huan_ad_monitor_middle_log_orc_view": {
+      "workflows": [
+        "11599823357440",
+        "14936257423904"
+      ],
+      "tasks": [
+        "14936514111904",
+        "14936257423907"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.AdsMiddleTerminalDayPvReport"
+      ]
+    },
+    "ad_monitor.huan_ad_monitor_click_log_orc": {
+      "workflows": [
+        "11599823357440",
+        "14936257423904"
+      ],
+      "tasks": [
+        "14936515045025",
+        "14936257423906"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.AdsClickTerminalDayPvReport"
+      ]
+    },
+    "huan_ad_monitor_click_log_orc_view": {
+      "workflows": [
+        "11599823357440",
+        "14936257423904"
+      ],
+      "tasks": [
+        "14936515045025",
+        "14936257423906"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.AdsClickTerminalDayPvReport"
+      ]
     },
     "hdfs:/project/ad_monitor/ads/impression_mark_day_report/": {
       "workflows": [
@@ -293,6 +1465,19 @@
         "21098142413217"
       ],
       "classes": []
+    },
+    "view_logs": {
+      "workflows": [
+        "11599834736896"
+      ],
+      "tasks": [
+        "11599834736898",
+        "11599834736899"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.ImpressionCollideReport",
+        "tv.huan.ad.monitor.ipipCounty.ImpressionCountyCollideReport"
+      ]
     },
     "hdfs:/project/ad_monitor/ads/impression_collide_report": {
       "workflows": [
@@ -447,7 +1632,629 @@
         "21098153551009"
       ],
       "classes": []
+    },
+    "ad_monitor.dwd_impression_filter_flatmap_hadid": {
+      "workflows": [
+        "11600006534922"
+      ],
+      "tasks": [
+        "11600006534914"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.dws.DwsAkPlatformTrafficeStyleImpViewReport"
+      ]
+    },
+    "ak_platform_traffice_style_imp_view_report_view": {
+      "workflows": [
+        "11600006534922"
+      ],
+      "tasks": [
+        "11600006534914"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.dws.DwsAkPlatformTrafficeStyleImpViewReport"
+      ]
+    },
+    "ad_monitor.dwd_impression_multi_dim_count": {
+      "workflows": [
+        "11600006534922"
+      ],
+      "tasks": [
+        "11600006534915",
+        "11600006534916"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.dws.DwsAkPlatformImpViewReport",
+        "tv.huan.ad.monitor.dws.DwsAkPlatformCityImpViewReport"
+      ]
+    },
+    "ad_monitor.dwd_impression_multi_dim_distinct_mac": {
+      "workflows": [
+        "11600006534922"
+      ],
+      "tasks": [
+        "11600006534915",
+        "11600006534916"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.dws.DwsAkPlatformImpViewReport",
+        "tv.huan.ad.monitor.dws.DwsAkPlatformCityImpViewReport"
+      ]
+    },
+    "ak_platform_imp_view_report_view": {
+      "workflows": [
+        "11600006534922"
+      ],
+      "tasks": [
+        "11600006534915"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.dws.DwsAkPlatformImpViewReport"
+      ]
+    },
+    "ak_platform_city_imp_view_report_view": {
+      "workflows": [
+        "11600006534922"
+      ],
+      "tasks": [
+        "11600006534916"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.dws.DwsAkPlatformCityImpViewReport"
+      ]
     }
   },
-  "table_producers": {}
+  "table_producers": {
+    "ad_monitor.ads_ak_spot_county_freq_total_report": {
+      "workflows": [
+        "11598178397184"
+      ],
+      "tasks": [
+        "11598178397189"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.spot.AkSpotCountyFreqTotalReport"
+      ]
+    },
+    "ad_monitor.ads_ak_spot_freq_total_report": {
+      "workflows": [
+        "11598178397184"
+      ],
+      "tasks": [
+        "11598178397190"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.spot.AkSpotFreqTotalReport"
+      ]
+    },
+    "ad_monitor.ads_ak_spot_county_freq_day_report": {
+      "workflows": [
+        "11598178397184"
+      ],
+      "tasks": [
+        "11598178397191"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.spot.AkSpotCountyFreqDayReport"
+      ]
+    },
+    "ad_monitor.ads_ak_spot_freq_day_report": {
+      "workflows": [
+        "11598178397184"
+      ],
+      "tasks": [
+        "11598178397192"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.spot.AkSpotFreqDayReport"
+      ]
+    },
+    "ad_monitor.ads_ak_spot_monitor_county_day_report": {
+      "workflows": [
+        "11598179392256"
+      ],
+      "tasks": [
+        "11598179392259"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorcCountyReport"
+      ]
+    },
+    "ad_monitor.ads_ak_spot_monitor_day_report": {
+      "workflows": [
+        "11598179392256"
+      ],
+      "tasks": [
+        "11598179392260"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorDayReport"
+      ]
+    },
+    "ad_monitor.ads_ak_adid_monitor_county_day_report": {
+      "workflows": [
+        "11598180699776"
+      ],
+      "tasks": [
+        "11598180699905"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorcCountyReport"
+      ]
+    },
+    "ad_monitor.ads_ak_adid_monitor_day_report": {
+      "workflows": [
+        "11598180699776"
+      ],
+      "tasks": [
+        "11598180699906"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorDayReport"
+      ]
+    },
+    "ad_monitor.ads_ak_adid_req_day_report": {
+      "workflows": [
+        "11598184562432"
+      ],
+      "tasks": [
+        "11598184562435"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.adid.AdsAkAdidReqDayReport"
+      ]
+    },
+    "ad_monitor.ads_ak_spot_req_day_report": {
+      "workflows": [
+        "11598184562432"
+      ],
+      "tasks": [
+        "11598184562436"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.spot.AdsAkSpotReqDayReport"
+      ]
+    },
+    "ad_monitor.click_log_pre": {
+      "workflows": [
+        "11598188089984"
+      ],
+      "tasks": [
+        "11598188089986"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.ClickLogPre"
+      ]
+    },
+    "ad_monitor.impression_log": {
+      "workflows": [
+        "11598189672192",
+        "21614073121702"
+      ],
+      "tasks": [
+        "11598189672194",
+        "21614073121697"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.ImpressionLog"
+      ]
+    },
+    "ad_monitor.impression_log_pre": {
+      "workflows": [
+        "11598189672192",
+        "21614073121702"
+      ],
+      "tasks": [
+        "11598189672197",
+        "21614073121700"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.ImpressionLogPre"
+      ]
+    },
+    "ad_monitor.huan_ad_monitor_impression_log_statistics": {
+      "workflows": [
+        "11598189672192",
+        "21614073121702"
+      ],
+      "tasks": [
+        "11598189672198",
+        "21614073121701"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.dmp.HuanAdMonitorImpressionLogStatistics"
+      ]
+    },
+    "ad_monitor.dwd_huan_ad_monitor_access_log_pretreat": {
+      "workflows": [
+        "11599818692992"
+      ],
+      "tasks": [
+        "11599818692993"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.dwd.DwdHuanAdMonitorAccessLogPretreat"
+      ]
+    },
+    "ad_monitor.huan_ad_monitor_access_log_orc": {
+      "workflows": [
+        "11599818692992"
+      ],
+      "tasks": [
+        "11599818692995"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ods.huan_ad_monitor_access_log_orc"
+      ]
+    },
+    "ad_monitor.ad_monitor_access_log_diff_period_0520": {
+      "workflows": [
+        "11599818692992"
+      ],
+      "tasks": [
+        "11599818692997"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.AdMonitorAccessLogDiffPeriod0520"
+      ]
+    },
+    "ad_monitor.ipip_base_report": {
+      "workflows": [
+        "11599819950336"
+      ],
+      "tasks": [
+        "11599819950339"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport"
+      ]
+    },
+    "ad_monitor.base_report": {
+      "workflows": [
+        "11599819950336"
+      ],
+      "tasks": [
+        "11599819950343"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.BaseReport"
+      ]
+    },
+    "ad_monitor.impression_mark_total_report": {
+      "workflows": [
+        "11599821572608"
+      ],
+      "tasks": [
+        "11599821572615"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.ImpressionMarkTotalReport"
+      ]
+    },
+    "ad_monitor.impression_province_total_report": {
+      "workflows": [
+        "11599821572608"
+      ],
+      "tasks": [
+        "11599821572616"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.ImpressionProvinceTotalReport"
+      ]
+    },
+    "ad_monitor.impression_media_total_report": {
+      "workflows": [
+        "11599821572608"
+      ],
+      "tasks": [
+        "11599821572617"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.ImpressionMediaTotalReport"
+      ]
+    },
+    "ad_monitor.ak_deal_screen_size_report": {
+      "workflows": [
+        "11599821572608"
+      ],
+      "tasks": [
+        "11599821572620"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.AkDealScreenSizeReport"
+      ]
+    },
+    "ad_monitor.ak_monitor_freq_total_report": {
+      "workflows": [
+        "11599821572608"
+      ],
+      "tasks": [
+        "11599821572621"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.AkMonitorFreqTotalReport"
+      ]
+    },
+    "ad_monitor.impression_mark_freq_total_report": {
+      "workflows": [
+        "11599823357440"
+      ],
+      "tasks": [
+        "11599823357446"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ipipCounty.ImpressionMarkFreqTotalReport"
+      ]
+    },
+    "ad_monitor.impression_province_freq_total_report": {
+      "workflows": [
+        "11599823357440"
+      ],
+      "tasks": [
+        "11599823357447"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqTotalReport"
+      ]
+    },
+    "ad_monitor.impression_media_freq_total_report": {
+      "workflows": [
+        "11599823357440"
+      ],
+      "tasks": [
+        "11599823357448"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ipipCounty.ImpressionMediaFreqTotalReport"
+      ]
+    },
+    "ad_monitor.ak_monitor_county_freq_total_report": {
+      "workflows": [
+        "11599823357440"
+      ],
+      "tasks": [
+        "11599823357449"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ipipCounty.AkMonitorCountyFreqTotalReport"
+      ]
+    },
+    "ad_monitor.huan_ad_terminal_day_pv_report": {
+      "workflows": [
+        "11599823357440",
+        "20354293498922"
+      ],
+      "tasks": [
+        "11599823357450",
+        "20354293498912"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.HuanAdTerminalDayPvReport"
+      ]
+    },
+    "ad_monitor.ads_middle_terminal_day_pv_report": {
+      "workflows": [
+        "11599823357440",
+        "14936257423904"
+      ],
+      "tasks": [
+        "14936514111904",
+        "14936257423907"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.AdsMiddleTerminalDayPvReport"
+      ]
+    },
+    "ad_monitor.ads_click_terminal_day_pv_report": {
+      "workflows": [
+        "11599823357440",
+        "14936257423904"
+      ],
+      "tasks": [
+        "14936515045025",
+        "14936257423906"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ads.AdsClickTerminalDayPvReport"
+      ]
+    },
+    "ad_monitor.impression_mark_day_report": {
+      "workflows": [
+        "11599826665344"
+      ],
+      "tasks": [
+        "11599826665352"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.ImpressionMarkDayReport"
+      ]
+    },
+    "ad_monitor.impression_media_day_report": {
+      "workflows": [
+        "11599826665344"
+      ],
+      "tasks": [
+        "11599826665353"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.ImpressionMediaDayReport"
+      ]
+    },
+    "ad_monitor.impression_province_day_report": {
+      "workflows": [
+        "11599826665344"
+      ],
+      "tasks": [
+        "11599826665354"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.ImpressionProvinceDayReport"
+      ]
+    },
+    "ad_monitor.ak_plan_freq_week_report": {
+      "workflows": [
+        "11599826665344"
+      ],
+      "tasks": [
+        "11599826665357"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.AkPlanFreqWeekReport"
+      ]
+    },
+    "ad_monitor.ak_deal_freq_week_report": {
+      "workflows": [
+        "11599826665344"
+      ],
+      "tasks": [
+        "11599826665358"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.AkDealFreqWeekReport"
+      ]
+    },
+    "ad_monitor.ak_monitor_freq_week_report": {
+      "workflows": [
+        "11599826665344"
+      ],
+      "tasks": [
+        "11599826665359"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.AkMonitorFreqWeekReport"
+      ]
+    },
+    "ad_monitor.impression_collide_report": {
+      "workflows": [
+        "11599834736896"
+      ],
+      "tasks": [
+        "11599834736898"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.upgrade.ImpressionCollideReport"
+      ]
+    },
+    "ad_monitor.impression_county_collide_report": {
+      "workflows": [
+        "11599834736896"
+      ],
+      "tasks": [
+        "11599834736899"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ipipCounty.ImpressionCountyCollideReport"
+      ]
+    },
+    "ad_monitor.impression_mark_freq_day_report": {
+      "workflows": [
+        "11599840142464"
+      ],
+      "tasks": [
+        "11599840142465"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ipipCounty.ImpressionMarkFreqDayReport"
+      ]
+    },
+    "ad_monitor.impression_media_freq_day_report": {
+      "workflows": [
+        "11599840142464"
+      ],
+      "tasks": [
+        "11599840142466"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ipipCounty.ImpressionMediaFreqDayReport"
+      ]
+    },
+    "ad_monitor.impression_province_freq_day_report": {
+      "workflows": [
+        "11599840142464"
+      ],
+      "tasks": [
+        "11599840142467"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqDayReport"
+      ]
+    },
+    "ad_monitor.ak_monitor_county_freq_week_report": {
+      "workflows": [
+        "11599840142464"
+      ],
+      "tasks": [
+        "11599840142468"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.ipipCounty.AkMonitorCountyFreqWeekReport"
+      ]
+    },
+    "ad_monitor.dwd_impression_multi_dim_distinct_mac": {
+      "workflows": [
+        "11600006534922"
+      ],
+      "tasks": [
+        "11600006534913"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.dwd.DwdImpressionMultiDimDistinctMac"
+      ]
+    },
+    "ad_monitor.dws_ak_platform_traffice_style_imp_view_report": {
+      "workflows": [
+        "11600006534922"
+      ],
+      "tasks": [
+        "11600006534914"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.dws.DwsAkPlatformTrafficeStyleImpViewReport"
+      ]
+    },
+    "ad_monitor.dws_ak_platform_imp_view_report": {
+      "workflows": [
+        "11600006534922"
+      ],
+      "tasks": [
+        "11600006534915"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.dws.DwsAkPlatformImpViewReport"
+      ]
+    },
+    "ad_monitor.dws_ak_platform_city_imp_view_report": {
+      "workflows": [
+        "11600006534922"
+      ],
+      "tasks": [
+        "11600006534916"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.dws.DwsAkPlatformCityImpViewReport"
+      ]
+    },
+    "ad_monitor.dwd_impression_filter_flatmap_hadid": {
+      "workflows": [
+        "11600006534922"
+      ],
+      "tasks": [
+        "11600006534920"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.dwd.DwdImpressionFilterFlatmapHadid"
+      ]
+    },
+    "ad_monitor.dwd_impression_multi_dim_count": {
+      "workflows": [
+        "11600006534922"
+      ],
+      "tasks": [
+        "11600006534921"
+      ],
+      "classes": [
+        "tv.huan.ad.monitor.dwd.DwdImpressionMultiDimCount"
+      ]
+    }
+  }
 }

@@ -14,10 +14,100 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import sys
-import threading
+import os
+import signal
+import subprocess
 from .api.webhook_api import run_server
 from .config import settings
 from .dispatcher import ChatAgent
+
+
+def kill_port_process(port: int) -> bool:
+    """
+    关闭占用指定端口的进程
+
+    Args:
+        port: 端口号
+
+    Returns:
+        是否成功关闭
+    """
+    import platform
+
+    system = platform.system()
+
+    try:
+        if system == "Windows":
+            # Windows: 使用 netstat 找到占用端口的 PID
+            result = subprocess.run(
+                ["netstat", "-ano"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            # 解析输出找到占用端口的 PID
+            pids_to_kill = []
+            for line in result.stdout.splitlines():
+                if f":{port}" in line and "LISTENING" in line:
+                    parts = line.split()
+                    if len(parts) >= 5:
+                        pid = parts[-1]
+                        if pid.isdigit():
+                            pids_to_kill.append(int(pid))
+
+            # 关闭进程
+            for pid in pids_to_kill:
+                try:
+                    subprocess.run(["taskkill", "/F", "/PID", str(pid)], timeout=5)
+                    print(f"[PORT] 已关闭进程 PID: {pid}")
+                except Exception as e:
+                    print(f"[PORT] 无法关闭 PID {pid}: {e}")
+
+            return len(pids_to_kill) > 0
+
+        else:
+            # Linux/Mac: 使用 lsof 或 fuser
+            result = subprocess.run(
+                ["lsof", "-ti", f":{port}"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            if result.stdout.strip():
+                pids = result.stdout.strip().splitlines()
+                for pid in pids:
+                    try:
+                        subprocess.run(["kill", "-9", pid], timeout=5)
+                        print(f"[PORT] 已关闭进程 PID: {pid}")
+                    except Exception as e:
+                        print(f"[PORT] 无法关闭 PID {pid}: {e}")
+                return True
+
+            return False
+
+    except Exception as e:
+        print(f"[PORT] 检查端口失败: {e}")
+        return False
+
+
+def ensure_port_free(port: int) -> None:
+    """
+    确保端口空闲，如果被占用则关闭
+
+    Args:
+        port: 端口号
+    """
+    print(f"[PORT] 检查端口 {port}...")
+
+    if kill_port_process(port):
+        print(f"[PORT] 端口 {port} 已被占用，已自动关闭旧进程")
+        # 等待端口释放
+        import time
+        time.sleep(2)
+    else:
+        print(f"[PORT] 端口 {port} 空闲")
 
 
 def main():
@@ -25,6 +115,11 @@ def main():
     # 解析命令行参数
     args = sys.argv[1:]
     mode = args[0] if args else "all"
+
+    # 检查并关闭已有端口（api 或 all 模式）
+    if mode in ("all", "api"):
+        port = settings.API_PORT or 8080
+        ensure_port_free(port)
 
     if mode == "all":
         run_all_services()
@@ -169,4 +264,6 @@ def print_response(result: dict):
 
 
 if __name__ == "__main__":
+    # 添加 threading 导入
+    import threading
     main()

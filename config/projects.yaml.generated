@@ -1,0 +1,92 @@
+# DolphinScheduler 项目配置
+# 自动生成于 2026-05-12
+# 共 22 个项目
+
+projects:
+  - name: 商店业务日志
+    code: 21426634209792
+    ds_api_url: http://47.102.148.252:12345/dolphinscheduler
+
+  - name: 数据产品业务日志(外部)
+    code: 20110831668224
+    ds_api_url: http://47.102.148.252:12345/dolphinscheduler
+
+  - name: 数据产品业务日志(内部)
+    code: 20103265178368
+    ds_api_url: http://47.102.148.252:12345/dolphinscheduler
+
+  - name: 广告业务日志
+    code: 19780455850496
+    ds_api_url: http://47.102.148.252:12345/dolphinscheduler
+
+  - name: qc_analysis
+    code: 19780014809600
+    ds_api_url: http://47.102.148.252:12345/dolphinscheduler
+
+  - name: data_lake
+    code: 17558816237440
+    ds_api_url: http://47.102.148.252:12345/dolphinscheduler
+
+  - name: kdt_bigdata
+    code: 14838144803840
+    ds_api_url: http://47.102.148.252:12345/dolphinscheduler
+
+  - name: tv_zone_real_time
+    code: 13540931167296
+    ds_api_url: http://47.102.148.252:12345/dolphinscheduler
+
+  - name: ch_data_sync
+    code: 13132336010688
+    ds_api_url: http://47.102.148.252:12345/dolphinscheduler
+
+  - name: data_product
+    code: 12924563167808
+    ds_api_url: http://47.102.148.252:12345/dolphinscheduler
+
+  - name: csm_huan
+    code: 12770584767296
+    ds_api_url: http://47.102.148.252:12345/dolphinscheduler
+
+  - name: data_sync
+    code: 12733737773120
+    ds_api_url: http://47.102.148.252:12345/dolphinscheduler
+
+  - name: cluster_monitor
+    code: 12691174563648
+    ds_api_url: http://47.102.148.252:12345/dolphinscheduler
+
+  - name: tv_zone
+    code: 12656144748992
+    ds_api_url: http://47.102.148.252:12345/dolphinscheduler
+
+  - name: data_statistics
+    code: 12238482204608
+    ds_api_url: http://47.102.148.252:12345/dolphinscheduler
+
+  - name: data_clean
+    code: 12139328689472
+    ds_api_url: http://47.102.148.252:12345/dolphinscheduler
+
+  - name: ad_link_lift
+    code: 11897014881472
+    ds_api_url: http://47.102.148.252:12345/dolphinscheduler
+
+  - name: ad_fission
+    code: 11896165763520
+    ds_api_url: http://47.102.148.252:12345/dolphinscheduler
+
+  - name: ad_monitor
+    code: 11850599683520
+    ds_api_url: http://47.102.148.252:12345/dolphinscheduler
+
+  - name: ad_link
+    code: 11819671027904
+    ds_api_url: http://47.102.148.252:12345/dolphinscheduler
+
+  - name: huan_union
+    code: 11819519988416
+    ds_api_url: http://47.102.148.252:12345/dolphinscheduler
+
+  - name: base_projects
+    code: 11818825948992
+    ds_api_url: http://47.102.148.252:12345/dolphinscheduler

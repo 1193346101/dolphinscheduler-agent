@@ -2,6 +2,10 @@
 store_results node
 
 Store results - full implementation
+
+新增功能：
+- 生成完整的错误分析报告（HTML + JSON）
+- 添加报告链接到 state，供通知使用
 """
 
 import os
@@ -10,6 +14,8 @@ import re
 from datetime import datetime
 from typing import Dict, Any, Optional
 from ..state import AgentState
+from ...config.settings import settings
+from ...tools.report_generator import ReportGenerator
 
 
 def _sanitize_path_component(value: str) -> str:
@@ -88,7 +94,6 @@ def store_results(state: AgentState, base_path: str = "data/logs") -> AgentState
         "error_patterns": state.get("error_patterns", []),
         "suggested_actions": state.get("suggested_actions", []),
         "execution_results": state.get("execution_results", []),
-        "confidence_score": state.get("confidence_score", 0.0),
         "stored_at": datetime.now().isoformat(),
     }
 
@@ -116,13 +121,37 @@ def store_results(state: AgentState, base_path: str = "data/logs") -> AgentState
             "result_stored": False,
             "log_store_path": None,
             "log_store_error": f"Write file failed: {str(e)}",
+            "report_id": None,
+            "report_url": None,
         }
+
+    # 生成错误分析报告
+    report_id = None
+    report_url = None
+    try:
+        report_generator = ReportGenerator()
+        report_id = report_generator.generate_report(state)
+
+        # 构建报告 URL
+        # 使用 API 服务地址 + /report/{report_id}
+        api_host = settings.API_HOST or "localhost"
+        api_port = settings.API_PORT or 8080
+        report_url = f"http://{api_host}:{api_port}/report/{report_id}?workflow={workflow_code}&date={date_str}"
+
+        print(f"[store] 生成分析报告: {report_id}")
+        print(f"[store] 报告链接: {report_url}")
+    except Exception as e:
+        print(f"[store] 报告生成失败: {e}")
 
     return {
         **state,
         "log_stored": True,
         "result_stored": True,
         "log_store_path": filepath,
+        "report_id": report_id,
+        "report_url": report_url,
+        "token_consumption": state.get("token_consumption", 0),
+        "token_details": state.get("token_details", {}),
     }
 
 

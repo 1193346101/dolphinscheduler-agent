@@ -20,7 +20,8 @@ class TestLLMClient:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "content": [{"text": "Error category: RESOURCE\nSuggested action: Increase memory"}]
+            "content": [{"type": "text", "text": "Error category: RESOURCE\nSuggested action: Increase memory"}],
+            "usage": {"input_tokens": 100, "output_tokens": 50}
         }
         mock_post.return_value = mock_response
 
@@ -32,12 +33,15 @@ class TestLLMClient:
         )
 
         assert result["error_category"] == "RESOURCE"
+        assert result["token_usage"]["input_tokens"] == 100
+        assert result["token_usage"]["output_tokens"] == 50
 
     @patch("requests.post")
     def test_analyze_api_failure(self, mock_post):
         """测试 API 失败"""
         mock_response = Mock()
         mock_response.status_code = 500
+        mock_response.text = "Internal Server Error"
         mock_post.return_value = mock_response
 
         client = LLMClient("https://test", "token")
@@ -48,6 +52,8 @@ class TestLLMClient:
         )
 
         assert result["confidence"] == 0.0
+        # Token 消耗估算（只有 input）
+        assert result["token_usage"]["total_tokens"] > 0
 
     def test_build_prompt(self):
         """测试构建提示词"""

@@ -150,12 +150,12 @@ def generate_graph_data():
                 },
             }
 
-            # 创建项目目录
-            project_dir = graph_dir / project_code
+            # 创建项目目录（按项目名称）
+            project_dir = graph_dir / project_name
             project_dir.mkdir(exist_ok=True)
 
-            # 写入JS文件
-            js_content = f"window.graphData = {json.dumps(graph_data, ensure_ascii=False)};"
+            # 写入JS文件（与 HTML index.html 保持一致）
+            js_content = f"const graphData = {json.dumps(graph_data, ensure_ascii=False)};"
             js_file = project_dir / "graph_data.js"
             with open(js_file, "w", encoding="utf-8") as f:
                 f.write(js_content)
@@ -167,7 +167,7 @@ def generate_graph_data():
             results.append({
                 "name": project_name,
                 "code": project_code,
-                "dir": project_code,
+                "dir": project_name,  # 按项目名称分目录
                 "workflows": workflows,
                 "tasks": tasks,
                 "tables": tables,

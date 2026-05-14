@@ -82,8 +82,6 @@ class AgentState(TypedDict, total=False):
     suggested_actions: List[Dict[str, Any]]
     # Matched knowledge base entry
     knowledge_match: Optional[Dict[str, Any]]
-    # Confidence score for the analysis (0.0 - 1.0)
-    confidence_score: float
 
     # ==================== Risk Assessment Stage ====================
     # Risk level
@@ -127,6 +125,18 @@ class AgentState(TypedDict, total=False):
     # Path where logs are stored
     log_store_path: Optional[str]
 
+    # ==================== Report Stage ====================
+    # Report ID (unique identifier for the analysis report)
+    report_id: Optional[str]
+    # Report URL (link to view the full report)
+    report_url: Optional[str]
+
+    # ==================== Token Consumption ====================
+    # Total token consumption for this workflow (input + output)
+    token_consumption: int
+    # Detailed token breakdown by node
+    token_details: Dict[str, Dict[str, int]]
+
 
 # Initial state template with default values
 INITIAL_STATE: Dict[str, Any] = {
@@ -162,7 +172,6 @@ INITIAL_STATE: Dict[str, Any] = {
     "error_category": "",
     "suggested_actions": [],
     "knowledge_match": None,
-    "confidence_score": 0.0,
 
     # Risk assessment stage - defaults
     "risk_level": "LOW",
@@ -189,6 +198,14 @@ INITIAL_STATE: Dict[str, Any] = {
     "log_stored": False,
     "result_stored": False,
     "log_store_path": None,
+
+    # Report stage - defaults
+    "report_id": None,
+    "report_url": None,
+
+    # Token consumption - defaults
+    "token_consumption": 0,
+    "token_details": {},
 }
 
 

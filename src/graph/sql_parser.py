@@ -1,13 +1,13 @@
 """
-SQL Parser - 解析 SQL 语句提取表名
+SQL Parser - Parse SQL statements to extract table names
 
-使用正则表达式 + sqlparse 从 SQL 语句中提取输入输出表
+Uses regex + sqlparse to extract input/output tables from SQL statements
 """
 
 import re
 from typing import Dict, List, Optional
 
-# 尝试导入 sqlparse（可选依赖）
+# Try to import sqlparse (optional dependency)
 try:
     import sqlparse
     SQLPARSE_AVAILABLE = True
@@ -16,31 +16,34 @@ except ImportError:
 
 
 class SQLParser:
-    """SQL 解析器，提取表名"""
+    """SQL parser to extract table names"""
 
-    # 正则表达式模式
-    INSERT_PATTERN = r'INSERT\s+(?:INTO|OVERWRITE)\s+(?:TABLE\s+)?(\S+)'
-    FROM_PATTERN = r'FROM\s+(\S+)'
-    JOIN_PATTERN = r'JOIN\s+(\S+)(?:\s+\w+)?\s+ON'
+    # Regex patterns - improved version
+    # INSERT OVERWRITE TABLE xxx or INSERT INTO TABLE xxx
+    INSERT_OVERWRITE_PATTERN = r'INSERT\s+(?:OVERWRITE|INTO)\s+(?:TABLE\s+)?([^\s(]+)'
+    # FROM table or FROM (subquery) - need to exclude subqueries
+    FROM_PATTERN = r'FROM\s+([a-zA-Z_][a-zA-Z0-9_.]*(?:\.[a-zA-Z_][a-zA-Z0-9_.]*)?)'
+    # JOIN table [alias] ON - allow optional alias between table and ON
+    JOIN_PATTERN = r'JOIN\s+([a-zA-Z_][a-zA-Z0-9_.]*(?:\.[a-zA-Z_][a-zA-Z0-9_.]*)?)\s*(?:[a-zA-Z_][a-zA-Z0-9_]*\s+)?ON'
 
-    # SQL 关键字（用于从代码文件中识别 SQL 字符串）
+    # SQL keywords (for recognizing SQL strings in code files)
     SQL_KEYWORDS = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'CREATE']
 
     def __init__(self):
-        """初始化编译正则表达式"""
-        self._insert_re = re.compile(self.INSERT_PATTERN, re.IGNORECASE)
+        """Initialize compiled regex patterns"""
+        self._insert_re = re.compile(self.INSERT_OVERWRITE_PATTERN, re.IGNORECASE | re.MULTILINE)
         self._from_re = re.compile(self.FROM_PATTERN, re.IGNORECASE)
         self._join_re = re.compile(self.JOIN_PATTERN, re.IGNORECASE)
 
     def extract_tables(self, sql: str) -> Dict[str, List[str]]:
         """
-        从 SQL 语句中提取表名
+        Extract table names from SQL statement
 
         Args:
-            sql: SQL 语句字符串
+            sql: SQL statement string
 
         Returns:
-            包含 input 和 output 表名列表的字典
+            Dict containing input and output table name lists
             {"input": [...], "output": [...]}
         """
         result = {"input": [], "output": []}
@@ -48,11 +51,11 @@ class SQLParser:
         if not sql or not sql.strip():
             return result
 
-        # 优先使用 sqlparse 处理复杂 SQL
+        # Prefer sqlparse for complex SQL
         if SQLPARSE_AVAILABLE:
             result = self._extract_with_sqlparse(sql)
 
-        # 正则表达式补充提取（确保覆盖全面）
+        # Regex extraction as supplement (ensure comprehensive coverage)
         regex_result = self._extract_with_regex(sql)
         self._merge_results(result, regex_result)
 
@@ -60,13 +63,13 @@ class SQLParser:
 
     def _extract_with_sqlparse(self, sql: str) -> Dict[str, List[str]]:
         """
-        使用 sqlparse 解析 SQL（处理复杂嵌套语句）
+        Use sqlparse to parse SQL (handles complex nested statements)
 
         Args:
-            sql: SQL 语句
+            sql: SQL statement
 
         Returns:
-            表名字典
+            Table name dict
         """
         result = {"input": [], "output": []}
 
@@ -76,55 +79,48 @@ class SQLParser:
         try:
             parsed = sqlparse.parse(sql)
             for statement in parsed:
-                # 提取表名
-                for token in statement.flatten():
-                    if token.ttype in (sqlparse.tokens.Name, sqlparse.tokens.Keyword):
-                        # 检查上下文判断是输入还是输出表
-                        # 简化处理：INSERT 后的表为输出，FROM/JOIN 后为输入
-                        pass
-
-                # 使用正则表达式作为 sqlparse 的补充
-                # sqlparse 的表名提取需要更复杂的逻辑，这里用正则补充
+                # Use regex as supplement to sqlparse
+                # sqlparse table name extraction requires more complex logic, use regex here
                 statement_str = str(statement)
                 regex_result = self._extract_with_regex(statement_str)
                 self._merge_results(result, regex_result)
 
         except Exception:
-            # sqlparse 解析失败，回退到正则
+            # sqlparse parse failed, fallback to regex
             pass
 
         return result
 
     def _extract_with_regex(self, sql: str) -> Dict[str, List[str]]:
         """
-        使用正则表达式提取表名
+        Use regex to extract table names
 
         Args:
-            sql: SQL 语句
+            sql: SQL statement
 
         Returns:
-            表名字典
+            Table name dict
         """
         result = {"input": [], "output": []}
 
-        # 提取输出表 (INSERT INTO/OVERWRITE)
+        # Extract output tables (INSERT OVERWRITE/INTO TABLE)
         for match in self._insert_re.finditer(sql):
             table = match.group(1)
-            # 清理表名（移除可能的尾部符号如分号、括号等）
+            # Clean table name (remove possible trailing symbols like semicolons, brackets)
             table = self._clean_table_name(table)
             if table and table not in result["output"]:
                 result["output"].append(table)
 
-        # 提取输入表 (FROM)
+        # Extract input tables (FROM)
         for match in self._from_re.finditer(sql):
             table = match.group(1)
             table = self._clean_table_name(table)
-            # 排除子查询别名（如 FROM (SELECT ...) alias）
+            # Exclude subquery aliases (like FROM (SELECT ...) alias)
             if table and not table.startswith('(') and table.upper() not in ('SELECT', 'DUAL'):
                 if table not in result["input"]:
                     result["input"].append(table)
 
-        # 提取输入表 (JOIN)
+        # Extract input tables (JOIN)
         for match in self._join_re.finditer(sql):
             table = match.group(1)
             table = self._clean_table_name(table)
@@ -135,14 +131,14 @@ class SQLParser:
 
     def parse_file_content(self, content: str, file_ext: str) -> Dict[str, List[str]]:
         """
-        从文件内容中提取 SQL 并解析表名
+        Extract SQL from file content and parse table names
 
         Args:
-            content: 文件内容
-            file_ext: 文件扩展名 (.java, .scala, .py, .sql)
+            content: File content
+            file_ext: File extension (.java, .scala, .py, .sql)
 
         Returns:
-            包含所有 SQL 提取的 input 和 output 表名列表
+            Dict containing all SQL extracted input and output table name lists
         """
         result = {"input": [], "output": []}
 
@@ -152,18 +148,24 @@ class SQLParser:
         file_ext = file_ext.lower()
 
         if file_ext == '.sql':
-            # SQL 文件直接解析
+            # SQL file direct parse
             return self.extract_tables(content)
 
         elif file_ext in ('.java', '.scala'):
-            # Java/Scala 文件：提取包含 SQL 关键字的字符串
+            # Java/Scala files: extract strings containing SQL keywords
             sql_strings = self._extract_java_scala_strings(content)
             for sql in sql_strings:
                 tables = self.extract_tables(sql)
                 self._merge_results(result, tables)
 
+            # Scala special handling: recognize val xxxSql = """...""" pattern
+            scala_sql_blocks = self._extract_scala_sql_blocks(content)
+            for sql in scala_sql_blocks:
+                tables = self.extract_tables(sql)
+                self._merge_results(result, tables)
+
         elif file_ext == '.py':
-            # Python 文件：提取包含 SQL 关键字的字符串
+            # Python files: extract strings containing SQL keywords
             sql_strings = self._extract_python_strings(content)
             for sql in sql_strings:
                 tables = self.extract_tables(sql)
@@ -173,35 +175,35 @@ class SQLParser:
 
     def _clean_table_name(self, table: str) -> str:
         """
-        清理表名，移除尾部符号
+        Clean table name, remove trailing symbols
 
         Args:
-            table: 原始表名
+            table: Original table name
 
         Returns:
-            清理后的表名
+            Cleaned table name
         """
-        # 移除尾部的分号、括号、逗号等
+        # Remove trailing semicolons, brackets, commas
         table = table.rstrip(';,)')
-        # 移除前部的括号
+        # Remove leading brackets
         table = table.lstrip('(')
-        # 移除特殊字符
+        # Remove special characters
         table = table.strip()
-        # 过滤无效表名（空字符串、特殊符号等）
+        # Filter invalid table names (empty string, special symbols)
         if not table or table in ('|', '(', ')', ',', ';'):
             return ''
-        # 过滤 SQL 关键字别名
+        # Filter SQL keyword aliases
         if table.upper() in ('SELECT', 'FROM', 'WHERE', 'JOIN', 'ON', 'AND', 'OR', 'AS', 'T', 'A', 'B', 'C', 'DUAL'):
             return ''
         return table
 
     def _merge_results(self, target: Dict[str, List[str]], source: Dict[str, List[str]]) -> None:
         """
-        合并结果到目标字典（去重）
+        Merge results into target dict (deduplicate)
 
         Args:
-            target: 目标字典
-            source: 源字典
+            target: Target dict
+            source: Source dict
         """
         for table in source.get("input", []):
             if table not in target["input"]:
@@ -212,40 +214,58 @@ class SQLParser:
 
     def _extract_java_scala_strings(self, content: str) -> List[str]:
         """
-        从 Java/Scala 代码中提取包含 SQL 关键字的字符串
+        Extract strings containing SQL keywords from Java/Scala code
 
         Args:
-            content: 文件内容
+            content: File content
 
         Returns:
-            SQL 字符串列表
+            SQL string list
         """
         sql_strings = []
 
-        # 匹配双引号字符串
+        # Match double-quote strings
         string_pattern = r'"([^"\\]*(?:\\.[^"\\]*)*)"'
 
         for match in re.finditer(string_pattern, content):
             string_val = match.group(1)
-            # 检查是否包含 SQL 关键字
+            # Check if contains SQL keywords
             if any(keyword in string_val.upper() for keyword in self.SQL_KEYWORDS):
                 sql_strings.append(string_val)
 
         return sql_strings
 
+    def _extract_scala_sql_blocks(self, content: str) -> List[str]:
+        """
+        Extract SQL blocks from Scala code (val xxxSql = triple-quoted strings).
+        """
+        sql_blocks = []
+
+        # Scala multi-line string pattern: """..."""
+        # Match val/val xxx = """..."""
+        pattern = r'(?:val|var)\s+\w*\s*=\s*"""([^"]*(?:""[^"]*)*?)"""'
+
+        for match in re.finditer(pattern, content, re.DOTALL):
+            sql_block = match.group(1)
+            # Check if contains SQL keywords
+            if any(keyword in sql_block.upper() for keyword in self.SQL_KEYWORDS):
+                sql_blocks.append(sql_block)
+
+        return sql_blocks
+
     def _extract_python_strings(self, content: str) -> List[str]:
         """
-        从 Python 代码中提取包含 SQL 关键字的字符串
+        Extract strings containing SQL keywords from Python code
 
         Args:
-            content: 文件内容
+            content: File content
 
         Returns:
-            SQL 字符串列表
+            SQL string list
         """
         sql_strings = []
 
-        # 匹配三引号字符串 (单引号或双引号)
+        # Match triple-quote strings (single or double quote)
         triple_quote_pattern = r'(\'\'\'(.*?)\'\'\'|"""(.*?)""")'
 
         for match in re.finditer(triple_quote_pattern, content, re.DOTALL):
@@ -253,12 +273,15 @@ class SQLParser:
             if string_val and any(keyword in string_val.upper() for keyword in self.SQL_KEYWORDS):
                 sql_strings.append(string_val)
 
-        # 匹配普通单行字符串 (单引号或双引号)
+        # Match normal single-line strings (single or double quote)
         single_line_pattern = r'(\'[^\']*\'|"[^"]*")'
 
         for match in re.finditer(single_line_pattern, content):
-            string_val = match.group(1)[1:-1]  # 去掉引号
+            string_val = match.group(1)[1:-1]  # Remove quotes
             if any(keyword in string_val.upper() for keyword in self.SQL_KEYWORDS):
                 sql_strings.append(string_val)
 
         return sql_strings
+
+
+__all__ = ["SQLParser"]

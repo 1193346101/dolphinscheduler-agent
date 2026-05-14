@@ -21,21 +21,21 @@
 
 资源类问题，Skill智能计算初步建议 + LLM验证补充。
 
+DolphinScheduler 支持的参数：
+- Driver核心数、Driver内存数
+- Executor数量、Executor内存数、Executor核心数
+
 | error_type | pattern | hint |
 |------------|---------|------|
-| oom_executor | `java\.lang\.OutOfMemoryError:\s*Java heap space` | Executor OOM，结合数据量和当前配置计算合理内存 |
-| oom_driver | `OutOfMemoryError:\s*unable to create new native thread` | Driver OOM，结合任务复杂度计算合理内存 |
-| oom_driver_direct | `OutOfMemoryError:\s*Container memory exceeded` | Driver 内存超限，调整 maxResultSize |
-| oom_offheap | `OutOfMemoryError:\s*offheap` | OffHeap OOM，启用并配置堆外内存 |
-| oom_storage | `OutOfMemoryError:\s*Storage memory` | Storage OOM，调整存储比例 |
-| container_killed_memory | `Container killed.*memory|exceeding memory limits|killed by YARN` | Container被YARN终止，结合YARN日志分析资源需求 |
-| gc_overhead | `GC overhead limit exceeded` | GC开销过大，结合内存使用情况调整 |
-| shuffle_timeout | `shuffle.*timeout` | Shuffle超时，结合网络状况调整 |
-| network_timeout | `spark\.network\.timeout` | 网络超时，结合任务复杂度调整 |
-| rpc_timeout | `RPC timeout` | RPC超时，调整通信超时 |
-| executor_lost_heartbeat | `Executor heartbeat timeout` | Executor心跳超时，调整心跳间隔 |
-| driver_memory_insufficient | `System memory.*must be at least.*driver-memory` | Driver内存不足，结合任务需求计算 |
-| executor_memory_insufficient | `Executor memory.*must be at least` | Executor内存不足，结合数据量计算 |
+| oom_executor | `java\.lang\.OutOfMemoryError:\s*Java heap space` | Executor内存不足，建议调整 Executor内存数（当前翻倍或基于内存溢出量计算） |
+| oom_driver | `OutOfMemoryError:\s*unable to create new native thread` | Driver内存不足，建议调整 Driver内存数 |
+| oom_driver_direct | `OutOfMemoryError:\s*Container memory exceeded` | Driver内存超限，建议调整 Driver内存数 |
+| container_killed_memory | `Container killed.*memory|exceeding memory limits|killed by YARN` | Container被YARN终止，建议增加 Executor内存数 |
+| gc_overhead | `GC overhead limit exceeded` | GC开销过大，建议增加 Executor内存数 |
+| shuffle_timeout | `shuffle.*timeout` | Shuffle超时，建议增加 Executor数量以提高并行度 |
+| executor_lost_heartbeat | `Executor heartbeat timeout` | Executor心跳超时，建议增加 Executor内存数或检查网络 |
+| driver_memory_insufficient | `System memory.*must be at least.*driver-memory` | Driver内存不足，建议调整 Driver内存数 |
+| executor_memory_insufficient | `Executor memory.*must be at least` | Executor内存不足，建议调整 Executor内存数 |
 
 ## KNOWN_NEEDS_LLM
 
@@ -78,6 +78,26 @@
 | yarn_container_exit | `Container.*exit.*code` | YARN Container 异常退出，请分析退出原因 |
 | queue_full | `Queue.*full|queue capacity` | Spark YARN 队列满，请检查队列状态 |
 | killed_by_user | `Killed by user` | Spark 任务被手动终止，无需自动修复 |
+
+## 性能分析模式（深度诊断）
+
+用于深度分析场景的性能问题识别。
+
+| error_type | pattern | hint |
+|------------|---------|------|
+| broadcast_size_large | `BroadcastExchange.*broadcast size.*MB|Build relation size.*MB` | 广播数据量大，记录用于分析，判断是否需要调整阈值 |
+| broadcast_exceeds_threshold | `broadcast.*exceeds threshold` | 广播超阈值，建议调大 spark.sql.autoBroadcastJoinThreshold 或改用 SortMergeJoin |
+| broadcast_timeout | `BroadcastHashJoin.*timeout|Could not broadcast` | 广播超时，分析广播表大小和网络状态 |
+| join_strategy_broadcast | `Choosing join strategy.*BroadcastHashJoin` | 使用 Broadcast Join，记录用于性能分析 |
+| join_strategy_sortmerge | `Choosing join strategy.*SortMergeJoin` | 使用 SortMergeJoin，关注 Shuffle 数据量 |
+| join_strategy_shuffle_hash | `Choosing join strategy.*ShuffleHashJoin` | 使用 ShuffleHashJoin，关注内存使用 |
+| stage_duration_long | `Stage.*completed.*duration.*\d+min|Stage.*finished in \d+000ms` | Stage 执行时间过长（>1分钟），可能需要优化 |
+| stage_failed | `Stage\s+\d+\s+failed` | Stage 失败，分析具体失败原因 |
+| task_skew_detected | `Task.*duration.*\d+000ms.*skew|skew ratio.*\d+` | Task 数据倾斜，分析 Key 分布 |
+| executor_added | `Added executor.*on host` | Executor 添加事件，记录用于资源分析 |
+| executor_removed_heartbeat | `Removed executor.*heartbeat timeout` | Executor 因心跳超时移除，检查网络或增加 timeout |
+| executor_removed_lost | `Removed executor.*lost|Executor.*lost` | Executor 丢失，分析丢失原因 |
+| executor_heartbeat_timeout | `Executor heartbeat timeout|heartbeat.*timeout` | Executor 心跳超时，检查 Executor 状态 |
 
 ## Pattern Matching Rules
 

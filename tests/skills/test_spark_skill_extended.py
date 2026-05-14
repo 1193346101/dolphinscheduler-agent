@@ -3,7 +3,7 @@
 """
 
 import pytest
-from src.skills.spark_skill import SparkSkill
+from src.skills.spark.analyzer import SparkSkill
 from src.models.alert import AlertContext, AlertInfo
 from src.models.analysis import ErrorAnalysis, ErrorCategory
 

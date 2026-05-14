@@ -1,7 +1,7 @@
 {
   "project_code": "11598158952448",
   "project_name": "ad_monitor",
-  "scanned_at": "2026-05-11T19:47:27.790019",
+  "scanned_at": "2026-05-14T13:48:27.866424",
   "version": 1,
   "nodes": {
     "workflows": [
@@ -3617,7 +3617,7 @@
         "spark_main_class": null,
         "params": {
           "localParams": [],
-          "rawScript": "echo \"==========================================\"\necho \"    H   H   EEEEE   L      L      OOOO   \"\necho \"    H   H   E       L      L     O    O  \"\necho \"    HHHHH   EEEE    L      L     O    O  \"\necho \"    H   H   E       L      L     O    O  \"\necho \"    H   H   EEEEE   LLLLL  LLLLL  OOOO   \"\necho \"==========================================\"\nech ERROR TEST - HELLO DOLPHINSCHEDULER!\"\n",
+          "rawScript": "echo \"==========================================\"\necho \"    H   H   EEEEE   L      L      OOOO   \"\necho \"    H   H   E       L      L     O    O  \"\necho \"    HHHHH   EEEE    L      L     O    O  \"\necho \"    H   H   E       L      L     O    O  \"\necho \"    H   H   EEEEE   LLLLL  LLLLL  OOOO   \"\necho \"==========================================\"\nec HELLO DOLPHINSCHEDULER!\"\n",
           "resourceList": []
         }
       },
@@ -3750,9 +3750,9 @@
         "params": {
           "deployMode": "cluster",
           "driverCores": 1,
-          "driverMemory": "512m",
+          "driverMemory": "128m",
           "executorCores": "1",
-          "executorMemory": "1g",
+          "executorMemory": "128m",
           "localParams": [],
           "mainArgs": "${yesterday}",
           "mainClass": "tv.huan.ad.monitor.upgrade.ImpressionLogOrc",
@@ -3825,6 +3825,42 @@
     ],
     "tables": [
       {
+        "full_name": "ak_china_region_info_view",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "view_region_info_temp",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.impression_log_pre",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "view_result",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.ads_ak_spot_county_freq_total_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.ads_ak_spot_freq_total_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.impression_log",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.ads_ak_spot_county_freq_day_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.ads_ak_spot_freq_day_report",
+        "table_type": "HIVE"
+      },
+      {
         "full_name": "hdfs:/project/ad_monitor/ads/ads_ak_spot_freq_day_report/",
         "table_type": "HDFS"
       },
@@ -3841,12 +3877,68 @@
         "table_type": "HDFS"
       },
       {
+        "full_name": "ad_monitor.click_log",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.middle_log",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "view_day_log",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.click_log_pre",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.middle_log_pre",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "view_total_log",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "view_day_res",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "view_total_res",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.ads_ak_spot_monitor_county_day_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "view_day",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "view_total",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.ads_ak_spot_monitor_day_report",
+        "table_type": "HIVE"
+      },
+      {
         "full_name": "hdfs:/project/ad_monitor/ads/ads_ak_spot_monitor_day_report/",
         "table_type": "HDFS"
       },
       {
         "full_name": "hdfs:/project/ad_monitor/ads/ads_ak_spot_monitor_county_day_report/",
         "table_type": "HDFS"
+      },
+      {
+        "full_name": "ad_monitor.ads_ak_adid_monitor_county_day_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.ads_ak_adid_monitor_day_report",
+        "table_type": "HIVE"
       },
       {
         "full_name": "hdfs:/project/ad_monitor/ads/ads_ak_adid_monitor_day_report/",
@@ -3857,6 +3949,14 @@
         "table_type": "HDFS"
       },
       {
+        "full_name": "ad_monitor.ads_ak_adid_req_day_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.ads_ak_spot_req_day_report",
+        "table_type": "HIVE"
+      },
+      {
         "full_name": "hdfs:/project/ad_monitor/ads/ads_ak_spot_req_day_report/",
         "table_type": "HDFS"
       },
@@ -3865,12 +3965,196 @@
         "table_type": "HDFS"
       },
       {
+        "full_name": "view_campaign",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "view_campaign_final",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "view_mt_activity",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "view_huan_union_ak_adx_promotion_plan",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "view_huan_union_ak_strategy_union_freq",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "view_huna_union_ak_direct_promotion_plan",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "view_third_final",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.huan_ad_monitor_impression_log_orc",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "view_mysql_result",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "campaign_id_view",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.huan_ad_monitor_impression_log_statistics",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.huan_ad_monitor_access_log_orc",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "view_huan_ad_monitor_access_log_orc",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.dwd_huan_ad_monitor_access_log_pretreat",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.huan_ad_monitor_access_log",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "view_mt_third_monitor",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.ad_monitor_access_log_diff_period_0520",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "view_dwd_huan_ad_monitor_access_log_pretreat",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "view_union",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.impression_county_collide_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.impression_device_info",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "t3",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "t11",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "t2",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "t1",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "t4",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "t5",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "t6",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "t7",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "t8",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "t9",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "t10",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "t12",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.ipip_base_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.impression_collide_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.base_report",
+        "table_type": "HIVE"
+      },
+      {
         "full_name": "hdfs:/project/ad_monitor/ads/base_report/",
         "table_type": "HDFS"
       },
       {
         "full_name": "hdfs:/project/ad_monitor/ads/ipip_base_report/",
         "table_type": "HDFS"
+      },
+      {
+        "full_name": "view_pv",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.impression_mark_total_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "mt_media_all_view",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "mt_media_view",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "impression_valid_view",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "valid_view_pv",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.impression_province_total_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.impression_media_total_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.ak_deal_screen_size_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.ak_monitor_freq_total_report",
+        "table_type": "HIVE"
       },
       {
         "full_name": "hdfs:/project/ad_monitor/ads/impression_mark_total_report/",
@@ -3893,6 +4177,38 @@
         "table_type": "HDFS"
       },
       {
+        "full_name": "ad_monitor.impression_mark_freq_total_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.impression_province_freq_total_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.impression_media_freq_total_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.ak_monitor_county_freq_total_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "mt_activity_all_view",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "huan_ad_monitor_impression_log_orc_view",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "size_view",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.huan_ad_terminal_day_pv_report",
+        "table_type": "HIVE"
+      },
+      {
         "full_name": "hdfs:/project/ad_monitor/ads/impression_mark_freq_total_report/",
         "table_type": "HDFS"
       },
@@ -3907,6 +4223,58 @@
       {
         "full_name": "hdfs:/project/ad_monitor/ads/ak_monitor_county_freq_total_report/",
         "table_type": "HDFS"
+      },
+      {
+        "full_name": "middle_view",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.huan_ad_monitor_middle_log_orc",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "huan_ad_monitor_middle_log_orc_view",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.ads_middle_terminal_day_pv_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.huan_ad_monitor_click_log_orc",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "huan_ad_monitor_click_log_orc_view",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.ads_click_terminal_day_pv_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.impression_mark_day_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.impression_media_day_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.impression_province_day_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.ak_plan_freq_week_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.ak_deal_freq_week_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.ak_monitor_freq_week_report",
+        "table_type": "HIVE"
       },
       {
         "full_name": "hdfs:/project/ad_monitor/ads/impression_mark_day_report/",
@@ -3931,6 +4299,10 @@
       {
         "full_name": "hdfs:/project/ad_monitor/ads/ak_monitor_freq_week_report/",
         "table_type": "HDFS"
+      },
+      {
+        "full_name": "view_logs",
+        "table_type": "HIVE"
       },
       {
         "full_name": "hdfs:/project/ad_monitor/ads/impression_collide_report",
@@ -3981,6 +4353,22 @@
         "table_type": "HDFS"
       },
       {
+        "full_name": "ad_monitor.impression_mark_freq_day_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.impression_media_freq_day_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.impression_province_freq_day_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.ak_monitor_county_freq_week_report",
+        "table_type": "HIVE"
+      },
+      {
         "full_name": "hdfs:/project/ad_monitor/ads/impression_mark_freq_day_report/",
         "table_type": "HDFS"
       },
@@ -3995,9 +4383,974 @@
       {
         "full_name": "hdfs:/project/ad_monitor/ads/ak_monitor_county_freq_week_report/",
         "table_type": "HDFS"
+      },
+      {
+        "full_name": "ad_monitor.dwd_impression_multi_dim_distinct_mac",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.dwd_impression_filter_flatmap_hadid",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ak_platform_traffice_style_imp_view_report_view",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.dws_ak_platform_traffice_style_imp_view_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.dwd_impression_multi_dim_count",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ak_platform_imp_view_report_view",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.dws_ak_platform_imp_view_report",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ak_platform_city_imp_view_report_view",
+        "table_type": "HIVE"
+      },
+      {
+        "full_name": "ad_monitor.dws_ak_platform_city_imp_view_report",
+        "table_type": "HIVE"
       }
     ],
-    "classes": []
+    "classes": [
+      {
+        "name": "tv.huan.ad.monitor.ads.spot.AkSpotCountyFreqTotalReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\ads\\spot\\AkSpotCountyFreqTotalReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ak_china_region_info_view",
+          "view_region_info_temp",
+          "ad_monitor.impression_log_pre",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.ads_ak_spot_county_freq_total_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.ads.spot.AkSpotFreqTotalReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\ads\\spot\\AkSpotFreqTotalReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.ads_ak_spot_freq_total_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.ads.spot.AkSpotCountyFreqDayReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\ads\\spot\\AkSpotCountyFreqDayReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ak_china_region_info_view",
+          "view_region_info_temp",
+          "ad_monitor.impression_log",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.ads_ak_spot_county_freq_day_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.ads.spot.AkSpotFreqDayReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\ads\\spot\\AkSpotFreqDayReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.ads_ak_spot_freq_day_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorcCountyReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\ads\\spot\\AdsAkSpotMonitorcCountyReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ak_china_region_info_view",
+          "view_region_info_temp",
+          "ad_monitor.impression_log",
+          "ad_monitor.click_log",
+          "ad_monitor.middle_log",
+          "view_day_log",
+          "ad_monitor.impression_log_pre",
+          "ad_monitor.click_log_pre",
+          "ad_monitor.middle_log_pre",
+          "view_total_log",
+          "view_day_res",
+          "view_total_res",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.ads_ak_spot_monitor_county_day_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorDayReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\ads\\spot\\AdsAkSpotMonitorDayReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ad_monitor.impression_log",
+          "ad_monitor.click_log",
+          "ad_monitor.middle_log",
+          "ad_monitor.impression_log_pre",
+          "ad_monitor.click_log_pre",
+          "ad_monitor.middle_log_pre",
+          "view_day",
+          "view_total",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.ads_ak_spot_monitor_day_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorcCountyReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\ads\\adid\\AdsAkAdidMonitorcCountyReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ak_china_region_info_view",
+          "view_region_info_temp",
+          "ad_monitor.impression_log",
+          "ad_monitor.click_log",
+          "ad_monitor.middle_log",
+          "view_day_log",
+          "ad_monitor.impression_log_pre",
+          "ad_monitor.click_log_pre",
+          "ad_monitor.middle_log_pre",
+          "view_total_log",
+          "view_day_res",
+          "view_total_res",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.ads_ak_adid_monitor_county_day_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorDayReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\ads\\adid\\AdsAkAdidMonitorDayReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ad_monitor.impression_log",
+          "ad_monitor.click_log",
+          "ad_monitor.middle_log",
+          "ad_monitor.impression_log_pre",
+          "ad_monitor.click_log_pre",
+          "ad_monitor.middle_log_pre",
+          "view_day",
+          "view_total",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.ads_ak_adid_monitor_day_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.ads.adid.AdsAkAdidReqDayReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\ads\\adid\\AdsAkAdidReqDayReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "view_day",
+          "view_total",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.ads_ak_adid_req_day_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.ads.spot.AdsAkSpotReqDayReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\ads\\spot\\AdsAkSpotReqDayReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "view_day",
+          "view_total",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.ads_ak_spot_req_day_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.upgrade.ClickLogPre",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\upgrade\\ClickLogPre.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "view_campaign",
+          "ad_monitor.click_log",
+          "view_campaign_final",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.click_log_pre"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.upgrade.ImpressionLog",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\upgrade\\ImpressionLog.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "view_mt_activity",
+          "view_huan_union_ak_adx_promotion_plan",
+          "view_huan_union_ak_strategy_union_freq",
+          "view_huna_union_ak_direct_promotion_plan",
+          "view_campaign_final",
+          "view_third_final",
+          "ad_monitor.huan_ad_monitor_impression_log_orc",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.impression_log"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.upgrade.ImpressionLogOrc",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\upgrade\\ImpressionLogOrc.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [],
+        "tables_output": []
+      },
+      {
+        "name": "tv.huan.ad.monitor.upgrade.ImpressionLogPre",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\upgrade\\ImpressionLogPre.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "view_mt_activity",
+          "view_huan_union_ak_adx_promotion_plan",
+          "view_huan_union_ak_strategy_union_freq",
+          "view_huna_union_ak_direct_promotion_plan",
+          "view_campaign_final",
+          "view_third_final",
+          "view_mysql_result",
+          "campaign_id_view",
+          "ad_monitor.impression_log"
+        ],
+        "tables_output": [
+          "ad_monitor.impression_log_pre"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.dmp.HuanAdMonitorImpressionLogStatistics",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\dmp\\HuanAdMonitorImpressionLogStatistics.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ad_monitor.huan_ad_monitor_impression_log_orc"
+        ],
+        "tables_output": [
+          "ad_monitor.huan_ad_monitor_impression_log_statistics"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.dwd.DwdHuanAdMonitorAccessLogPretreat",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\dwd\\DwdHuanAdMonitorAccessLogPretreat.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ad_monitor.huan_ad_monitor_impression_log_orc",
+          "ad_monitor.huan_ad_monitor_access_log_orc",
+          "view_huan_ad_monitor_access_log_orc"
+        ],
+        "tables_output": [
+          "ad_monitor.dwd_huan_ad_monitor_access_log_pretreat"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.ods.huan_ad_monitor_access_log_orc",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\ods\\huan_ad_monitor_access_log_orc.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ad_monitor.huan_ad_monitor_access_log"
+        ],
+        "tables_output": [
+          "ad_monitor.huan_ad_monitor_access_log_orc"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.ads.AdMonitorAccessLogDiffPeriod0520",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\ads\\AdMonitorAccessLogDiffPeriod0520.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ad_monitor.dwd_huan_ad_monitor_access_log_pretreat",
+          "view_mt_third_monitor",
+          "ad_monitor.ad_monitor_access_log_diff_period_0520",
+          "view_dwd_huan_ad_monitor_access_log_pretreat",
+          "view_union",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.ad_monitor_access_log_diff_period_0520"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\ipipCounty\\IpIpBaseReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ad_monitor.impression_log",
+          "ad_monitor.impression_log_pre",
+          "ad_monitor.impression_county_collide_report",
+          "ad_monitor.impression_device_info",
+          "ad_monitor.middle_log",
+          "ad_monitor.click_log",
+          "ad_monitor.middle_log_pre",
+          "ad_monitor.click_log_pre",
+          "ak_china_region_info_view",
+          "view_region_info_temp",
+          "t3",
+          "t11",
+          "t2",
+          "t1",
+          "t4",
+          "t5",
+          "t6",
+          "t7",
+          "t8",
+          "t9",
+          "t10",
+          "t12",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.ipip_base_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.upgrade.BaseReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\upgrade\\BaseReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ad_monitor.impression_log",
+          "ad_monitor.impression_log_pre",
+          "ad_monitor.impression_collide_report",
+          "ad_monitor.impression_device_info",
+          "ad_monitor.middle_log",
+          "ad_monitor.click_log",
+          "ad_monitor.middle_log_pre",
+          "ad_monitor.click_log_pre",
+          "t3",
+          "t11",
+          "t2",
+          "t1",
+          "t4",
+          "t5",
+          "t6",
+          "t7",
+          "t8",
+          "t9",
+          "t10",
+          "t12",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.base_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.upgrade.ImpressionMarkTotalReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\upgrade\\ImpressionMarkTotalReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ad_monitor.impression_log_pre",
+          "view_pv",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.impression_mark_total_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.upgrade.ImpressionProvinceTotalReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\upgrade\\ImpressionProvinceTotalReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "mt_media_all_view",
+          "mt_media_view",
+          "ad_monitor.impression_log_pre",
+          "impression_valid_view",
+          "view_pv",
+          "valid_view_pv",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.impression_province_total_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.upgrade.ImpressionMediaTotalReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\upgrade\\ImpressionMediaTotalReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ad_monitor.impression_log_pre",
+          "view_pv",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.impression_media_total_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.upgrade.AkDealScreenSizeReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\upgrade\\AkDealScreenSizeReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ad_monitor.impression_log",
+          "ad_monitor.impression_log_pre",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.ak_deal_screen_size_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.upgrade.AkMonitorFreqTotalReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\upgrade\\AkMonitorFreqTotalReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.ak_monitor_freq_total_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.ipipCounty.ImpressionMarkFreqTotalReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\ipipCounty\\ImpressionMarkFreqTotalReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ak_china_region_info_view",
+          "view_region_info_temp",
+          "ad_monitor.impression_log_pre",
+          "view_pv",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.impression_mark_freq_total_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqTotalReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\ipipCounty\\ImpressionProvinceFreqTotalReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "mt_media_all_view",
+          "mt_media_view",
+          "ak_china_region_info_view",
+          "view_region_info_temp",
+          "ad_monitor.impression_log_pre",
+          "impression_valid_view",
+          "view_pv",
+          "valid_view_pv",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.impression_province_freq_total_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.ipipCounty.ImpressionMediaFreqTotalReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\ipipCounty\\ImpressionMediaFreqTotalReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ak_china_region_info_view",
+          "view_region_info_temp",
+          "ad_monitor.impression_log_pre",
+          "view_pv",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.impression_media_freq_total_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.ipipCounty.AkMonitorCountyFreqTotalReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\ipipCounty\\AkMonitorCountyFreqTotalReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ak_china_region_info_view",
+          "view_region_info_temp",
+          "ad_monitor.impression_log_pre",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.ak_monitor_county_freq_total_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.HuanAdTerminalDayPvReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\HuanAdTerminalDayPvReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "mt_activity_all_view",
+          "mt_media_all_view",
+          "mt_media_view",
+          "ad_monitor.huan_ad_monitor_impression_log_orc",
+          "huan_ad_monitor_impression_log_orc_view",
+          "size_view"
+        ],
+        "tables_output": [
+          "ad_monitor.huan_ad_terminal_day_pv_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.ads.AdsMiddleTerminalDayPvReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\ads\\AdsMiddleTerminalDayPvReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "mt_activity_all_view",
+          "mt_media_all_view",
+          "middle_view",
+          "mt_media_view",
+          "ad_monitor.huan_ad_monitor_middle_log_orc",
+          "huan_ad_monitor_middle_log_orc_view",
+          "size_view"
+        ],
+        "tables_output": [
+          "ad_monitor.ads_middle_terminal_day_pv_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.ads.AdsClickTerminalDayPvReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\ads\\AdsClickTerminalDayPvReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "mt_activity_all_view",
+          "mt_media_all_view",
+          "mt_media_view",
+          "ad_monitor.huan_ad_monitor_click_log_orc",
+          "huan_ad_monitor_click_log_orc_view",
+          "size_view"
+        ],
+        "tables_output": [
+          "ad_monitor.ads_click_terminal_day_pv_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.upgrade.ImpressionMarkDayReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\upgrade\\ImpressionMarkDayReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ad_monitor.impression_log",
+          "view_pv",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.impression_mark_day_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.upgrade.ImpressionMediaDayReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\upgrade\\ImpressionMediaDayReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ad_monitor.impression_log",
+          "view_pv",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.impression_media_day_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.upgrade.ImpressionProvinceDayReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\upgrade\\ImpressionProvinceDayReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "mt_media_all_view",
+          "mt_media_view",
+          "ad_monitor.impression_log",
+          "impression_valid_view",
+          "view_pv",
+          "valid_view_pv",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.impression_province_day_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.upgrade.AkPlanFreqWeekReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\upgrade\\AkPlanFreqWeekReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ad_monitor.impression_log",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.ak_plan_freq_week_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.upgrade.AkDealFreqWeekReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\upgrade\\AkDealFreqWeekReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.ak_deal_freq_week_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.upgrade.AkMonitorFreqWeekReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\upgrade\\AkMonitorFreqWeekReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.ak_monitor_freq_week_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.upgrade.ImpressionCollideReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\upgrade\\ImpressionCollideReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ad_monitor.impression_log",
+          "view_logs",
+          "view_pv"
+        ],
+        "tables_output": [
+          "ad_monitor.impression_collide_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.ipipCounty.ImpressionCountyCollideReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\ipipCounty\\ImpressionCountyCollideReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ak_china_region_info_view",
+          "ad_monitor.impression_log",
+          "view_logs",
+          "view_pv"
+        ],
+        "tables_output": [
+          "ad_monitor.impression_county_collide_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.ipipCounty.ImpressionMarkFreqDayReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\ipipCounty\\ImpressionMarkFreqDayReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ak_china_region_info_view",
+          "ad_monitor.impression_log",
+          "view_pv",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.impression_mark_freq_day_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.ipipCounty.ImpressionMediaFreqDayReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\ipipCounty\\ImpressionMediaFreqDayReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ak_china_region_info_view",
+          "ad_monitor.impression_log",
+          "view_pv",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.impression_media_freq_day_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqDayReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\ipipCounty\\ImpressionProvinceFreqDayReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "mt_media_all_view",
+          "mt_media_view",
+          "ak_china_region_info_view",
+          "ad_monitor.impression_log",
+          "impression_valid_view",
+          "view_pv",
+          "valid_view_pv",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.impression_province_freq_day_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.ipipCounty.AkMonitorCountyFreqWeekReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\ipipCounty\\AkMonitorCountyFreqWeekReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ak_china_region_info_view",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.ak_monitor_county_freq_week_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.dwd.DwdImpressionMultiDimDistinctMac",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\dwd\\DwdImpressionMultiDimDistinctMac.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ad_monitor.huan_ad_monitor_impression_log_orc",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.dwd_impression_multi_dim_distinct_mac"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.dws.DwsAkPlatformTrafficeStyleImpViewReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\dws\\DwsAkPlatformTrafficeStyleImpViewReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ad_monitor.dwd_impression_filter_flatmap_hadid",
+          "ak_platform_traffice_style_imp_view_report_view",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.dws_ak_platform_traffice_style_imp_view_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.dws.DwsAkPlatformImpViewReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\dws\\DwsAkPlatformImpViewReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ad_monitor.dwd_impression_multi_dim_count",
+          "ad_monitor.dwd_impression_multi_dim_distinct_mac",
+          "ak_platform_imp_view_report_view",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.dws_ak_platform_imp_view_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.dws.DwsAkPlatformCityImpViewReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\dws\\DwsAkPlatformCityImpViewReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ad_monitor.dwd_impression_multi_dim_count",
+          "ad_monitor.dwd_impression_multi_dim_distinct_mac",
+          "ak_platform_city_imp_view_report_view",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.dws_ak_platform_city_imp_view_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.dwd.DwdImpressionFilterFlatmapHadid",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\dwd\\DwdImpressionFilterFlatmapHadid.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ad_monitor.huan_ad_monitor_impression_log_orc",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.dwd_impression_filter_flatmap_hadid"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.dwd.DwdImpressionMultiDimCount",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\dwd\\DwdImpressionMultiDimCount.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ad_monitor.huan_ad_monitor_impression_log_orc",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.dwd_impression_multi_dim_count"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.ads.AdsClickTerminalDayPvReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\ads\\AdsClickTerminalDayPvReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "mt_activity_all_view",
+          "mt_media_all_view",
+          "mt_media_view",
+          "ad_monitor.huan_ad_monitor_click_log_orc",
+          "huan_ad_monitor_click_log_orc_view",
+          "size_view"
+        ],
+        "tables_output": [
+          "ad_monitor.ads_click_terminal_day_pv_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.ads.AdsMiddleTerminalDayPvReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\ads\\AdsMiddleTerminalDayPvReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "mt_activity_all_view",
+          "mt_media_all_view",
+          "middle_view",
+          "mt_media_view",
+          "ad_monitor.huan_ad_monitor_middle_log_orc",
+          "huan_ad_monitor_middle_log_orc_view",
+          "size_view"
+        ],
+        "tables_output": [
+          "ad_monitor.ads_middle_terminal_day_pv_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.HuanAdTerminalDayPvReport",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\HuanAdTerminalDayPvReport.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "mt_activity_all_view",
+          "mt_media_all_view",
+          "mt_media_view",
+          "ad_monitor.huan_ad_monitor_impression_log_orc",
+          "huan_ad_monitor_impression_log_orc_view",
+          "size_view"
+        ],
+        "tables_output": [
+          "ad_monitor.huan_ad_terminal_day_pv_report"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.upgrade.ImpressionLogOrc",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\upgrade\\ImpressionLogOrc.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [],
+        "tables_output": []
+      },
+      {
+        "name": "tv.huan.ad.monitor.upgrade.ImpressionLogOrc",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\upgrade\\ImpressionLogOrc.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [],
+        "tables_output": []
+      },
+      {
+        "name": "tv.huan.ad.monitor.upgrade.ImpressionLog",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\upgrade\\ImpressionLog.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "view_mt_activity",
+          "view_huan_union_ak_adx_promotion_plan",
+          "view_huan_union_ak_strategy_union_freq",
+          "view_huna_union_ak_direct_promotion_plan",
+          "view_campaign_final",
+          "view_third_final",
+          "ad_monitor.huan_ad_monitor_impression_log_orc",
+          "view_result"
+        ],
+        "tables_output": [
+          "ad_monitor.impression_log"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.upgrade.ImpressionLogOrc",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\upgrade\\ImpressionLogOrc.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [],
+        "tables_output": []
+      },
+      {
+        "name": "tv.huan.ad.monitor.upgrade.ImpressionLogPre",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\upgrade\\ImpressionLogPre.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "view_mt_activity",
+          "view_huan_union_ak_adx_promotion_plan",
+          "view_huan_union_ak_strategy_union_freq",
+          "view_huna_union_ak_direct_promotion_plan",
+          "view_campaign_final",
+          "view_third_final",
+          "view_mysql_result",
+          "campaign_id_view",
+          "ad_monitor.impression_log"
+        ],
+        "tables_output": [
+          "ad_monitor.impression_log_pre"
+        ]
+      },
+      {
+        "name": "tv.huan.ad.monitor.dmp.HuanAdMonitorImpressionLogStatistics",
+        "file_path": "D:/Project/spark-etl\\ad-monitor\\src\\main\\scala\\tv\\huan\\ad\\monitor\\dmp\\HuanAdMonitorImpressionLogStatistics.scala",
+        "cross_project": false,
+        "source_project": "ad-monitor",
+        "tables_input": [
+          "ad_monitor.huan_ad_monitor_impression_log_orc"
+        ],
+        "tables_output": [
+          "ad_monitor.huan_ad_monitor_impression_log_statistics"
+        ]
+      }
+    ]
   },
   "edges": {
     "workflow_depends_workflow": [],
@@ -5143,20 +6496,281 @@
         "target": "21614073121697"
       },
       {
-        "source": "21614073121698",
-        "target": "21614073121699"
-      },
-      {
         "source": "21614073121697",
         "target": "21614073121700"
       },
       {
         "source": "21614073121699",
         "target": "21614073121701"
+      },
+      {
+        "source": "21614073121698",
+        "target": "21614073121699"
       }
     ],
-    "task_produces_table": [],
+    "task_produces_table": [
+      {
+        "source": "11598178397189",
+        "target": "ad_monitor.ads_ak_spot_county_freq_total_report"
+      },
+      {
+        "source": "11598178397190",
+        "target": "ad_monitor.ads_ak_spot_freq_total_report"
+      },
+      {
+        "source": "11598178397191",
+        "target": "ad_monitor.ads_ak_spot_county_freq_day_report"
+      },
+      {
+        "source": "11598178397192",
+        "target": "ad_monitor.ads_ak_spot_freq_day_report"
+      },
+      {
+        "source": "11598179392259",
+        "target": "ad_monitor.ads_ak_spot_monitor_county_day_report"
+      },
+      {
+        "source": "11598179392260",
+        "target": "ad_monitor.ads_ak_spot_monitor_day_report"
+      },
+      {
+        "source": "11598180699905",
+        "target": "ad_monitor.ads_ak_adid_monitor_county_day_report"
+      },
+      {
+        "source": "11598180699906",
+        "target": "ad_monitor.ads_ak_adid_monitor_day_report"
+      },
+      {
+        "source": "11598184562435",
+        "target": "ad_monitor.ads_ak_adid_req_day_report"
+      },
+      {
+        "source": "11598184562436",
+        "target": "ad_monitor.ads_ak_spot_req_day_report"
+      },
+      {
+        "source": "11598188089986",
+        "target": "ad_monitor.click_log_pre"
+      },
+      {
+        "source": "11598189672194",
+        "target": "ad_monitor.impression_log"
+      },
+      {
+        "source": "11598189672197",
+        "target": "ad_monitor.impression_log_pre"
+      },
+      {
+        "source": "11598189672198",
+        "target": "ad_monitor.huan_ad_monitor_impression_log_statistics"
+      },
+      {
+        "source": "11599818692993",
+        "target": "ad_monitor.dwd_huan_ad_monitor_access_log_pretreat"
+      },
+      {
+        "source": "11599818692995",
+        "target": "ad_monitor.huan_ad_monitor_access_log_orc"
+      },
+      {
+        "source": "11599818692997",
+        "target": "ad_monitor.ad_monitor_access_log_diff_period_0520"
+      },
+      {
+        "source": "11599819950339",
+        "target": "ad_monitor.ipip_base_report"
+      },
+      {
+        "source": "11599819950343",
+        "target": "ad_monitor.base_report"
+      },
+      {
+        "source": "11599821572615",
+        "target": "ad_monitor.impression_mark_total_report"
+      },
+      {
+        "source": "11599821572616",
+        "target": "ad_monitor.impression_province_total_report"
+      },
+      {
+        "source": "11599821572617",
+        "target": "ad_monitor.impression_media_total_report"
+      },
+      {
+        "source": "11599821572620",
+        "target": "ad_monitor.ak_deal_screen_size_report"
+      },
+      {
+        "source": "11599821572621",
+        "target": "ad_monitor.ak_monitor_freq_total_report"
+      },
+      {
+        "source": "11599823357446",
+        "target": "ad_monitor.impression_mark_freq_total_report"
+      },
+      {
+        "source": "11599823357447",
+        "target": "ad_monitor.impression_province_freq_total_report"
+      },
+      {
+        "source": "11599823357448",
+        "target": "ad_monitor.impression_media_freq_total_report"
+      },
+      {
+        "source": "11599823357449",
+        "target": "ad_monitor.ak_monitor_county_freq_total_report"
+      },
+      {
+        "source": "11599823357450",
+        "target": "ad_monitor.huan_ad_terminal_day_pv_report"
+      },
+      {
+        "source": "14936514111904",
+        "target": "ad_monitor.ads_middle_terminal_day_pv_report"
+      },
+      {
+        "source": "14936515045025",
+        "target": "ad_monitor.ads_click_terminal_day_pv_report"
+      },
+      {
+        "source": "11599826665352",
+        "target": "ad_monitor.impression_mark_day_report"
+      },
+      {
+        "source": "11599826665353",
+        "target": "ad_monitor.impression_media_day_report"
+      },
+      {
+        "source": "11599826665354",
+        "target": "ad_monitor.impression_province_day_report"
+      },
+      {
+        "source": "11599826665357",
+        "target": "ad_monitor.ak_plan_freq_week_report"
+      },
+      {
+        "source": "11599826665358",
+        "target": "ad_monitor.ak_deal_freq_week_report"
+      },
+      {
+        "source": "11599826665359",
+        "target": "ad_monitor.ak_monitor_freq_week_report"
+      },
+      {
+        "source": "11599834736898",
+        "target": "ad_monitor.impression_collide_report"
+      },
+      {
+        "source": "11599834736899",
+        "target": "ad_monitor.impression_county_collide_report"
+      },
+      {
+        "source": "11599840142465",
+        "target": "ad_monitor.impression_mark_freq_day_report"
+      },
+      {
+        "source": "11599840142466",
+        "target": "ad_monitor.impression_media_freq_day_report"
+      },
+      {
+        "source": "11599840142467",
+        "target": "ad_monitor.impression_province_freq_day_report"
+      },
+      {
+        "source": "11599840142468",
+        "target": "ad_monitor.ak_monitor_county_freq_week_report"
+      },
+      {
+        "source": "11600006534913",
+        "target": "ad_monitor.dwd_impression_multi_dim_distinct_mac"
+      },
+      {
+        "source": "11600006534914",
+        "target": "ad_monitor.dws_ak_platform_traffice_style_imp_view_report"
+      },
+      {
+        "source": "11600006534915",
+        "target": "ad_monitor.dws_ak_platform_imp_view_report"
+      },
+      {
+        "source": "11600006534916",
+        "target": "ad_monitor.dws_ak_platform_city_imp_view_report"
+      },
+      {
+        "source": "11600006534920",
+        "target": "ad_monitor.dwd_impression_filter_flatmap_hadid"
+      },
+      {
+        "source": "11600006534921",
+        "target": "ad_monitor.dwd_impression_multi_dim_count"
+      },
+      {
+        "source": "14936257423906",
+        "target": "ad_monitor.ads_click_terminal_day_pv_report"
+      },
+      {
+        "source": "14936257423907",
+        "target": "ad_monitor.ads_middle_terminal_day_pv_report"
+      },
+      {
+        "source": "20354293498912",
+        "target": "ad_monitor.huan_ad_terminal_day_pv_report"
+      },
+      {
+        "source": "21614073121697",
+        "target": "ad_monitor.impression_log"
+      },
+      {
+        "source": "21614073121700",
+        "target": "ad_monitor.impression_log_pre"
+      },
+      {
+        "source": "21614073121701",
+        "target": "ad_monitor.huan_ad_monitor_impression_log_statistics"
+      }
+    ],
     "task_consumes_table": [
+      {
+        "source": "11598178397189",
+        "target": "ak_china_region_info_view"
+      },
+      {
+        "source": "11598178397189",
+        "target": "view_region_info_temp"
+      },
+      {
+        "source": "11598178397189",
+        "target": "ad_monitor.impression_log_pre"
+      },
+      {
+        "source": "11598178397189",
+        "target": "view_result"
+      },
+      {
+        "source": "11598178397190",
+        "target": "view_result"
+      },
+      {
+        "source": "11598178397191",
+        "target": "ak_china_region_info_view"
+      },
+      {
+        "source": "11598178397191",
+        "target": "view_region_info_temp"
+      },
+      {
+        "source": "11598178397191",
+        "target": "ad_monitor.impression_log"
+      },
+      {
+        "source": "11598178397191",
+        "target": "view_result"
+      },
+      {
+        "source": "11598178397192",
+        "target": "view_result"
+      },
       {
         "source": "13544161066753",
         "target": "hdfs:/project/ad_monitor/ads/ads_ak_spot_freq_day_report/"
@@ -5174,12 +6788,188 @@
         "target": "hdfs:/project/ad_monitor/ads/ads_ak_spot_county_freq_total_report/"
       },
       {
+        "source": "11598179392259",
+        "target": "ak_china_region_info_view"
+      },
+      {
+        "source": "11598179392259",
+        "target": "view_region_info_temp"
+      },
+      {
+        "source": "11598179392259",
+        "target": "ad_monitor.impression_log"
+      },
+      {
+        "source": "11598179392259",
+        "target": "ad_monitor.click_log"
+      },
+      {
+        "source": "11598179392259",
+        "target": "ad_monitor.middle_log"
+      },
+      {
+        "source": "11598179392259",
+        "target": "view_day_log"
+      },
+      {
+        "source": "11598179392259",
+        "target": "ad_monitor.impression_log_pre"
+      },
+      {
+        "source": "11598179392259",
+        "target": "ad_monitor.click_log_pre"
+      },
+      {
+        "source": "11598179392259",
+        "target": "ad_monitor.middle_log_pre"
+      },
+      {
+        "source": "11598179392259",
+        "target": "view_total_log"
+      },
+      {
+        "source": "11598179392259",
+        "target": "view_day_res"
+      },
+      {
+        "source": "11598179392259",
+        "target": "view_total_res"
+      },
+      {
+        "source": "11598179392259",
+        "target": "view_result"
+      },
+      {
+        "source": "11598179392260",
+        "target": "ad_monitor.impression_log"
+      },
+      {
+        "source": "11598179392260",
+        "target": "ad_monitor.click_log"
+      },
+      {
+        "source": "11598179392260",
+        "target": "ad_monitor.middle_log"
+      },
+      {
+        "source": "11598179392260",
+        "target": "ad_monitor.impression_log_pre"
+      },
+      {
+        "source": "11598179392260",
+        "target": "ad_monitor.click_log_pre"
+      },
+      {
+        "source": "11598179392260",
+        "target": "ad_monitor.middle_log_pre"
+      },
+      {
+        "source": "11598179392260",
+        "target": "view_day"
+      },
+      {
+        "source": "11598179392260",
+        "target": "view_total"
+      },
+      {
+        "source": "11598179392260",
+        "target": "view_result"
+      },
+      {
         "source": "13544193152769",
         "target": "hdfs:/project/ad_monitor/ads/ads_ak_spot_monitor_day_report/"
       },
       {
         "source": "13544203232513",
         "target": "hdfs:/project/ad_monitor/ads/ads_ak_spot_monitor_county_day_report/"
+      },
+      {
+        "source": "11598180699905",
+        "target": "ak_china_region_info_view"
+      },
+      {
+        "source": "11598180699905",
+        "target": "view_region_info_temp"
+      },
+      {
+        "source": "11598180699905",
+        "target": "ad_monitor.impression_log"
+      },
+      {
+        "source": "11598180699905",
+        "target": "ad_monitor.click_log"
+      },
+      {
+        "source": "11598180699905",
+        "target": "ad_monitor.middle_log"
+      },
+      {
+        "source": "11598180699905",
+        "target": "view_day_log"
+      },
+      {
+        "source": "11598180699905",
+        "target": "ad_monitor.impression_log_pre"
+      },
+      {
+        "source": "11598180699905",
+        "target": "ad_monitor.click_log_pre"
+      },
+      {
+        "source": "11598180699905",
+        "target": "ad_monitor.middle_log_pre"
+      },
+      {
+        "source": "11598180699905",
+        "target": "view_total_log"
+      },
+      {
+        "source": "11598180699905",
+        "target": "view_day_res"
+      },
+      {
+        "source": "11598180699905",
+        "target": "view_total_res"
+      },
+      {
+        "source": "11598180699905",
+        "target": "view_result"
+      },
+      {
+        "source": "11598180699906",
+        "target": "ad_monitor.impression_log"
+      },
+      {
+        "source": "11598180699906",
+        "target": "ad_monitor.click_log"
+      },
+      {
+        "source": "11598180699906",
+        "target": "ad_monitor.middle_log"
+      },
+      {
+        "source": "11598180699906",
+        "target": "ad_monitor.impression_log_pre"
+      },
+      {
+        "source": "11598180699906",
+        "target": "ad_monitor.click_log_pre"
+      },
+      {
+        "source": "11598180699906",
+        "target": "ad_monitor.middle_log_pre"
+      },
+      {
+        "source": "11598180699906",
+        "target": "view_day"
+      },
+      {
+        "source": "11598180699906",
+        "target": "view_total"
+      },
+      {
+        "source": "11598180699906",
+        "target": "view_result"
       },
       {
         "source": "13544181607297",
@@ -5190,6 +6980,30 @@
         "target": "hdfs:/project/ad_monitor/ads/ads_ak_adid_monitor_county_day_report/"
       },
       {
+        "source": "11598184562435",
+        "target": "view_day"
+      },
+      {
+        "source": "11598184562435",
+        "target": "view_total"
+      },
+      {
+        "source": "11598184562435",
+        "target": "view_result"
+      },
+      {
+        "source": "11598184562436",
+        "target": "view_day"
+      },
+      {
+        "source": "11598184562436",
+        "target": "view_total"
+      },
+      {
+        "source": "11598184562436",
+        "target": "view_result"
+      },
+      {
         "source": "13544147133313",
         "target": "hdfs:/project/ad_monitor/ads/ads_ak_spot_req_day_report/"
       },
@@ -5198,12 +7012,384 @@
         "target": "hdfs:/project/ad_monitor/ads/ads_ak_adid_req_day_report/"
       },
       {
+        "source": "11598188089986",
+        "target": "view_campaign"
+      },
+      {
+        "source": "11598188089986",
+        "target": "ad_monitor.click_log"
+      },
+      {
+        "source": "11598188089986",
+        "target": "view_campaign_final"
+      },
+      {
+        "source": "11598188089986",
+        "target": "view_result"
+      },
+      {
+        "source": "11598189672194",
+        "target": "view_mt_activity"
+      },
+      {
+        "source": "11598189672194",
+        "target": "view_huan_union_ak_adx_promotion_plan"
+      },
+      {
+        "source": "11598189672194",
+        "target": "view_huan_union_ak_strategy_union_freq"
+      },
+      {
+        "source": "11598189672194",
+        "target": "view_huna_union_ak_direct_promotion_plan"
+      },
+      {
+        "source": "11598189672194",
+        "target": "view_campaign_final"
+      },
+      {
+        "source": "11598189672194",
+        "target": "view_third_final"
+      },
+      {
+        "source": "11598189672194",
+        "target": "ad_monitor.huan_ad_monitor_impression_log_orc"
+      },
+      {
+        "source": "11598189672194",
+        "target": "view_result"
+      },
+      {
+        "source": "11598189672197",
+        "target": "view_mt_activity"
+      },
+      {
+        "source": "11598189672197",
+        "target": "view_huan_union_ak_adx_promotion_plan"
+      },
+      {
+        "source": "11598189672197",
+        "target": "view_huan_union_ak_strategy_union_freq"
+      },
+      {
+        "source": "11598189672197",
+        "target": "view_huna_union_ak_direct_promotion_plan"
+      },
+      {
+        "source": "11598189672197",
+        "target": "view_campaign_final"
+      },
+      {
+        "source": "11598189672197",
+        "target": "view_third_final"
+      },
+      {
+        "source": "11598189672197",
+        "target": "view_mysql_result"
+      },
+      {
+        "source": "11598189672197",
+        "target": "campaign_id_view"
+      },
+      {
+        "source": "11598189672197",
+        "target": "ad_monitor.impression_log"
+      },
+      {
+        "source": "11598189672198",
+        "target": "ad_monitor.huan_ad_monitor_impression_log_orc"
+      },
+      {
+        "source": "11599818692993",
+        "target": "ad_monitor.huan_ad_monitor_impression_log_orc"
+      },
+      {
+        "source": "11599818692993",
+        "target": "ad_monitor.huan_ad_monitor_access_log_orc"
+      },
+      {
+        "source": "11599818692993",
+        "target": "view_huan_ad_monitor_access_log_orc"
+      },
+      {
+        "source": "11599818692995",
+        "target": "ad_monitor.huan_ad_monitor_access_log"
+      },
+      {
+        "source": "11599818692997",
+        "target": "ad_monitor.dwd_huan_ad_monitor_access_log_pretreat"
+      },
+      {
+        "source": "11599818692997",
+        "target": "view_mt_third_monitor"
+      },
+      {
+        "source": "11599818692997",
+        "target": "ad_monitor.ad_monitor_access_log_diff_period_0520"
+      },
+      {
+        "source": "11599818692997",
+        "target": "view_dwd_huan_ad_monitor_access_log_pretreat"
+      },
+      {
+        "source": "11599818692997",
+        "target": "view_union"
+      },
+      {
+        "source": "11599818692997",
+        "target": "view_result"
+      },
+      {
+        "source": "11599819950339",
+        "target": "ad_monitor.impression_log"
+      },
+      {
+        "source": "11599819950339",
+        "target": "ad_monitor.impression_log_pre"
+      },
+      {
+        "source": "11599819950339",
+        "target": "ad_monitor.impression_county_collide_report"
+      },
+      {
+        "source": "11599819950339",
+        "target": "ad_monitor.impression_device_info"
+      },
+      {
+        "source": "11599819950339",
+        "target": "ad_monitor.middle_log"
+      },
+      {
+        "source": "11599819950339",
+        "target": "ad_monitor.click_log"
+      },
+      {
+        "source": "11599819950339",
+        "target": "ad_monitor.middle_log_pre"
+      },
+      {
+        "source": "11599819950339",
+        "target": "ad_monitor.click_log_pre"
+      },
+      {
+        "source": "11599819950339",
+        "target": "ak_china_region_info_view"
+      },
+      {
+        "source": "11599819950339",
+        "target": "view_region_info_temp"
+      },
+      {
+        "source": "11599819950339",
+        "target": "t3"
+      },
+      {
+        "source": "11599819950339",
+        "target": "t11"
+      },
+      {
+        "source": "11599819950339",
+        "target": "t2"
+      },
+      {
+        "source": "11599819950339",
+        "target": "t1"
+      },
+      {
+        "source": "11599819950339",
+        "target": "t4"
+      },
+      {
+        "source": "11599819950339",
+        "target": "t5"
+      },
+      {
+        "source": "11599819950339",
+        "target": "t6"
+      },
+      {
+        "source": "11599819950339",
+        "target": "t7"
+      },
+      {
+        "source": "11599819950339",
+        "target": "t8"
+      },
+      {
+        "source": "11599819950339",
+        "target": "t9"
+      },
+      {
+        "source": "11599819950339",
+        "target": "t10"
+      },
+      {
+        "source": "11599819950339",
+        "target": "t12"
+      },
+      {
+        "source": "11599819950339",
+        "target": "view_result"
+      },
+      {
+        "source": "11599819950343",
+        "target": "ad_monitor.impression_log"
+      },
+      {
+        "source": "11599819950343",
+        "target": "ad_monitor.impression_log_pre"
+      },
+      {
+        "source": "11599819950343",
+        "target": "ad_monitor.impression_collide_report"
+      },
+      {
+        "source": "11599819950343",
+        "target": "ad_monitor.impression_device_info"
+      },
+      {
+        "source": "11599819950343",
+        "target": "ad_monitor.middle_log"
+      },
+      {
+        "source": "11599819950343",
+        "target": "ad_monitor.click_log"
+      },
+      {
+        "source": "11599819950343",
+        "target": "ad_monitor.middle_log_pre"
+      },
+      {
+        "source": "11599819950343",
+        "target": "ad_monitor.click_log_pre"
+      },
+      {
+        "source": "11599819950343",
+        "target": "t3"
+      },
+      {
+        "source": "11599819950343",
+        "target": "t11"
+      },
+      {
+        "source": "11599819950343",
+        "target": "t2"
+      },
+      {
+        "source": "11599819950343",
+        "target": "t1"
+      },
+      {
+        "source": "11599819950343",
+        "target": "t4"
+      },
+      {
+        "source": "11599819950343",
+        "target": "t5"
+      },
+      {
+        "source": "11599819950343",
+        "target": "t6"
+      },
+      {
+        "source": "11599819950343",
+        "target": "t7"
+      },
+      {
+        "source": "11599819950343",
+        "target": "t8"
+      },
+      {
+        "source": "11599819950343",
+        "target": "t9"
+      },
+      {
+        "source": "11599819950343",
+        "target": "t10"
+      },
+      {
+        "source": "11599819950343",
+        "target": "t12"
+      },
+      {
+        "source": "11599819950343",
+        "target": "view_result"
+      },
+      {
         "source": "13544219227777",
         "target": "hdfs:/project/ad_monitor/ads/base_report/"
       },
       {
         "source": "13544224252544",
         "target": "hdfs:/project/ad_monitor/ads/ipip_base_report/"
+      },
+      {
+        "source": "11599821572615",
+        "target": "ad_monitor.impression_log_pre"
+      },
+      {
+        "source": "11599821572615",
+        "target": "view_pv"
+      },
+      {
+        "source": "11599821572615",
+        "target": "view_result"
+      },
+      {
+        "source": "11599821572616",
+        "target": "mt_media_all_view"
+      },
+      {
+        "source": "11599821572616",
+        "target": "mt_media_view"
+      },
+      {
+        "source": "11599821572616",
+        "target": "ad_monitor.impression_log_pre"
+      },
+      {
+        "source": "11599821572616",
+        "target": "impression_valid_view"
+      },
+      {
+        "source": "11599821572616",
+        "target": "view_pv"
+      },
+      {
+        "source": "11599821572616",
+        "target": "valid_view_pv"
+      },
+      {
+        "source": "11599821572616",
+        "target": "view_result"
+      },
+      {
+        "source": "11599821572617",
+        "target": "ad_monitor.impression_log_pre"
+      },
+      {
+        "source": "11599821572617",
+        "target": "view_pv"
+      },
+      {
+        "source": "11599821572617",
+        "target": "view_result"
+      },
+      {
+        "source": "11599821572620",
+        "target": "ad_monitor.impression_log"
+      },
+      {
+        "source": "11599821572620",
+        "target": "ad_monitor.impression_log_pre"
+      },
+      {
+        "source": "11599821572620",
+        "target": "view_result"
+      },
+      {
+        "source": "11599821572621",
+        "target": "view_result"
       },
       {
         "source": "13544004969345",
@@ -5226,6 +7412,122 @@
         "target": "hdfs:/project/ad_monitor/ads/ak_deal_screen_size_report/"
       },
       {
+        "source": "11599823357446",
+        "target": "ak_china_region_info_view"
+      },
+      {
+        "source": "11599823357446",
+        "target": "view_region_info_temp"
+      },
+      {
+        "source": "11599823357446",
+        "target": "ad_monitor.impression_log_pre"
+      },
+      {
+        "source": "11599823357446",
+        "target": "view_pv"
+      },
+      {
+        "source": "11599823357446",
+        "target": "view_result"
+      },
+      {
+        "source": "11599823357447",
+        "target": "mt_media_all_view"
+      },
+      {
+        "source": "11599823357447",
+        "target": "mt_media_view"
+      },
+      {
+        "source": "11599823357447",
+        "target": "ak_china_region_info_view"
+      },
+      {
+        "source": "11599823357447",
+        "target": "view_region_info_temp"
+      },
+      {
+        "source": "11599823357447",
+        "target": "ad_monitor.impression_log_pre"
+      },
+      {
+        "source": "11599823357447",
+        "target": "impression_valid_view"
+      },
+      {
+        "source": "11599823357447",
+        "target": "view_pv"
+      },
+      {
+        "source": "11599823357447",
+        "target": "valid_view_pv"
+      },
+      {
+        "source": "11599823357447",
+        "target": "view_result"
+      },
+      {
+        "source": "11599823357448",
+        "target": "ak_china_region_info_view"
+      },
+      {
+        "source": "11599823357448",
+        "target": "view_region_info_temp"
+      },
+      {
+        "source": "11599823357448",
+        "target": "ad_monitor.impression_log_pre"
+      },
+      {
+        "source": "11599823357448",
+        "target": "view_pv"
+      },
+      {
+        "source": "11599823357448",
+        "target": "view_result"
+      },
+      {
+        "source": "11599823357449",
+        "target": "ak_china_region_info_view"
+      },
+      {
+        "source": "11599823357449",
+        "target": "view_region_info_temp"
+      },
+      {
+        "source": "11599823357449",
+        "target": "ad_monitor.impression_log_pre"
+      },
+      {
+        "source": "11599823357449",
+        "target": "view_result"
+      },
+      {
+        "source": "11599823357450",
+        "target": "mt_activity_all_view"
+      },
+      {
+        "source": "11599823357450",
+        "target": "mt_media_all_view"
+      },
+      {
+        "source": "11599823357450",
+        "target": "mt_media_view"
+      },
+      {
+        "source": "11599823357450",
+        "target": "ad_monitor.huan_ad_monitor_impression_log_orc"
+      },
+      {
+        "source": "11599823357450",
+        "target": "huan_ad_monitor_impression_log_orc_view"
+      },
+      {
+        "source": "11599823357450",
+        "target": "size_view"
+      },
+      {
         "source": "13543944649729",
         "target": "hdfs:/project/ad_monitor/ads/impression_mark_freq_total_report/"
       },
@@ -5240,6 +7542,126 @@
       {
         "source": "13543973511424",
         "target": "hdfs:/project/ad_monitor/ads/ak_monitor_county_freq_total_report/"
+      },
+      {
+        "source": "14936514111904",
+        "target": "mt_activity_all_view"
+      },
+      {
+        "source": "14936514111904",
+        "target": "mt_media_all_view"
+      },
+      {
+        "source": "14936514111904",
+        "target": "middle_view"
+      },
+      {
+        "source": "14936514111904",
+        "target": "mt_media_view"
+      },
+      {
+        "source": "14936514111904",
+        "target": "ad_monitor.huan_ad_monitor_middle_log_orc"
+      },
+      {
+        "source": "14936514111904",
+        "target": "huan_ad_monitor_middle_log_orc_view"
+      },
+      {
+        "source": "14936514111904",
+        "target": "size_view"
+      },
+      {
+        "source": "14936515045025",
+        "target": "mt_activity_all_view"
+      },
+      {
+        "source": "14936515045025",
+        "target": "mt_media_all_view"
+      },
+      {
+        "source": "14936515045025",
+        "target": "mt_media_view"
+      },
+      {
+        "source": "14936515045025",
+        "target": "ad_monitor.huan_ad_monitor_click_log_orc"
+      },
+      {
+        "source": "14936515045025",
+        "target": "huan_ad_monitor_click_log_orc_view"
+      },
+      {
+        "source": "14936515045025",
+        "target": "size_view"
+      },
+      {
+        "source": "11599826665352",
+        "target": "ad_monitor.impression_log"
+      },
+      {
+        "source": "11599826665352",
+        "target": "view_pv"
+      },
+      {
+        "source": "11599826665352",
+        "target": "view_result"
+      },
+      {
+        "source": "11599826665353",
+        "target": "ad_monitor.impression_log"
+      },
+      {
+        "source": "11599826665353",
+        "target": "view_pv"
+      },
+      {
+        "source": "11599826665353",
+        "target": "view_result"
+      },
+      {
+        "source": "11599826665354",
+        "target": "mt_media_all_view"
+      },
+      {
+        "source": "11599826665354",
+        "target": "mt_media_view"
+      },
+      {
+        "source": "11599826665354",
+        "target": "ad_monitor.impression_log"
+      },
+      {
+        "source": "11599826665354",
+        "target": "impression_valid_view"
+      },
+      {
+        "source": "11599826665354",
+        "target": "view_pv"
+      },
+      {
+        "source": "11599826665354",
+        "target": "valid_view_pv"
+      },
+      {
+        "source": "11599826665354",
+        "target": "view_result"
+      },
+      {
+        "source": "11599826665357",
+        "target": "ad_monitor.impression_log"
+      },
+      {
+        "source": "11599826665357",
+        "target": "view_result"
+      },
+      {
+        "source": "11599826665358",
+        "target": "view_result"
+      },
+      {
+        "source": "11599826665359",
+        "target": "view_result"
       },
       {
         "source": "13544044622337",
@@ -5264,6 +7686,34 @@
       {
         "source": "13544065527041",
         "target": "hdfs:/project/ad_monitor/ads/ak_monitor_freq_week_report/"
+      },
+      {
+        "source": "11599834736898",
+        "target": "ad_monitor.impression_log"
+      },
+      {
+        "source": "11599834736898",
+        "target": "view_logs"
+      },
+      {
+        "source": "11599834736898",
+        "target": "view_pv"
+      },
+      {
+        "source": "11599834736899",
+        "target": "ak_china_region_info_view"
+      },
+      {
+        "source": "11599834736899",
+        "target": "ad_monitor.impression_log"
+      },
+      {
+        "source": "11599834736899",
+        "target": "view_logs"
+      },
+      {
+        "source": "11599834736899",
+        "target": "view_pv"
       },
       {
         "source": "11599834736900",
@@ -5314,6 +7764,78 @@
         "target": "hdfs:/project/ad_monitor/dws/middle_log_pre/"
       },
       {
+        "source": "11599840142465",
+        "target": "ak_china_region_info_view"
+      },
+      {
+        "source": "11599840142465",
+        "target": "ad_monitor.impression_log"
+      },
+      {
+        "source": "11599840142465",
+        "target": "view_pv"
+      },
+      {
+        "source": "11599840142465",
+        "target": "view_result"
+      },
+      {
+        "source": "11599840142466",
+        "target": "ak_china_region_info_view"
+      },
+      {
+        "source": "11599840142466",
+        "target": "ad_monitor.impression_log"
+      },
+      {
+        "source": "11599840142466",
+        "target": "view_pv"
+      },
+      {
+        "source": "11599840142466",
+        "target": "view_result"
+      },
+      {
+        "source": "11599840142467",
+        "target": "mt_media_all_view"
+      },
+      {
+        "source": "11599840142467",
+        "target": "mt_media_view"
+      },
+      {
+        "source": "11599840142467",
+        "target": "ak_china_region_info_view"
+      },
+      {
+        "source": "11599840142467",
+        "target": "ad_monitor.impression_log"
+      },
+      {
+        "source": "11599840142467",
+        "target": "impression_valid_view"
+      },
+      {
+        "source": "11599840142467",
+        "target": "view_pv"
+      },
+      {
+        "source": "11599840142467",
+        "target": "valid_view_pv"
+      },
+      {
+        "source": "11599840142467",
+        "target": "view_result"
+      },
+      {
+        "source": "11599840142468",
+        "target": "ak_china_region_info_view"
+      },
+      {
+        "source": "11599840142468",
+        "target": "view_result"
+      },
+      {
         "source": "13544117220737",
         "target": "hdfs:/project/ad_monitor/ads/impression_mark_freq_day_report/"
       },
@@ -5330,8 +7852,152 @@
         "target": "hdfs:/project/ad_monitor/ads/ak_monitor_county_freq_week_report/"
       },
       {
+        "source": "11600006534913",
+        "target": "ad_monitor.huan_ad_monitor_impression_log_orc"
+      },
+      {
+        "source": "11600006534913",
+        "target": "view_result"
+      },
+      {
+        "source": "11600006534914",
+        "target": "ad_monitor.dwd_impression_filter_flatmap_hadid"
+      },
+      {
+        "source": "11600006534914",
+        "target": "ak_platform_traffice_style_imp_view_report_view"
+      },
+      {
+        "source": "11600006534914",
+        "target": "view_result"
+      },
+      {
+        "source": "11600006534915",
+        "target": "ad_monitor.dwd_impression_multi_dim_count"
+      },
+      {
+        "source": "11600006534915",
+        "target": "ad_monitor.dwd_impression_multi_dim_distinct_mac"
+      },
+      {
+        "source": "11600006534915",
+        "target": "ak_platform_imp_view_report_view"
+      },
+      {
+        "source": "11600006534915",
+        "target": "view_result"
+      },
+      {
+        "source": "11600006534916",
+        "target": "ad_monitor.dwd_impression_multi_dim_count"
+      },
+      {
+        "source": "11600006534916",
+        "target": "ad_monitor.dwd_impression_multi_dim_distinct_mac"
+      },
+      {
+        "source": "11600006534916",
+        "target": "ak_platform_city_imp_view_report_view"
+      },
+      {
+        "source": "11600006534916",
+        "target": "view_result"
+      },
+      {
+        "source": "11600006534920",
+        "target": "ad_monitor.huan_ad_monitor_impression_log_orc"
+      },
+      {
+        "source": "11600006534920",
+        "target": "view_result"
+      },
+      {
+        "source": "11600006534921",
+        "target": "ad_monitor.huan_ad_monitor_impression_log_orc"
+      },
+      {
+        "source": "11600006534921",
+        "target": "view_result"
+      },
+      {
+        "source": "14936257423906",
+        "target": "mt_activity_all_view"
+      },
+      {
+        "source": "14936257423906",
+        "target": "mt_media_all_view"
+      },
+      {
+        "source": "14936257423906",
+        "target": "mt_media_view"
+      },
+      {
+        "source": "14936257423906",
+        "target": "ad_monitor.huan_ad_monitor_click_log_orc"
+      },
+      {
+        "source": "14936257423906",
+        "target": "huan_ad_monitor_click_log_orc_view"
+      },
+      {
+        "source": "14936257423906",
+        "target": "size_view"
+      },
+      {
+        "source": "14936257423907",
+        "target": "mt_activity_all_view"
+      },
+      {
+        "source": "14936257423907",
+        "target": "mt_media_all_view"
+      },
+      {
+        "source": "14936257423907",
+        "target": "middle_view"
+      },
+      {
+        "source": "14936257423907",
+        "target": "mt_media_view"
+      },
+      {
+        "source": "14936257423907",
+        "target": "ad_monitor.huan_ad_monitor_middle_log_orc"
+      },
+      {
+        "source": "14936257423907",
+        "target": "huan_ad_monitor_middle_log_orc_view"
+      },
+      {
+        "source": "14936257423907",
+        "target": "size_view"
+      },
+      {
         "source": "17691897461409",
         "target": "hdfs:/project/ad_monitor/ods/huan_ad_monitor_impression_log_orc/"
+      },
+      {
+        "source": "20354293498912",
+        "target": "mt_activity_all_view"
+      },
+      {
+        "source": "20354293498912",
+        "target": "mt_media_all_view"
+      },
+      {
+        "source": "20354293498912",
+        "target": "mt_media_view"
+      },
+      {
+        "source": "20354293498912",
+        "target": "ad_monitor.huan_ad_monitor_impression_log_orc"
+      },
+      {
+        "source": "20354293498912",
+        "target": "huan_ad_monitor_impression_log_orc_view"
+      },
+      {
+        "source": "20354293498912",
+        "target": "size_view"
       },
       {
         "source": "21098119668641",
@@ -5448,8 +8114,317 @@
       {
         "source": "21098221600288",
         "target": "hdfs:/project/ad_monitor/ads/ads_ak_spot_county_freq_total_report/"
+      },
+      {
+        "source": "21614073121697",
+        "target": "view_mt_activity"
+      },
+      {
+        "source": "21614073121697",
+        "target": "view_huan_union_ak_adx_promotion_plan"
+      },
+      {
+        "source": "21614073121697",
+        "target": "view_huan_union_ak_strategy_union_freq"
+      },
+      {
+        "source": "21614073121697",
+        "target": "view_huna_union_ak_direct_promotion_plan"
+      },
+      {
+        "source": "21614073121697",
+        "target": "view_campaign_final"
+      },
+      {
+        "source": "21614073121697",
+        "target": "view_third_final"
+      },
+      {
+        "source": "21614073121697",
+        "target": "ad_monitor.huan_ad_monitor_impression_log_orc"
+      },
+      {
+        "source": "21614073121697",
+        "target": "view_result"
+      },
+      {
+        "source": "21614073121700",
+        "target": "view_mt_activity"
+      },
+      {
+        "source": "21614073121700",
+        "target": "view_huan_union_ak_adx_promotion_plan"
+      },
+      {
+        "source": "21614073121700",
+        "target": "view_huan_union_ak_strategy_union_freq"
+      },
+      {
+        "source": "21614073121700",
+        "target": "view_huna_union_ak_direct_promotion_plan"
+      },
+      {
+        "source": "21614073121700",
+        "target": "view_campaign_final"
+      },
+      {
+        "source": "21614073121700",
+        "target": "view_third_final"
+      },
+      {
+        "source": "21614073121700",
+        "target": "view_mysql_result"
+      },
+      {
+        "source": "21614073121700",
+        "target": "campaign_id_view"
+      },
+      {
+        "source": "21614073121700",
+        "target": "ad_monitor.impression_log"
+      },
+      {
+        "source": "21614073121701",
+        "target": "ad_monitor.huan_ad_monitor_impression_log_orc"
       }
     ],
-    "class_maps_to_task": []
+    "class_maps_to_task": [
+      {
+        "source": "tv.huan.ad.monitor.ads.spot.AkSpotCountyFreqTotalReport",
+        "target": "11598178397189"
+      },
+      {
+        "source": "tv.huan.ad.monitor.ads.spot.AkSpotFreqTotalReport",
+        "target": "11598178397190"
+      },
+      {
+        "source": "tv.huan.ad.monitor.ads.spot.AkSpotCountyFreqDayReport",
+        "target": "11598178397191"
+      },
+      {
+        "source": "tv.huan.ad.monitor.ads.spot.AkSpotFreqDayReport",
+        "target": "11598178397192"
+      },
+      {
+        "source": "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorcCountyReport",
+        "target": "11598179392259"
+      },
+      {
+        "source": "tv.huan.ad.monitor.ads.spot.AdsAkSpotMonitorDayReport",
+        "target": "11598179392260"
+      },
+      {
+        "source": "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorcCountyReport",
+        "target": "11598180699905"
+      },
+      {
+        "source": "tv.huan.ad.monitor.ads.adid.AdsAkAdidMonitorDayReport",
+        "target": "11598180699906"
+      },
+      {
+        "source": "tv.huan.ad.monitor.ads.adid.AdsAkAdidReqDayReport",
+        "target": "11598184562435"
+      },
+      {
+        "source": "tv.huan.ad.monitor.ads.spot.AdsAkSpotReqDayReport",
+        "target": "11598184562436"
+      },
+      {
+        "source": "tv.huan.ad.monitor.upgrade.ClickLogPre",
+        "target": "11598188089986"
+      },
+      {
+        "source": "tv.huan.ad.monitor.upgrade.ImpressionLog",
+        "target": "11598189672194"
+      },
+      {
+        "source": "tv.huan.ad.monitor.upgrade.ImpressionLogOrc",
+        "target": "11598189672196"
+      },
+      {
+        "source": "tv.huan.ad.monitor.upgrade.ImpressionLogPre",
+        "target": "11598189672197"
+      },
+      {
+        "source": "tv.huan.ad.monitor.dmp.HuanAdMonitorImpressionLogStatistics",
+        "target": "11598189672198"
+      },
+      {
+        "source": "tv.huan.ad.monitor.dwd.DwdHuanAdMonitorAccessLogPretreat",
+        "target": "11599818692993"
+      },
+      {
+        "source": "tv.huan.ad.monitor.ods.huan_ad_monitor_access_log_orc",
+        "target": "11599818692995"
+      },
+      {
+        "source": "tv.huan.ad.monitor.ads.AdMonitorAccessLogDiffPeriod0520",
+        "target": "11599818692997"
+      },
+      {
+        "source": "tv.huan.ad.monitor.ipipCounty.IpIpBaseReport",
+        "target": "11599819950339"
+      },
+      {
+        "source": "tv.huan.ad.monitor.upgrade.BaseReport",
+        "target": "11599819950343"
+      },
+      {
+        "source": "tv.huan.ad.monitor.upgrade.ImpressionMarkTotalReport",
+        "target": "11599821572615"
+      },
+      {
+        "source": "tv.huan.ad.monitor.upgrade.ImpressionProvinceTotalReport",
+        "target": "11599821572616"
+      },
+      {
+        "source": "tv.huan.ad.monitor.upgrade.ImpressionMediaTotalReport",
+        "target": "11599821572617"
+      },
+      {
+        "source": "tv.huan.ad.monitor.upgrade.AkDealScreenSizeReport",
+        "target": "11599821572620"
+      },
+      {
+        "source": "tv.huan.ad.monitor.upgrade.AkMonitorFreqTotalReport",
+        "target": "11599821572621"
+      },
+      {
+        "source": "tv.huan.ad.monitor.ipipCounty.ImpressionMarkFreqTotalReport",
+        "target": "11599823357446"
+      },
+      {
+        "source": "tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqTotalReport",
+        "target": "11599823357447"
+      },
+      {
+        "source": "tv.huan.ad.monitor.ipipCounty.ImpressionMediaFreqTotalReport",
+        "target": "11599823357448"
+      },
+      {
+        "source": "tv.huan.ad.monitor.ipipCounty.AkMonitorCountyFreqTotalReport",
+        "target": "11599823357449"
+      },
+      {
+        "source": "tv.huan.ad.monitor.HuanAdTerminalDayPvReport",
+        "target": "11599823357450"
+      },
+      {
+        "source": "tv.huan.ad.monitor.ads.AdsMiddleTerminalDayPvReport",
+        "target": "14936514111904"
+      },
+      {
+        "source": "tv.huan.ad.monitor.ads.AdsClickTerminalDayPvReport",
+        "target": "14936515045025"
+      },
+      {
+        "source": "tv.huan.ad.monitor.upgrade.ImpressionMarkDayReport",
+        "target": "11599826665352"
+      },
+      {
+        "source": "tv.huan.ad.monitor.upgrade.ImpressionMediaDayReport",
+        "target": "11599826665353"
+      },
+      {
+        "source": "tv.huan.ad.monitor.upgrade.ImpressionProvinceDayReport",
+        "target": "11599826665354"
+      },
+      {
+        "source": "tv.huan.ad.monitor.upgrade.AkPlanFreqWeekReport",
+        "target": "11599826665357"
+      },
+      {
+        "source": "tv.huan.ad.monitor.upgrade.AkDealFreqWeekReport",
+        "target": "11599826665358"
+      },
+      {
+        "source": "tv.huan.ad.monitor.upgrade.AkMonitorFreqWeekReport",
+        "target": "11599826665359"
+      },
+      {
+        "source": "tv.huan.ad.monitor.upgrade.ImpressionCollideReport",
+        "target": "11599834736898"
+      },
+      {
+        "source": "tv.huan.ad.monitor.ipipCounty.ImpressionCountyCollideReport",
+        "target": "11599834736899"
+      },
+      {
+        "source": "tv.huan.ad.monitor.ipipCounty.ImpressionMarkFreqDayReport",
+        "target": "11599840142465"
+      },
+      {
+        "source": "tv.huan.ad.monitor.ipipCounty.ImpressionMediaFreqDayReport",
+        "target": "11599840142466"
+      },
+      {
+        "source": "tv.huan.ad.monitor.ipipCounty.ImpressionProvinceFreqDayReport",
+        "target": "11599840142467"
+      },
+      {
+        "source": "tv.huan.ad.monitor.ipipCounty.AkMonitorCountyFreqWeekReport",
+        "target": "11599840142468"
+      },
+      {
+        "source": "tv.huan.ad.monitor.dwd.DwdImpressionMultiDimDistinctMac",
+        "target": "11600006534913"
+      },
+      {
+        "source": "tv.huan.ad.monitor.dws.DwsAkPlatformTrafficeStyleImpViewReport",
+        "target": "11600006534914"
+      },
+      {
+        "source": "tv.huan.ad.monitor.dws.DwsAkPlatformImpViewReport",
+        "target": "11600006534915"
+      },
+      {
+        "source": "tv.huan.ad.monitor.dws.DwsAkPlatformCityImpViewReport",
+        "target": "11600006534916"
+      },
+      {
+        "source": "tv.huan.ad.monitor.dwd.DwdImpressionFilterFlatmapHadid",
+        "target": "11600006534920"
+      },
+      {
+        "source": "tv.huan.ad.monitor.dwd.DwdImpressionMultiDimCount",
+        "target": "11600006534921"
+      },
+      {
+        "source": "tv.huan.ad.monitor.ads.AdsClickTerminalDayPvReport",
+        "target": "14936257423906"
+      },
+      {
+        "source": "tv.huan.ad.monitor.ads.AdsMiddleTerminalDayPvReport",
+        "target": "14936257423907"
+      },
+      {
+        "source": "tv.huan.ad.monitor.HuanAdTerminalDayPvReport",
+        "target": "20354293498912"
+      },
+      {
+        "source": "tv.huan.ad.monitor.upgrade.ImpressionLogOrc",
+        "target": "20876668664867"
+      },
+      {
+        "source": "tv.huan.ad.monitor.upgrade.ImpressionLogOrc",
+        "target": "20941254587936"
+      },
+      {
+        "source": "tv.huan.ad.monitor.upgrade.ImpressionLog",
+        "target": "21614073121697"
+      },
+      {
+        "source": "tv.huan.ad.monitor.upgrade.ImpressionLogOrc",
+        "target": "21614073121699"
+      },
+      {
+        "source": "tv.huan.ad.monitor.upgrade.ImpressionLogPre",
+        "target": "21614073121700"
+      },
+      {
+        "source": "tv.huan.ad.monitor.dmp.HuanAdMonitorImpressionLogStatistics",
+        "target": "21614073121701"
+      }
+    ]
   }
 }

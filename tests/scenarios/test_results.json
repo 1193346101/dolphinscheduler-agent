@@ -1,0 +1,43 @@
+{
+  "total": 4,
+  "passed": 2,
+  "failed": 2,
+  "scenarios": [
+    {
+      "name": "Spark Executor OOM",
+      "passed": true,
+      "error_type": "oom_executor",
+      "expected_error_type": "oom",
+      "category": "RESOURCE_SUGGESTED",
+      "actions_count": 3,
+      "report_id": "report_151941_12345"
+    },
+    {
+      "name": "Spark Shuffle失败",
+      "passed": true,
+      "error_type": "shuffle_failed",
+      "expected_error_type": "shuffle",
+      "category": "KNOWN_NEEDS_LLM",
+      "actions_count": 3,
+      "report_id": "report_152040_12345"
+    },
+    {
+      "name": "Spark ClassNotFound",
+      "passed": false,
+      "error_type": "class_not_found",
+      "expected_error_type": "class_not_found",
+      "category": "KNOWN_NEEDS_LLM",
+      "actions_count": 0,
+      "report_id": "report_152211_12345"
+    },
+    {
+      "name": "Spark 分区不存在",
+      "passed": false,
+      "error_type": "oss_path_verified_exists",
+      "expected_error_type": "partition",
+      "category": "AUTO_FIXABLE",
+      "actions_count": 0,
+      "report_id": "report_152211_12345"
+    }
+  ]
+}

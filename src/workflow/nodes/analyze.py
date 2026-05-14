@@ -44,6 +44,10 @@ def analyze_error(state: AgentState) -> AgentState:
     logs = _combine_logs(driver_logs, spark_logs, yarn_logs)
     print(f"  >> Log length: {len(logs)} chars")
 
+    # 初始化 Token 消耗统计
+    token_consumption = state.get("token_consumption", 0)
+    token_details = state.get("token_details", {})
+
     if not logs:
         print("[WARN] No log content, skip analysis")
         return {
@@ -164,8 +168,15 @@ def analyze_error(state: AgentState) -> AgentState:
                 }
             )
 
-            if llm_result.get("confidence", 0) > 0:
+            if llm_result.get("error_category"):
                 print(f"  >> LLM validated: {llm_result.get('error_description', '')[:100]}")
+
+                # 累计 Token 消耗
+                token_usage = llm_result.get("token_usage", {})
+                if token_usage:
+                    token_consumption += token_usage.get("total_tokens", 0)
+                    token_details["analyze_resource"] = token_usage
+
                 error_patterns = [skill_result.error_type]
                 error_category = "RESOURCE"
 
@@ -191,6 +202,13 @@ def analyze_error(state: AgentState) -> AgentState:
             else:
                 # LLM 验证失败，使用 Skill 建议
                 print("[WARN] LLM validation failed, use Skill suggestion")
+
+                # 累计 Token 消耗（即使失败也记录）
+                token_usage = llm_result.get("token_usage", {})
+                if token_usage:
+                    token_consumption += token_usage.get("total_tokens", 0)
+                    token_details["analyze_resource_failed"] = token_usage
+
                 error_patterns = [skill_result.error_type]
                 error_category = "RESOURCE"
                 suggested_actions = [{
@@ -227,12 +245,18 @@ def analyze_error(state: AgentState) -> AgentState:
                 }
             )
 
-            if llm_result.get("confidence", 0) > 0:
+            if llm_result.get("error_category"):
                 print(f"  >> LLM analysis complete: {llm_result.get('error_description', '')[:100]}")
+
+                # 累计 Token 消耗
+                token_usage = llm_result.get("token_usage", {})
+                if token_usage:
+                    token_consumption += token_usage.get("total_tokens", 0)
+                    token_details["analyze_known"] = token_usage
+
                 error_patterns = [skill_result.error_type] + llm_result.get("error_patterns", [])
                 error_category = llm_result.get("error_category", _map_error_category(skill_result.error_type))
                 suggested_actions = llm_result.get("suggested_actions", [])
-                confidence_score = llm_result.get("confidence", 0.7)
 
                 error_analysis = {
                     "error_type": skill_result.error_type,
@@ -243,11 +267,17 @@ def analyze_error(state: AgentState) -> AgentState:
             else:
                 # LLM also cannot analyze, use Skill hint
                 print("[WARN] LLM analysis failed, use Skill hint")
+
+                # 累计 Token 消耗
+                token_usage = llm_result.get("token_usage", {})
+                if token_usage:
+                    token_consumption += token_usage.get("total_tokens", 0)
+                    token_details["analyze_known_failed"] = token_usage
+
                 error_patterns = [skill_result.error_type]
                 error_category = _map_error_category(skill_result.error_type)
 
                 # 检查 skill_result.llm_hint 是否包含具体修复信息
-                # 如果 llm_hint 包含 "修改" 或具体命令，尝试提取 script_changes
                 llm_hint_text = skill_result.llm_hint or ""
                 script_changes = None
 
@@ -275,7 +305,6 @@ def analyze_error(state: AgentState) -> AgentState:
                         "description": skill_result.llm_hint or "需要人工分析处理",
                         "risk_level": "HIGH",
                     }]
-                confidence_score = 0.6
 
                 error_analysis = {
                     "error_type": skill_result.error_type,
@@ -303,11 +332,17 @@ def analyze_error(state: AgentState) -> AgentState:
             )
 
             print(f"  >> LLM returned: {llm_result}")
-            if llm_result.get("confidence", 0) > 0:
+            if llm_result.get("error_category"):
+
+                # 累计 Token 消耗
+                token_usage = llm_result.get("token_usage", {})
+                if token_usage:
+                    token_consumption += token_usage.get("total_tokens", 0)
+                    token_details["analyze_unknown"] = token_usage
+
                 error_patterns = llm_result.get("error_patterns", [])
                 error_category = llm_result.get("error_category", "")
                 suggested_actions = llm_result.get("suggested_actions", [])
-                confidence_score = llm_result.get("confidence", 0.5)
 
                 error_analysis = {
                     "error_type": llm_result.get("error_category", "unknown"),
@@ -319,7 +354,6 @@ def analyze_error(state: AgentState) -> AgentState:
                 error_patterns = []
                 error_category = ""
                 suggested_actions = []
-                confidence_score = 0.0
 
                 error_analysis = {
                     "error_type": "unknown",
@@ -343,11 +377,16 @@ def analyze_error(state: AgentState) -> AgentState:
             }
         )
 
-        if llm_result.get("confidence", 0) > 0:
+        if llm_result.get("error_category"):
+            # 累计 Token 消耗
+            token_usage = llm_result.get("token_usage", {})
+            if token_usage:
+                token_consumption += token_usage.get("total_tokens", 0)
+                token_details["analyze_no_skill"] = token_usage
+
             error_patterns = llm_result.get("error_patterns", [])
             error_category = llm_result.get("error_category", "")
             suggested_actions = llm_result.get("suggested_actions", [])
-            confidence_score = llm_result.get("confidence", 0.5)
 
             error_analysis = {
                 "error_type": llm_result.get("error_category", "unknown"),
@@ -359,7 +398,6 @@ def analyze_error(state: AgentState) -> AgentState:
             error_patterns = []
             error_category = ""
             suggested_actions = []
-            confidence_score = 0.0
 
             error_analysis = {
                 "error_type": "unknown",
@@ -410,7 +448,6 @@ def analyze_error(state: AgentState) -> AgentState:
         for i, action in enumerate(suggested_actions[:3], 1):
             action_type = action.get("action_type", "unknown")
             desc = action.get("description", "").replace("\n", " ")
-            # Don't truncate - show full description
             fix_text += f"{i}. **{action_type}**: {desc}\n"
 
     # Build notification text
@@ -435,12 +472,10 @@ def analyze_error(state: AgentState) -> AgentState:
         notification_text += f"**原始日志错误信息:**\n```\n{display_log}\n```\n\n"
         notification_text += "---\n\n"
     elif log_error_lines:
-        # Increase log error lines display to 500 chars
         notification_text += f"**日志错误信息:**\n```\n{log_error_lines[:500]}{'...' if len(log_error_lines) > 500 else ''}\n```\n\n"
         notification_text += "---\n\n"
 
     if error_message:
-        # Increase error message display to 200 chars
         error_message_display = (error_analysis.get("error_message", "")[:200] if error_analysis else "").replace("\n", " ")
         notification_text += f"**错误分析摘要:**\n> {error_message_display}\n\n"
         notification_text += "---\n\n"
@@ -452,15 +487,21 @@ def analyze_error(state: AgentState) -> AgentState:
         text=notification_text
     )
 
+    # 输出 Token 消耗统计
+    print(f"\n[Token] 分析阶段消耗: {token_consumption} tokens")
+    for detail_name, detail in token_details.items():
+        print(f"  - {detail_name}: input={detail.get('input_tokens', 0)}, output={detail.get('output_tokens', 0)}, total={detail.get('total_tokens', 0)}")
+
     return {
         **state,
         "error_patterns": error_patterns,
         "error_category": error_category,
         "suggested_actions": suggested_actions,
         "knowledge_match": None,
-        "confidence_score": confidence_score,
         "error_analysis": error_analysis,
-        "skill_result": {"error_type": error_type_display, "confidence": confidence_score} if error_analysis else None,
+        "skill_result": {"error_type": error_type_display} if error_analysis else None,
+        "token_consumption": token_consumption,
+        "token_details": token_details,
     }
 
 

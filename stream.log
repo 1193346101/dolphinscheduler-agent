@@ -2,3 +2,71 @@ C:\Python314\Lib\site-packages\langgraph\cache\base\__init__.py:8: LangChainPend
   from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 2026-05-12 10:05:43,952 dingtalk_stream.client INFO     open connection, url=https://api.dingtalk.com/v1.0/gateway/connections/open [stream.py:149]
 2026-05-12 10:05:44,362 dingtalk_stream.client INFO     endpoint is {'endpoint': 'wss://wss-open-connection-union.dingtalk.com:443/connect', 'ticket': '15a75ec2-4da7-11f1-869f-3e2dc55d6766'} [stream.py:71]
+2026-05-12 15:02:03,200 dingtalk_stream.client ERROR    [start] network exception, error=no close frame received or sent [stream.py:84]
+2026-05-12 15:02:13,382 dingtalk_stream.client INFO     open connection, url=https://api.dingtalk.com/v1.0/gateway/connections/open [stream.py:149]
+2026-05-12 15:02:16,544 dingtalk_stream.client INFO     endpoint is {'endpoint': 'wss://wss-open-connection-union.dingtalk.com:443/connect', 'ticket': '827ee976-4dd0-11f1-85b6-8a62bdfdb80d'} [stream.py:71]
+2026-05-13 03:02:17,460 dingtalk_stream.client INFO     received disconnect topic=disconnect, message={'specVersion': '1.0', 'type': 'SYSTEM', 'headers': {'contentType': 'application/json', 'messageId': 'c0a801ed177861253737114937031d43', 'time': '1778612537371', 'topic': 'disconnect'}, 'data': '{"reason":"persistent connection is timeout"}'} [stream.py:119]
+2026-05-13 03:02:17,991 dingtalk_stream.client INFO     open connection, url=https://api.dingtalk.com/v1.0/gateway/connections/open [stream.py:149]
+2026-2026-05-13 03:02:26,431 dingtalk_stream.client INFO     received disconnect topic=disconnect, message={'specVersion': '1.0', 'type': 'SYSTEM', 'headers': {'contentType': 'application/json', 'messageId':2026-05-13 15:02:18,984 dingtalk_stream.client INFO     received disconnect topic=disconnect, message={'specVersion': '1.0', 'type': 'SYSTEM', 'headers': {'contentType': 'application/json', 'messageId': 'c0a801ea177865573890715120338d44', 'time': '1778655738907', 'topic': 'disconnect'}, 'data': '{"reason":"persistent connection is timeout"}'} [stream.py:119]
+2026-05-13 15:02:19,151 dingtalk_stream.client INFO     open connection, url=https://api.dingtalk.com/v1.0/gateway/connections/open [stream.py:149]
+2026-2026-05-13 15:02:27,860 dingtalk_stream.client INFO     received disconnect topic=disconnect, message={'specVersion': '1.0', 'type': 'SYSTEM', 'headers': {'contentType': 'application/json', 'messageId':2026-05-14 03:02:20,161 dingtalk_stream.client INFO     received disconnect topic=disconnect, message={'specVersion': '1.0', 'type': 'SYSTEM', 'headers': {'contentType': 'application/json', 'messageId': 'c0a801eb177869894010815292521d44', 'time': '1778698940108', 'topic': 'disconnect'}, 'data': '{"reason":"persistent connection is timeout"}'} [stream.py:119]
+2026-05-14 03:02:20,371 dingtalk_stream.client INFO     open connection, url=https://api.dingtalk.com/v1.0/gateway/connections/open [stream.py:149]
+2026-2026-05-14 03:02:29,565 dingtalk_stream.client INFO     received disconnect topic=disconnect, message={'specVersion': '1.0', 'type': 'SYSTEM', 'headers': {'contentType': 'application/json', 'messageId':2026-05-14 15:02:21,074 dingtalk_stream.client INFO     received disconnect topic=disconnect, message={'specVersion': '1.0', 'type': 'SYSTEM', 'headers': {'contentType': 'application/json', 'messageId': 'c0a801e6177874214099115458414d44', 'time': '1778742140991', 'topic': 'disconnect'}, 'data': '{"reason":"persistent connection is timeout"}'} [stream.py:119]
+2026-05-14 15:02:21,555 dingtalk_stream.client INFO     open connection, url=https://api.dingtalk.com/v1.0/gateway/connections/open [stream.py:149]
+2026-2026-05-14 15:02:30,823 dingtalk_stream.client INFO     received disconnect topic=disconnect, message={'specVersion': '1.0', 'type': 'SYSTEM', 'headers': {'contentType': 'application/json', 'messageId': 'c0a801ef177874215071415425292d43', 'time': '1778742150714', 'topic': 'disconnect'}, 'data': '{"reason":"persistent connection is timeout"}'} [stream.py:119]
+2026-05-14 15:02:30,997 dingtalk_stream.client INFO     open connection, url=https://api.dingtalk.com/v1.0/gateway/connections/open [stream.py:149]
+2026-05-14 15:02:32,301 dingtalk_stream.client INFO     endpoint is {'endpoint': 'wss://wss-open-connection-union.dingtalk.com:443/connect', 'ticket': 'e0cd8d23-4f62-11f1-869f-3e2dc55d6766'} [stream.py:71]
+way/connections/open [stream.py:149]
+2026-05-14 15:02:26,510 dingtalk_stream.client INFO     endpoint is {'endpoint': 'wss://wss-open-connection-union.dingtalk.com:443/connect', 'ticket': 'dd593219-4f62-11f1-85b6-8a62bdfdb80d'} [stream.py:71]
+~~~~~~~~~~~^
+        input,
+        ^^^^^^
+    ...<10 lines>...
+        **kwargs,
+        ^^^^^^^^^
+    ):
+    ^
+  File "C:\Python314\Lib\site-packages\langgraph\pregel\main.py", line 2759, in stream
+    for _ in runner.tick(
+             ~~~~~~~~~~~^
+        [t for t in loop.tasks.values() if not t.writes],
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+        schedule_task=loop.accept_push,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ):
+    ^
+  File "C:\Python314\Lib\site-packages\langgraph\pregel\_runner.py", line 167, in tick
+    run_with_retry(
+    ~~~~~~~~~~~~~~^
+        t,
+        ^^
+    ...<10 lines>...
+        },
+        ^^
+    )
+    ^
+  File "C:\Python314\Lib\site-packages\langgraph\pregel\_retry.py", line 126, in run_with_retry
+    return task.proc.invoke(task.input, config)
+           ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\site-packages\langgraph\_internal\_runnable.py", line 656, in invoke
+    input = context.run(step.invoke, input, config, **kwargs)
+  File "C:\Python314\Lib\site-packages\langgraph\_internal\_runnable.py", line 400, in invoke
+    ret = self.func(*args, **kwargs)
+  File "D:\Project\dolphinscheduler-agent\src\chat\nodes\scan_graph.py", line 80, in scan_graph_node
+    project_config = projects_registry.get_by_code(int(project_code))
+                                                   ~~~^^^^^^^^^^^^^^
+ValueError: invalid literal for int() with base 10: 'default_project'
+During task with name 'scan_graph' and id '0c255a80-235d-430b-96fc-a93453bd7500'
+2026-05-13 03:02:31,271 dingtalk_stream.client INFO     received disconnect topic=disconnect, message={'specVersion': '1.0', 'type': 'SYSTEM', 'headers': {'contentType': 'application/json', 'messageId': 'c0a801ef177861255121314931888d43', 'time': '1778612551213', 'topic': 'disconnect'}, 'data': '{"reason":"persistent connection is timeout"}'} [stream.py:119]
+2026-05-13 03:02:31,362 dingtalk_stream.client INFO     open connection, url=https://api.dingtalk.com/v1.0/gateway/connections/open [stream.py:149]
+2026-05-13 03:02:32,047 dingtalk_stream.client INFO     endpoint is {'endpoint': 'wss://wss-open-connection-union.dingtalk.com:443/connect', 'ticket': '210cba4f-4e35-11f1-bd39-d65ebd99c33e'} [stream.py:71]
+2026-05-13 15:02:32,299 dingtalk_stream.client INFO     received disconnect topic=disconnect, message={'specVersion': '1.0', 'type': 'SYSTEM', 'headers': {'contentType': 'application/json', 'messageId': 'c0a801ec177865575224415105254d44', 'time': '1778655752244', 'topic': 'disconnect'}, 'data': '{"reason":"persistent connection is timeout"}'} [stream.py:119]
+2026-05-13 15:02:32,433 dingtalk_stream.client INFO     open connection, url=https://api.dingtalk.com/v1.0/gateway/connections/open [stream.py:149]
+2026-05-13 15:02:33,095 dingtalk_stream.client INFO     endpoint is {'endpoint': 'wss://wss-open-connection-union.dingtalk.com:443/connect', 'ticket': 'b6e3887a-4e99-11f1-a582-1a02b3fe6148'} [stream.py:71]
+2026-05-14 03:02:33,330 dingtalk_stream.client INFO     received disconnect topic=disconnect, message={'specVersion': '1.0', 'type': 'SYSTEM', 'headers': {'contentType': 'application/json', 'messageId': 'c0a801ec177869895326915276633d44', 'time': '1778698953269', 'topic': 'disconnect'}, 'data': '{"reason":"persistent connection is timeout"}'} [stream.py:119]
+2026-05-14 03:02:33,454 dingtalk_stream.client INFO     open connection, url=https://api.dingtalk.com/v1.0/gateway/connections/open [stream.py:149]
+2026-05-14 03:02:33,952 dingtalk_stream.client INFO     endpoint is {'endpoint': 'wss://wss-open-connection-union.dingtalk.com:443/connect', 'ticket': '4c9980b6-4efe-11f1-8d79-324197e3af56'} [stream.py:71]
+2026-05-14 15:02:34,288 dingtalk_stream.client INFO     received disconnect topic=disconnect, message={'specVersion': '1.0', 'type': 'SYSTEM', 'headers': {'contentType': 'application/json', 'messageId': 'c0a801ec177874215406815426564d44', 'time': '1778742154068', 'topic': 'disconnect'}, 'data': '{"reason":"persistent connection is timeout"}'} [stream.py:119]
+2026-05-14 15:02:34,420 dingtalk_stream.client INFO     open connection, url=https://api.dingtalk.com/v1.0/gateway/connections/open [stream.py:149]
+2026-05-14 15:02:35,087 dingtalk_stream.client INFO     endpoint is {'endpoint': 'wss://wss-open-connection-union.dingtalk.com:443/connect', 'ticket': 'e278282a-4f62-11f1-8d79-324197e3af56'} [stream.py:71]
