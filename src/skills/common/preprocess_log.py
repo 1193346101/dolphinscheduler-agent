@@ -1,8 +1,7 @@
 """
-Log preprocessing module for noise reduction
+Log preprocessing module for pattern-based extraction
 
-This module provides intelligent log preprocessing to extract key information
-from Spark/Hadoop logs, replacing fixed line extraction with targeted extraction.
+根据任务类型匹配正则表达式，提取配置和错误信息。
 """
 
 import re
@@ -12,23 +11,24 @@ from typing import Optional, Dict, List, Any
 
 def extract_config_lines(log_content: str, task_type: str = None) -> List[str]:
     """
-    Extract task configuration lines from log content based on task type.
+    根据任务类型匹配正则表达式，提取配置行。
 
-    Supports multiple task types:
-    - SPARK: spark-submit --conf, spark.executor.memory, JSON driverMemory etc.
-    - FLINK: flink.parallelism, taskmanager.memory, pipeline.name
-    - DATAX: speed.bytes, speed.records, channel count, job content
-    - SHELL/PYTHON: script path, command arguments
-    - HTTP/API: endpoint URL, timeout settings
-
-    Note: This excludes stack trace lines containing spark.* class names.
+    支持的任务类型：
+    - SPARK: spark-submit --conf, spark.executor.memory, JSON driverMemory
+    - FLINK: flink.parallelism, taskmanager.memory
+    - DATAX: speed.bytes, channel, reader/writer
+    - SHELL/PYTHON: 脚本路径、参数
+    - HTTP/API: url, timeout
+    - SQL/HIVE: SQL语句、hive设置
+    - SUB_PROCESS: 子工作流定义
+    - DEPENDENT: 依赖配置
 
     Args:
-        log_content: The raw log content to process
-        task_type: Task type (SPARK, FLINK, DATAX, SHELL, PYTHON, etc.)
+        log_content: 日志内容
+        task_type: 任务类型
 
     Returns:
-        List of configuration lines found in the log
+        配置行列表
     """
     if not log_content:
         return []
@@ -581,64 +581,24 @@ def validate_extraction(original: str, extracted: Dict[str, Any]) -> bool:
 
 def preprocess_log(log_content: str, task_type: str = None) -> Dict[str, Any]:
     """
-    Preprocess log content to extract key information based on task type.
+    日志预处理：根据任务类型提取配置和错误信息。
 
-    This is the main entry point that performs intelligent extraction:
-
-    **智能提取特性**:
-    1. 自适应策略: 根据 task_type 选择不同的配置提取模式
-       - SPARK: spark.executor.memory, driverMemory, numExecutors
-       - FLINK: flink.parallelism, taskmanager.memory, jobManagerMemory
-       - DATAX: speed.bytes, channel, reader/writer config
-       - SHELL/PYTHON: 脚本路径、参数、import 语句
-       - HTTP/API: url, timeout, retry
-       - SQL/HIVE: SQL语句、hive设置
-
-    2. 错误块提取: 智能识别错误块，捕获完整堆栈和相关上下文
-       - Java/Python/Flink 通用异常模式
-       - Shell 命令错误 (Permission denied, No such file)
-       - 数据库错误 (MySQL, Oracle, PostgreSQL)
-       - DolphinScheduler Worker 失败标记
-
-    3. 去噪过滤: 排除堆栈跟踪中的类名干扰，只保留真正的配置信息
-
-    4. 关键信息提取: 不固定截取，而是提取:
-       - 配置行 (resource settings)
-       - 错误块 (ERROR/FATAL + stack trace)
-       - OSS/HDFS 路径 (用于 ossutil 验证)
-       - Application ID (application_xxx)
-       - Executor 事件 (added/removed/lost)
-       - Stage 时间信息 (性能分析)
-       - Join Strategy 选择 (执行计划分析)
-       - Broadcast 大小 (广播超时诊断)
-
-    注意：不会在此调用 YARN/Spark History Server API。
-    真实资源数据获取在 Spark Skill 的 RESOURCE_SUGGESTED 分析时按需调用。
+    提取内容：
+    - config_lines: 配置行（按 task_type 匹配正则）
+    - error_blocks: 错误块（ERROR/FATAL + 堆栈）
+    - app_info: Application ID
+    - oss_paths: OSS/HDFS 路径
+    - executor_events: Executor 生命周期事件
+    - stage_timing: Stage 时间信息
+    - join_strategies: Join 策略选择
+    - broadcast_info: Broadcast 大小
 
     Args:
-        log_content: The raw log content to process
-        task_type: Task type for specialized processing:
-                   - SPARK/SPARKSQL: Spark 配置和错误
-                   - FLINK: Flink 配置和异常
-                   - DATAX: DataX speed/channel 和数据库错误
-                   - SHELL/PYTHON: 脚本路径和 Shell 错误
-                   - HTTP/API: URL/timeout 配置
-                   - SQL/HIVE: SQL语句和 Hive 设置
-                   - None/Unknown: 使用通用模式
+        log_content: 日志内容
+        task_type: 任务类型（SPARK, FLINK, DATAX, SHELL 等）
 
     Returns:
-        Dictionary containing:
-        - config_lines: List of configuration lines (task type specific)
-        - error_blocks: List of error blocks
-        - app_info: Dict containing app_id (Application ID or None)
-        - data_metrics: Dictionary with input_bytes, shuffle_read_bytes,
-                       shuffle_write_bytes, memory_spilled (from text)
-        - oss_paths: List of OSS/HDFS paths found in log
-        - broadcast_info: Broadcast size information
-        - join_strategies: Join strategy selection info
-        - stage_timing: Stage timing information
-        - timestamp_analysis: Log timestamp analysis
-        - executor_events: Executor lifecycle events
+        提取结果字典
     """
     return {
         "config_lines": extract_config_lines(log_content, task_type),

@@ -462,30 +462,25 @@ class YARNLogTool:
         task_type: str = "SPARK"
     ) -> Dict[str, Any]:
         """
-        智能提取 Container 日志
-
-        替代固定截取，使用 pattern 匹配提取关键信息，避免遗漏尾部错误。
+        Container 日志提取（模式匹配，替代固定截取）
 
         Args:
             application_id: YARN 应用 ID
             container_id: Container ID
             extract_strategy: 提取策略
-                - "smart": ERROR块 + 配置行 + Executor事件 + 首尾摘要
+                - "smart": ERROR块 + 配置行 + 首尾摘要
                 - "head_tail": 首2000 + 尾3000
                 - "errors_only": 只提取错误块
                 - "full": 完整日志（限100KB）
-            task_type: 任务类型（默认 SPARK）
-                - SPARK: Spark Executor 日志
-                - FLINK: Flink TaskManager 日志
-                - DATAX: DataX Worker 日志
+            task_type: 任务类型（SPARK, FLINK, DATAX）
 
         Returns:
             {
                 "container_id": container_id,
-                "raw_content": 完整日志（限100KB）,
+                "raw_content": 完整日志,
                 "error_blocks": 错误块列表,
-                "config_lines": 任务配置行（根据 task_type 提取）,
-                "executor_events": Executor生命周期事件,
+                "config_lines": 配置行（按 task_type 匹配）,
+                "executor_events": Executor 生命周期事件,
                 "summary": {"head": ..., "tail": ...},
                 "extract_stats": {"total_length": ..., "error_block_count": ...}
             }
@@ -511,7 +506,7 @@ class YARNLogTool:
 
         # 2. 根据策略提取
         if extract_strategy == "smart":
-            # 智能提取：复用 preprocess_log.py 函数
+            # 模式匹配提取：复用 preprocess_log.py 函数
             try:
                 from ..skills.common.preprocess_log import (
                     extract_error_blocks,
@@ -523,7 +518,7 @@ class YARNLogTool:
                 result["config_lines"] = extract_config_lines(full_log, task_type)
                 result["executor_events"] = extract_executor_events(full_log)
 
-                # Fallback: 如果无错误块，使用首尾截取
+                # Fallback: 无错误块时首尾截取
                 if not result["error_blocks"]:
                     result["summary"] = {
                         "head": full_log[:2000],
