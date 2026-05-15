@@ -7,10 +7,15 @@
 1. 用户对话消息 - 通过 ChatAgent 处理
 2. DolphinScheduler 告警 JSON - 通过 AlertWorkflow 处理
 3. 确认/取消回复 - 处理危险操作的确认流程
+
+内置功能：
+- 审批超时定时检查（后台线程）
 """
 
 import json
 import re
+import threading
+import time
 import traceback
 from typing import Optional, Tuple
 
@@ -25,6 +30,7 @@ from ..chat.nodes.request_confirmation import (
     update_confirmation_status,
 )
 from ..workflow.graph import AlertWorkflowGraph
+from ..tools.approval_tool import ApprovalTool
 
 
 # 告警 JSON 特征模式
@@ -341,6 +347,9 @@ class DingTalkStreamClient:
 
     启动后持续从钉钉服务器拉取消息
     SDK 内置断线重连和心跳保活机制
+
+    内置功能:
+    - 审批超时定时检查（后台线程，每60秒检查一次）
     """
 
     def __init__(
@@ -350,9 +359,46 @@ class DingTalkStreamClient:
     ):
         self.client_id = client_id or settings.DINGTALK_CLIENT_ID
         self.client_secret = client_secret or settings.DINGTALK_CLIENT_SECRET
+        self.approval_tool = ApprovalTool()
+        self.alert_workflow = AlertWorkflowGraph()
+        self._running = False
 
         if not self.client_id or not self.client_secret:
             raise ValueError("钉钉 Stream 模式需要配置 DINGTALK_CLIENT_ID 和 DINGTALK_CLIENT_SECRET")
+
+    def _check_approval_timeout(self):
+        """
+        定时检查审批超时（后台线程）
+
+        每60秒检查一次，对超时的审批请求:
+        1. 更新状态为 timeout
+        2. 发送超时通知
+        """
+        while self._running:
+            try:
+                # 检查过期请求
+                expired_ids = self.approval_tool.check_expired()
+
+                for request_id in expired_ids:
+                    print(f"[dingtalk-stream] 审批超时: {request_id}")
+
+                    # 更新状态
+                    self.approval_tool.update_status(request_id, "timeout")
+
+                    # 获取请求详情并继续工作流
+                    request = self.approval_tool.get_request(request_id)
+                    if request and request.workflow_state:
+                        # 继续工作流（发送超时通知）
+                        self.alert_workflow.continue_from_approval(
+                            request.workflow_state,
+                            "timeout"
+                        )
+
+            except Exception as e:
+                print(f"[dingtalk-stream] 审批超时检查异常: {e}")
+
+            # 每60秒检查一次
+            time.sleep(60)
 
     def run(self):
         """
@@ -362,7 +408,19 @@ class DingTalkStreamClient:
         - WebSocket 心跳保活 (ping_interval=60)
         - 断线自动重连
         - 网络异常恢复
+
+        同时启动审批超时检查后台线程
         """
+        self._running = True
+
+        # 启动审批超时检查后台线程
+        timeout_thread = threading.Thread(
+            target=self._check_approval_timeout,
+            daemon=True,
+            name="approval_timeout_checker"
+        )
+        timeout_thread.start()
+
         print("=" * 60)
         print("DingTalk Stream Client 启动")
         print("=" * 60)
@@ -371,6 +429,10 @@ class DingTalkStreamClient:
         print("SDK 自动机制:")
         print("  - 心跳保活: 60秒间隔")
         print("  - 断线重连: 自动恢复")
+        print()
+        print("后台任务:")
+        print("  - 审批超时检查: 每60秒")
+        print(f"  - 审批超时时间: {settings.APPROVAL_TIMEOUT_MINUTES} 分钟")
         print()
         print("等待消息...")
         print("-" * 60)
