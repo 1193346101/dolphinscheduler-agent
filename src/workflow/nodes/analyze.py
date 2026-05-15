@@ -427,11 +427,45 @@ def analyze_error(state: AgentState) -> AgentState:
     category = error_analysis.get("category", "UNKNOWN") if error_analysis else "UNKNOWN"
     error_message = (error_analysis.get("error_message", "")[:150] if error_analysis else "").replace("\n", " ")
 
+    # 错误类型中文映射
+    ERROR_TYPE_CN_MAP = {
+        "syntax_error": "语法错误",
+        "command_not_found": "命令未找到",
+        "oom_executor": "Executor内存溢出",
+        "oom_driver": "Driver内存溢出",
+        "container_killed": "容器被终止",
+        "executor_lost": "Executor丢失",
+        "shuffle_failed": "Shuffle失败",
+        "connection_refused": "连接被拒绝",
+        "hdfs_not_found": "HDFS文件不存在",
+        "schema_mismatch": "Schema不匹配",
+        "class_not_found": "类未找到",
+        "timeout": "执行超时",
+        "permission_denied": "权限不足",
+        "disk_full": "磁盘空间不足",
+        "network_error": "网络错误",
+        "data_quality": "数据质量问题",
+        "config_error": "配置错误",
+        "unknown": "未知错误",
+    }
+    error_type_cn = ERROR_TYPE_CN_MAP.get(error_type_display, error_type_display)
+
+    # 执行动作中文映射
+    ACTION_TYPE_CN_MAP = {
+        "modify_script": "修改脚本",
+        "modify_config": "修改配置",
+        "script-fix": "修复脚本",
+        "recover-failed": "恢复失败任务",
+        "rerun": "重新运行",
+        "notify-only": "仅通知",
+        "suggested": "建议处理",
+    }
+
     # Extract specific log error lines (find ERROR/FATAL/syntax error lines)
     log_error_lines = ""
     if logs:
         # Find lines containing error keywords
-        error_keywords = ["error", "ERROR", "failed", "FAILED", "exception", "Exception", "fatal", "FATAL", "syntax"]
+        error_keywords = ["error", "ERROR", "failed", "FAILED", "exception", "Exception", "fatal", "FATAL", "syntax", "exitStatusCode"]
         lines = logs.split("\n")
         error_lines = []
         for line in lines:
@@ -441,14 +475,25 @@ def analyze_error(state: AgentState) -> AgentState:
         if error_lines:
             log_error_lines = "\n".join(error_lines[-5:])
 
-    # Build fix suggestions
+    # Build fix suggestions with Chinese action type
     fix_text = ""
     if suggested_actions:
         fix_text = "**建议修复方案:**\n\n"
         for i, action in enumerate(suggested_actions[:3], 1):
             action_type = action.get("action_type", "unknown")
+            action_type_cn = ACTION_TYPE_CN_MAP.get(action_type, action_type)
             desc = action.get("description", "").replace("\n", " ")
-            fix_text += f"{i}. **{action_type}**: {desc}\n"
+            # 如果有具体修改内容，显示
+            script_changes = action.get("script_changes")
+            config_changes = action.get("config_changes")
+            if script_changes:
+                changes_str = str(script_changes)
+                fix_text += f"{i}. **{action_type_cn}**: {changes_str}\n"
+            elif config_changes:
+                changes_str = str(config_changes)
+                fix_text += f"{i}. **{action_type_cn}**: {changes_str}\n"
+            else:
+                fix_text += f"{i}. **{action_type_cn}**: {desc}\n"
 
     # Build notification text
     notification_text = f"## 🔍 错误分析结果\n\n"
@@ -456,7 +501,7 @@ def analyze_error(state: AgentState) -> AgentState:
     notification_text += f"| --- | --- | --- |\n"
     notification_text += f"| {project_name} | {workflow_name} | {task_name} |\n\n"
     notification_text += f"**任务类型:** {task_type}\n\n"
-    notification_text += f"**错误类型:** `{error_type_display}`\n\n"
+    notification_text += f"**错误类型:** `{error_type_cn}` ({error_type_display})\n\n"
     notification_text += f"**错误类别:** {category}\n\n"
 
     if analysis_process:

@@ -94,6 +94,16 @@ class LLMClient:
 
             data = response.json()
             print(f"[LLM] Response keys: {data.keys()}")
+
+            # 提取 token usage
+            usage = data.get("usage", {})
+            token_usage = {
+                "input_tokens": usage.get("input_tokens", 0) or usage.get("input", 0),
+                "output_tokens": usage.get("output_tokens", 0) or usage.get("output", 0),
+                "total_tokens": usage.get("total_tokens", 0) or (usage.get("input", 0) + usage.get("output", 0)),
+            }
+            print(f"[LLM] Token usage: input={token_usage['input_tokens']}, output={token_usage['output_tokens']}")
+
             content = data.get("content", [])
             if content:
                 # Find the text element (DashScope returns thinking + text)
@@ -103,7 +113,9 @@ class LLMClient:
                         text = item.get("text", "")
                         break
                 print(f"[LLM] Text length: {len(text)}")
-                return self._parse_response(text)
+                result = self._parse_response(text)
+                result["token_usage"] = token_usage
+                return result
 
             return {"error_category": "UNKNOWN", "confidence": 0.0}
 
