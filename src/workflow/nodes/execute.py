@@ -205,6 +205,7 @@ def execute_action(state: AgentState) -> AgentState:
         "executed_actions": executed,
         "execution_results": results,
         "execution_success": success,
+        "knowledge_entry_id": knowledge_entry_id,  # 返回知识库条目 ID
     }
 
 
