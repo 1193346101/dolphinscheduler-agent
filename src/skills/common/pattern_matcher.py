@@ -134,25 +134,36 @@ def parse_patterns_file(patterns_file: str) -> Dict[PatternCategory, List[Patter
                 if line_stripped.startswith('|--') or line_stripped.startswith('| ---'):
                     continue
 
-                parts = [p.strip() for p in line_stripped.split('|')]
-                # parts 结构: ['', 'error_type', 'pattern', 'hint', '']
-                # 过滤空元素
-                parts = [p for p in parts if p]
+                # 使用正则提取反引号内的 pattern（避免 | 分隔符截断）
+                import re as re_module
+                pattern_match = re_module.search(r'`([^`]+)`', line_stripped)
 
-                if len(parts) >= 3:
-                    error_type = parts[0]
-                    pattern = parts[1].strip('`')  # 移除反引号
-                    hint = parts[2] if len(parts) > 2 else ''
+                if pattern_match:
+                    pattern = pattern_match.group(1)
+                else:
+                    # 无反引号，使用简单分割
+                    parts = [p.strip() for p in line_stripped.split('|')]
+                    parts = [p for p in parts if p]
+                    pattern = parts[1] if len(parts) > 1 else ''
 
-                    if error_type and pattern and error_type != 'error_type':
-                        entry = PatternEntry(
-                            error_type=error_type,
-                            pattern=pattern,
-                            category=current_category,
-                            hint=hint,
-                            sub_category=current_sub_category,
-                        )
-                        patterns[current_category].append(entry)
+                # 提取 error_type（第一列）和 hint（最后一列）
+                # 移除反引号内容后分割
+                line_without_pattern = re_module.sub(r'`[^`]+`', '', line_stripped)
+                remaining_parts = [p.strip() for p in line_without_pattern.split('|')]
+                remaining_parts = [p for p in remaining_parts if p]
+
+                error_type = remaining_parts[0] if remaining_parts else ''
+                hint = remaining_parts[-1] if len(remaining_parts) > 1 else ''
+
+                if error_type and pattern and error_type != 'error_type':
+                    entry = PatternEntry(
+                        error_type=error_type,
+                        pattern=pattern,
+                        category=current_category,
+                        hint=hint,
+                        sub_category=current_sub_category,
+                    )
+                    patterns[current_category].append(entry)
 
     except FileNotFoundError:
         pass

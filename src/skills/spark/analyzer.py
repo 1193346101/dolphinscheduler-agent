@@ -100,12 +100,19 @@ class SparkSkill(BaseSkill):
             re.IGNORECASE
         )
 
+        # DolphinScheduler JSON 配置格式: "executorMemory" : "512m" 或 "numExecutors" : 4
+        ds_config_pattern = re.compile(
+            r'"(?:driver|executor)(?:Memory|Cores|Instances)"\s*:\s*"([^"]+)"',
+            re.IGNORECASE
+        )
+        # 数字格式（无引号）：numExecutors : 4
+        ds_numeric_pattern = re.compile(
+            r'"(?:driver|executor)Cores|"numExecutors"\s*:\s*(\d+)',
+            re.IGNORECASE
+        )
+
         for line in config_lines:
-            # 使用正则匹配，支持多种格式：
-            # - spark.driver.memory=4g
-            # - Setting spark.driver.memory=4g
-            # - spark.driver.memory: 4g
-            # - spark.driver.memory -> 4g
+            # 格式1: spark.driver.memory=4g (spark-submit 命令行)
             match = spark_config_pattern.search(line)
             if match:
                 key = match.group(1).lower()  # spark.driver.memory
@@ -123,41 +130,130 @@ class SparkSkill(BaseSkill):
                 elif key == "spark.executor.instances":
                     current_config["executor_instances"] = value
 
+            # 格式2: "executorMemory" : "512m" (DS JSON 配置)
+            match2 = ds_config_pattern.search(line)
+            if match2:
+                # 从 line 识别是 driver 还是 executor
+                if 'driver' in line.lower():
+                    if 'memory' in line.lower():
+                        current_config["driver_memory"] = match2.group(1)
+                    elif 'cores' in line.lower():
+                        current_config["driver_cores"] = match2.group(1)
+                elif 'executor' in line.lower():
+                    if 'memory' in line.lower():
+                        current_config["executor_memory"] = match2.group(1)
+                    elif 'cores' in line.lower():
+                        current_config["executor_cores"] = match2.group(1)
+                    elif 'instances' in line.lower():
+                        current_config["executor_instances"] = match2.group(1)
+
+            # 格式3: "numExecutors" : 4 (DS JSON 配置，数字无引号)
+            if 'numexecutors' in line.lower():
+                match3 = re.search(r'"numExecutors"\s*:\s*(\d+)', line)
+                if match3:
+                    current_config["executor_instances"] = match3.group(1)
+
+            # 格式4: "executorCores" : 1 (数字无引号)
+            if '"executorCores"' in line or '"driverCores"' in line:
+                match4 = re.search(r'"(?:executor|driver)Cores"\s*:\s*(\d+)', line)
+                if match4:
+                    if 'executor' in line.lower():
+                        current_config["executor_cores"] = match4.group(1)
+                    elif 'driver' in line.lower():
+                        current_config["driver_cores"] = match4.group(1)
+
         print(f"[SparkSkill] Driver config: {current_config}")
 
-        # 按需获取补充信息（从 History Server 和 YARN）- 仅用于深度分析，不覆盖配置
+        # 按需获取补充信息（从 History Server 和 YARN）
         real_metrics = {}
         yarn_info = {}
+        spark_environment = {}
+        stages = []
+        jobs = []
+        executors = []
+        failed_tasks = []
 
         if app_id:
-            # 先判断是否需要深度分析
+            # 判断是否需要深度分析（哪些类型需要 History/YARN 数据）
+            # RESOURCE_SUGGESTED: 需要 shuffle_write、memory_spilled 等 metrics
+            # UNKNOWN: 无匹配模式，需要所有数据帮助 LLM 分析
+            # 部分 KNOWN_NEEDS_LLM: 也需要 History/YARN 补充详细信息
+
+            # 需要深度分析的 KNOWN_NEEDS_LLM 类型（需要 History/YARN 补充）
+            deep_analysis_types = [
+                "shuffle_failed", "shuffle_connection",  # 需要 Stage/Task 详情
+                "executor_lost", "executor_crash", "executor_lost_heartbeat",  # 需要 Container 信息
+                "container_killed", "yarn_container_exit",  # 需要 Exit Code 分析
+                "broadcast_timeout",  # 需要广播表大小
+                "stage_failed", "task_failed",  # 需要 Stage 详情
+                "driver_disconnected", "block_manager_lost",  # 需要 Executor 状态
+            ]
+
             need_deep_analysis = False
             if not error_blocks:
                 need_deep_analysis = True
             else:
                 matcher = self._get_matcher()
                 match_result = matcher.match("\n".join(error_blocks))
+
+                # RESOURCE_SUGGESTED 和 UNKNOWN 总是需要
                 if match_result.category in ["RESOURCE_SUGGESTED", "UNKNOWN"]:
                     need_deep_analysis = True
+
+                # 部分 KNOWN_NEEDS_LLM 也需要深度分析
+                elif match_result.category == "KNOWN_NEEDS_LLM":
+                    if match_result.error_type in deep_analysis_types:
+                        need_deep_analysis = True
 
             if need_deep_analysis:
                 try:
                     from ..common.preprocess_log import fetch_real_spark_metrics
                     real_data = fetch_real_spark_metrics(app_id)
-                    # 只获取 metrics 数据，不使用 real_config
+
+                    # 获取所有数据
                     real_metrics = real_data.get("data_metrics", {})
                     yarn_info = real_data.get("yarn_info", {})
+                    spark_environment = real_data.get("spark_environment", {})
 
-                    # YARN diagnostics 补充错误信息
+                    # 新增：Event Log 解析的详细信息
+                    stages = real_data.get("stages", [])
+                    jobs = real_data.get("jobs", [])
+                    executors = real_data.get("executors", [])
+                    failed_tasks = real_data.get("failed_tasks", [])
+
+                    # YARN diagnostics 补充错误信息（对所有类型都有价值）
                     if yarn_info.get("diagnostics"):
                         diagnostics_block = f"[YARN Diagnostics] {yarn_info['diagnostics']}"
                         if diagnostics_block not in error_blocks:
                             error_blocks.append(diagnostics_block)
 
-                    # Spark Executor metrics 补充
-                    spark_metrics = real_data.get("spark_metrics", {})
-                    if spark_metrics:
-                        data_metrics = {**data_metrics, **spark_metrics}
+                    # Spark Environment 补充配置信息
+                    if spark_environment and not current_config:
+                        current_config = spark_environment.get("ds_config", {})
+
+                    # Event Log 解析补充错误上下文（针对特定错误类型）
+                    if match_result.error_type in ["shuffle_failed", "shuffle_connection"]:
+                        if stages:
+                            failed_stages = [s for s in stages if s.get("status") != "completed"]
+                            if failed_stages:
+                                stage_info = f"[Event Log] 失败 Stage: {failed_stages[0].get('name', 'unknown')}"
+                                if stage_info not in error_blocks:
+                                    error_blocks.append(stage_info)
+
+                    if match_result.error_type in ["executor_lost", "executor_crash", "executor_lost_heartbeat"]:
+                        if executors:
+                            removed_executors = [e for e in executors if e.get("status") == "removed"]
+                            if removed_executors:
+                                executor_info = f"[Event Log] 移除 Executor {removed_executors[0].get('id')}: {removed_executors[0].get('removed_reason', 'unknown')}"
+                                if executor_info not in error_blocks:
+                                    error_blocks.append(executor_info)
+
+                    if match_result.error_type in ["stage_failed", "task_failed", "job_aborted"]:
+                        if failed_tasks:
+                            first_failed = failed_tasks[0]
+                            task_info = f"[Event Log] Task {first_failed.get('task_id')} 失败: {first_failed.get('reason', 'unknown')}"
+                            if task_info not in error_blocks:
+                                error_blocks.append(task_info)
 
                 except Exception as e:
                     print(f"[SparkSkill] Failed to fetch deep analysis data: {e}", file=__import__('sys').stderr)
@@ -171,6 +267,10 @@ class SparkSkill(BaseSkill):
         preprocessed["data_metrics"] = combined_metrics
         preprocessed["yarn_info"] = yarn_info
         preprocessed["error_blocks"] = error_blocks
+        preprocessed["stages"] = stages
+        preprocessed["jobs"] = jobs
+        preprocessed["executors"] = executors
+        preprocessed["failed_tasks"] = failed_tasks
 
         # 没有错误块时返回 UNKNOWN（交给 LLM）
         if not error_blocks:

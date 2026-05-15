@@ -30,7 +30,7 @@ DolphinScheduler 支持的参数：
 | oom_executor | `java\.lang\.OutOfMemoryError:\s*Java heap space` | Executor内存不足，建议调整 Executor内存数（当前翻倍或基于内存溢出量计算） |
 | oom_driver | `OutOfMemoryError:\s*unable to create new native thread` | Driver内存不足，建议调整 Driver内存数 |
 | oom_driver_direct | `OutOfMemoryError:\s*Container memory exceeded` | Driver内存超限，建议调整 Driver内存数 |
-| container_killed_memory | `Container killed.*memory|exceeding memory limits|killed by YARN` | Container被YARN终止，建议增加 Executor内存数 |
+| container_killed_memory | `Container killed.*memory|exceeding memory limits|killed by YARN|Exit code is 143|Exit status: 143` | Container被YARN终止（Exit Code 143=内存超限OOM），建议增加 Executor内存数 |
 | gc_overhead | `GC overhead limit exceeded` | GC开销过大，建议增加 Executor内存数 |
 | shuffle_timeout | `shuffle.*timeout` | Shuffle超时，建议增加 Executor数量以提高并行度 |
 | executor_lost_heartbeat | `Executor heartbeat timeout` | Executor心跳超时，建议增加 Executor内存数或检查网络 |

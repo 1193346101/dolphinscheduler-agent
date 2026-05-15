@@ -259,6 +259,192 @@ def calculate_driver_suggestion(
     }
 
 
+def calculate_memory_utilization_ratio(
+    current_config: Dict[str, str],
+    shuffle_write_mb: float,
+) -> Dict[str, Any]:
+    """
+    计算内存利用率（总内存池 / Shuffle总量）
+
+    这是 resource_optimizer.py 的核心指标，用于判断：
+    - < 1.0x: 风险配置，无余量应对数据波动
+    - 1.5x - 2.0x: 推荐范围，留50%-100%余量
+    - > 3.0x: 过剩配置，资源浪费
+
+    Args:
+        current_config: 当前配置
+        shuffle_write_mb: Shuffle写入量（MB）
+
+    Returns:
+        {
+            ratio: 内存利用率比值
+            total_memory_mb: 总内存池（MB）
+            shuffle_write_mb: Shuffle总量
+            status: "risky" | "need_increase" | "optimal" | "over_configured"
+            reason: 说明
+        }
+    """
+    if shuffle_write_mb <= 0:
+        return {
+            "ratio": 0,
+            "total_memory_mb": 0,
+            "shuffle_write_mb": 0,
+            "status": "unknown",
+            "reason": "无 Shuffle 数据",
+        }
+
+    # 计算总内存池
+    executor_mem_mb = parse_memory_to_mb(current_config.get("executor_memory", "4g"))
+    executor_instances = int(current_config.get("executor_instances", "2") or 2)
+
+    total_memory_mb = executor_mem_mb * executor_instances
+
+    # 计算利用率
+    ratio = total_memory_mb / shuffle_write_mb
+
+    # 判断状态
+    # 推荐范围: 1.5x - 2.0x
+    risky_threshold = 1.0
+    optimal_min = 1.5
+    optimal_max = 2.0
+    over_configured_threshold = 3.0
+
+    if ratio < risky_threshold:
+        status = "risky"
+        reason = f"内存利用率 {ratio:.1f}x 过低，无余量应对数据波动"
+    elif ratio < optimal_min:
+        status = "need_increase"
+        reason = f"内存利用率 {ratio:.1f}x 低于推荐范围 ({optimal_min}-{optimal_max}x)"
+    elif ratio <= optimal_max:
+        status = "optimal"
+        reason = f"内存利用率 {ratio:.1f}x 在推荐范围内"
+    elif ratio <= over_configured_threshold:
+        status = "slightly_over"
+        reason = f"内存利用率 {ratio:.1f}x 略高于推荐范围"
+    else:
+        status = "over_configured"
+        reason = f"内存利用率 {ratio:.1f}x 过高，资源配置过剩"
+
+    return {
+        "ratio": ratio,
+        "total_memory_mb": total_memory_mb,
+        "shuffle_write_mb": shuffle_write_mb,
+        "executor_mem_mb": executor_mem_mb,
+        "executor_instances": executor_instances,
+        "status": status,
+        "reason": reason,
+        "optimal_range": f"{optimal_min}-{optimal_max}x",
+    }
+
+
+def calculate_balanced_config(
+    shuffle_write_mb: float,
+    target_ratio: float = 1.5,
+    current_config: Optional[Dict[str, str]] = None,
+) -> Dict[str, Any]:
+    """
+    计算均衡配置（避免极端配置）
+
+    借鉴 resource_optimizer.py 的均衡逻辑：
+    - executor_memory 范围: 512m - 8G
+    - executor_instances 范围: 2 - 20
+    - 避免: 512m×50 (内存太小) 或 16G×1 (内存太大)
+
+    Args:
+        shuffle_write_mb: Shuffle写入量（MB）
+        target_ratio: 目标内存利用率（默认 1.5x）
+        current_config: 当前配置（用于限制调整幅度）
+
+    Returns:
+        {
+            executor_memory: 建议内存
+            executor_instances: 建议数量
+            total_memory_mb: 总内存池
+            actual_ratio: 实际利用率
+            reasoning: 说明
+        }
+    """
+    # 目标总内存池
+    target_total_mb = shuffle_write_mb * target_ratio
+
+    # Executor 内存选项
+    memory_options = [512, 1024, 2048, 3072, 4096, 6144, 8192]  # MB
+
+    min_instances = 2
+    max_instances = 20
+
+    best_config = None
+    best_score = float('inf')
+
+    for mem_mb in memory_options:
+        # 计算能达到目标的 instances 范围
+        for instances in range(min_instances, max_instances + 1):
+            actual_total_mb = mem_mb * instances
+            actual_ratio = actual_total_mb / shuffle_write_mb if shuffle_write_mb > 0 else 0
+
+            # 条件1: 利用在推荐范围 (1.5x - 2.5x)
+            if actual_ratio < 1.5:
+                continue
+            if actual_ratio > 2.5:
+                continue
+
+            # 条件2: 避免极端配置
+            is_extreme = False
+
+            # 512m 且 instances > 8: 极端（内存太小）
+            if mem_mb <= 512 and instances > 8:
+                is_extreme = True
+
+            # 6G+ 且 instances < 4: 极端（内存太大）
+            if mem_mb >= 6144 and instances < 4:
+                is_extreme = True
+
+            # 8G 且 instances <= 2: 极端
+            if mem_mb >= 8192 and instances <= 2:
+                is_extreme = True
+
+            if is_extreme:
+                continue
+
+            # 评分: 越接近目标 ratio 越好
+            ratio_diff = abs(actual_ratio - target_ratio)
+
+            # 均衡加分: instances 在合理范围 (4-12) 更好
+            balance_bonus = 0
+            if 4 <= instances <= 12:
+                balance_bonus = -0.1
+
+            total_score = ratio_diff + balance_bonus
+
+            if total_score < best_score:
+                best_score = total_score
+                best_config = {
+                    "executor_memory": format_memory_from_mb(mem_mb),
+                    "executor_instances": instances,
+                    "total_memory_mb": actual_total_mb,
+                    "actual_ratio": actual_ratio,
+                    "reasoning": f"Shuffle {int(shuffle_write_mb)}MB，总内存池 {int(actual_total_mb)}MB，利用率 {actual_ratio:.1f}x",
+                }
+
+    # 如果没找到合适的，放宽限制
+    if not best_config:
+        # 简单计算：目标总内存 / 合理单Executor内存
+        reasonable_mem_mb = 4096  # 4G
+        instances = max(min_instances, min(max_instances, int(target_total_mb / reasonable_mem_mb) + 1))
+        actual_total_mb = reasonable_mem_mb * instances
+        actual_ratio = actual_total_mb / shuffle_write_mb if shuffle_write_mb > 0 else 0
+
+        best_config = {
+            "executor_memory": format_memory_from_mb(reasonable_mem_mb),
+            "executor_instances": instances,
+            "total_memory_mb": actual_total_mb,
+            "actual_ratio": actual_ratio,
+            "reasoning": f"无法找到均衡配置，使用保守建议",
+        }
+
+    return best_config
+
+
 def calculate_executor_memory_suggestion(
     current_config: Dict[str, str],
     data_metrics: Dict[str, Any],
@@ -271,7 +457,8 @@ def calculate_executor_memory_suggestion(
     1. 历史预测结果
     2. 溢出量
     3. 峰值内存
-    4. 翻倍兜底
+    4. Shuffle 数据量（估算单 Task 数据）
+    5. 翻倍兜底
 
     Args:
         current_config: 当前配置
@@ -293,18 +480,18 @@ def calculate_executor_memory_suggestion(
         }
 
     # 溢出量计算
-    spilled_mb = data_metrics.get("memory_spilled_mb", 0)
+    spilled_mb = data_metrics.get("memory_spilled_mb", 0) or data_metrics.get("memory_spilled", 0) / 1024 / 1024
     if spilled_mb > 0:
-        suggested_mb = current_mem + spilled_mb
+        suggested_mb = current_mem + int(spilled_mb)
         return {
             "executor_memory": format_memory_from_mb(suggested_mb),
-            "reasoning": f"溢出{spilled_mb}MB，内存增至{format_memory_from_mb(suggested_mb)}",
+            "reasoning": f"溢出{int(spilled_mb)}MB，内存增至{format_memory_from_mb(suggested_mb)}",
             "method": "oom_spill",
             "confidence": "HIGH",
         }
 
     # 峰值内存计算
-    peak_mb = data_metrics.get("peak_memory_mb", 0)
+    peak_mb = data_metrics.get("peak_memory_mb", 0) or data_metrics.get("peak_memory", 0)
     if peak_mb > 0:
         # 峰值 + 30% 余量
         suggested_mb = int(peak_mb * 1.3)
@@ -312,6 +499,37 @@ def calculate_executor_memory_suggestion(
             "executor_memory": format_memory_from_mb(suggested_mb),
             "reasoning": f"峰值{peak_mb}MB，预留30%余量",
             "method": "peak_memory",
+            "confidence": "MEDIUM",
+        }
+
+    # Shuffle 数据量计算（估算）
+    # 支持多种 key 格式：shuffle_write, shuffle_write_mb, shuffle_write_bytes
+    shuffle_write_mb = data_metrics.get("shuffle_write_mb", 0)
+    if not shuffle_write_mb:
+        shuffle_write_mb = data_metrics.get("shuffle_write", 0)
+    if not shuffle_write_mb:
+        shuffle_write_bytes = data_metrics.get("shuffle_write_bytes", 0)
+        if shuffle_write_bytes > 0:
+            shuffle_write_mb = shuffle_write_bytes / 1024 / 1024
+
+    executor_instances = int(current_config.get("executor_instances", "2") or 2)
+
+    if shuffle_write_mb > 0:
+        # 估算单 Task 数据量（假设每个 Executor 有 2 个 Task 并行）
+        # executor_cores 默认为 1，每个 core 可并行 1 个 task
+        executor_cores = int(current_config.get("executor_cores", "1") or 1)
+        parallel_tasks = executor_cores  # 每个 core 一个 task
+        total_tasks = executor_instances * parallel_tasks
+
+        per_task_data_mb = shuffle_write_mb / total_tasks if total_tasks > 0 else shuffle_write_mb
+
+        # 建议：Executor Memory = 1.5x 单 Task 数据（留余量）
+        suggested_mb = max(int(per_task_data_mb * 1.5), current_mem * 2)
+
+        return {
+            "executor_memory": format_memory_from_mb(suggested_mb),
+            "reasoning": f"Shuffle数据{int(shuffle_write_mb)}MB，单Task约{int(per_task_data_mb)}MB，建议{format_memory_from_mb(suggested_mb)}（1.5x）",
+            "method": "shuffle_based",
             "confidence": "MEDIUM",
         }
 
@@ -533,7 +751,7 @@ def build_resource_suggestion(
     app_info: Dict[str, Any]
 ) -> Optional[Dict[str, Any]]:
     """
-    构建 Spark 资源建议（兼容 analyzer.py 调用）
+    构建 Spark 资源建议（整合 memory_utilization_ratio 计算）
 
     Args:
         error_type: 错误类型
@@ -555,23 +773,92 @@ def build_resource_suggestion(
     if error_type not in resource_errors:
         return None
 
-    result = build_smart_resource_suggestion(
-        error_type=error_type,
-        current_config=current_config,
-        data_metrics=data_metrics,
-        historical_logs=None,
-        current_data_size_mb=data_metrics.get("input_bytes_mb", 0),
-    )
+    # ========== 1. 计算内存利用率（科学方法）==========
+    # 支持多种 key 格式
+    shuffle_write_mb = data_metrics.get("shuffle_write_mb", 0)
+    if not shuffle_write_mb:
+        shuffle_write_mb = data_metrics.get("shuffle_write", 0)
+    if not shuffle_write_mb:
+        shuffle_write_bytes = data_metrics.get("shuffle_write_bytes", 0)
+        if shuffle_write_bytes > 0:
+            shuffle_write_mb = shuffle_write_bytes / 1024 / 1024
 
-    if not result.get("suggested_config"):
+    # 计算当前配置的内存利用率
+    utilization = calculate_memory_utilization_ratio(current_config, shuffle_write_mb)
+
+    reasoning_parts = []
+    method = "rule_engine"
+    confidence = "LOW"
+
+    # ========== 2. 根据状态决定建议策略 ==========
+    suggested_config = {}
+
+    status = utilization.get("status", "unknown")
+
+    if status == "risky":
+        # 风险配置：无余量，必须增加
+        reasoning_parts.append(f"内存利用率 {utilization['ratio']:.1f}x 过低，无余量应对数据波动")
+        confidence = "HIGH"
+    elif status == "need_increase":
+        # 需要调整：低于推荐范围
+        reasoning_parts.append(f"内存利用率 {utilization['ratio']:.1f}x 低于推荐范围 (1.5-2.0x)")
+        confidence = "MEDIUM"
+    elif status == "optimal":
+        # 配置合理，但如果是 OOM 错误，仍需要调整
+        if error_type in ["oom_executor", "container_killed_memory", "gc_overhead"]:
+            reasoning_parts.append(f"内存利用率 {utilization['ratio']:.1f}x 在推荐范围内，但发生了 OOM")
+            confidence = "MEDIUM"
+        else:
+            # 配置合理，无需调整
+            return None
+    elif status in ["slightly_over", "over_configured"]:
+        # 过剩配置：但如果是 OOM，说明利用率计算有问题（可能单Task数据过大）
+        if error_type in ["oom_executor", "container_killed_memory"]:
+            reasoning_parts.append(f"内存利用率显示过剩，但发生了 OOM（可能是单Task数据过大）")
+            confidence = "MEDIUM"
+        else:
+            # 真正过剩，建议降低
+            reasoning_parts.append(f"内存利用率 {utilization['ratio']:.1f}x 过高，资源配置过剩")
+            confidence = "LOW"
+
+    # ========== 3. 使用均衡配置计算建议 ==========
+    if shuffle_write_mb > 0:
+        # 使用均衡配置计算
+        balanced = calculate_balanced_config(shuffle_write_mb, target_ratio=1.5, current_config=current_config)
+
+        suggested_config["executor_memory"] = balanced["executor_memory"]
+        suggested_config["executor_instances"] = balanced["executor_instances"]
+
+        reasoning_parts.append(balanced["reasoning"])
+        method = "balanced_config"
+
+        # 添加利用率信息
+        reasoning_parts.append(f"推荐利用率 {balanced['actual_ratio']:.1f}x")
+    else:
+        # 无 Shuffle 数据，使用传统方法
+        result = build_smart_resource_suggestion(
+            error_type=error_type,
+            current_config=current_config,
+            data_metrics=data_metrics,
+            historical_logs=None,
+            current_data_size_mb=data_metrics.get("input_bytes_mb", 0),
+        )
+
+        suggested_config = result.get("suggested_config", {})
+        reasoning_parts.append(result.get("reasoning", ""))
+        method = result.get("method", "rule_engine")
+        confidence = result.get("confidence", "LOW")
+
+    if not suggested_config:
         return None
 
     return {
-        "suggested_config": result["suggested_config"],
-        "reasoning": result["reasoning"],
-        "current_config": result.get("current_config", current_config),
-        "method": result.get("method", "rule_engine"),
-        "confidence": result.get("confidence", "LOW"),
+        "suggested_config": suggested_config,
+        "reasoning": " | ".join(reasoning_parts),
+        "current_config": current_config,
+        "method": method,
+        "confidence": confidence,
+        "utilization": utilization,  # 返回利用率详情
     }
 
 
@@ -584,6 +871,9 @@ __all__ = [
     "calculate_driver_suggestion",
     "calculate_executor_memory_suggestion",
     "calculate_executor_instances_suggestion",
+    # 新增：科学计算方法
+    "calculate_memory_utilization_ratio",
+    "calculate_balanced_config",
     # 主入口函数
     "build_smart_resource_suggestion",
     # 兼容旧接口

@@ -16,7 +16,7 @@ DolphinScheduler 支持的资源参数：
 import re
 import json
 import requests
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from pathlib import Path
 
 # 动态导入配置
@@ -285,10 +285,13 @@ def parse_event_log_for_config(event_log: str) -> Dict[str, str]:
 
             # SparkListenerEnvironmentUpdate 包含所有配置
             if event_type == "SparkListenerEnvironmentUpdate":
-                env_details = event.get("Environment Details", {})
+                # Spark Properties 在顶层（不是 Environment Details）
+                spark_props = event.get("Spark Properties", {})
 
-                # Spark Properties
-                spark_props = env_details.get("Spark Properties", {})
+                # 如果顶层没有，尝试 Environment Details（兼容旧格式）
+                if not spark_props:
+                    env_details = event.get("Environment Details", {})
+                    spark_props = env_details.get("Spark Properties", {})
 
                 # 映射到 DolphinScheduler UI 参数
                 config_mapping = {
@@ -356,6 +359,210 @@ def parse_event_log_for_metrics(event_log: str) -> Dict[str, int]:
     return metrics
 
 
+def parse_event_log_for_stages(event_log: str) -> List[Dict[str, Any]]:
+    """
+    从 event log 解析 Stage 信息
+
+    Args:
+        event_log: Event log 文本
+
+    Returns:
+        Stage 列表 [{id, name, tasks, status, duration, shuffle_write, failed_tasks}]
+    """
+    stages = {}
+
+    if not event_log:
+        return []
+
+    for line in event_log.splitlines():
+        if not line.strip() or not line.startswith('{'):
+            continue
+
+        try:
+            event = json.loads(line)
+            event_type = event.get("Event", "")
+
+            if event_type == "SparkListenerStageSubmitted":
+                stage_info = event.get("Stage Info", {})
+                sid = stage_info.get("Stage ID")
+
+                if sid not in stages:
+                    stages[sid] = {
+                        "id": sid,
+                        "name": stage_info.get("Name", ""),
+                        "tasks": stage_info.get("Number of Tasks", 0),
+                        "status": "submitted",
+                        "duration": 0,
+                        "shuffle_write_bytes": 0,
+                        "failed_tasks": 0,
+                    }
+
+            elif event_type == "SparkListenerStageCompleted":
+                stage_info = event.get("Stage Info", {})
+                sid = stage_info.get("Stage ID")
+
+                if sid in stages:
+                    stages[sid]["status"] = "completed"
+                    stages[sid]["duration"] = stage_info.get("Completion Time", 0) - stage_info.get("Submission Time", 0)
+                    stages[sid]["failed_tasks"] = stage_info.get("Number of Failed Tasks", 0)
+
+                    # Accumulated metrics
+                    accum = stage_info.get("Accumulables", [])
+                    for acc in accum:
+                        name = acc.get("Name", "")
+                        value = acc.get("Value", 0)
+                        if "shuffle write" in name.lower():
+                            stages[sid]["shuffle_write_bytes"] = value
+                        if "input" in name.lower():
+                            stages[sid]["input_bytes"] = value
+
+        except json.JSONDecodeError:
+            continue
+
+    return list(stages.values())
+
+
+def parse_event_log_for_jobs(event_log: str) -> List[Dict[str, Any]]:
+    """
+    从 event log 解析 Job 信息
+
+    Args:
+        event_log: Event log 文本
+
+    Returns:
+        Job 列表 [{id, stages, status, duration, description}]
+    """
+    jobs = {}
+
+    if not event_log:
+        return []
+
+    for line in event_log.splitlines():
+        if not line.strip() or not line.startswith('{'):
+            continue
+
+        try:
+            event = json.loads(line)
+            event_type = event.get("Event", "")
+
+            if event_type == "SparkListenerJobStart":
+                jid = event.get("Job ID")
+
+                if jid not in jobs:
+                    jobs[jid] = {
+                        "id": jid,
+                        "stages": event.get("Stage IDs", []),
+                        "status": "started",
+                        "duration": 0,
+                        "description": event.get("Description", "")[:100],
+                    }
+
+            elif event_type == "SparkListenerJobEnd":
+                jid = event.get("Job ID")
+
+                if jid in jobs:
+                    jobs[jid]["status"] = event.get("Job Result", {}).get("Result", "unknown")
+                    jobs[jid]["duration"] = event.get("Completion Time", 0) - event.get("Start Time", 0)
+
+        except json.JSONDecodeError:
+            continue
+
+    return list(jobs.values())
+
+
+def parse_event_log_for_executors(event_log: str) -> List[Dict[str, Any]]:
+    """
+    从 event log 解析 Executor 信息
+
+    Args:
+        event_log: Event log 文本
+
+    Returns:
+        Executor 列表 [{id, host, cores, memory, status}]
+    """
+    executors = {}
+
+    if not event_log:
+        return []
+
+    for line in event_log.splitlines():
+        if not line.strip() or not line.startswith('{'):
+            continue
+
+        try:
+            event = json.loads(line)
+            event_type = event.get("Event", "")
+
+            if event_type == "SparkListenerExecutorAdded":
+                eid = event.get("Executor ID")
+
+                exec_info = event.get("Executor Info", {})
+                executors[eid] = {
+                    "id": eid,
+                    "host": exec_info.get("Host", ""),
+                    "cores": exec_info.get("Total Cores", 0),
+                    "memory": exec_info.get("Memory", 0),
+                    "status": "active",
+                    "added_time": event.get("Time", 0),
+                }
+
+            elif event_type == "SparkListenerExecutorRemoved":
+                eid = event.get("Executor ID")
+
+                if eid in executors:
+                    executors[eid]["status"] = "removed"
+                    executors[eid]["removed_reason"] = event.get("Removed Reason", "")
+                    executors[eid]["removed_time"] = event.get("Time", 0)
+
+        except json.JSONDecodeError:
+            continue
+
+    return list(executors.values())
+
+
+def parse_event_log_for_failed_tasks(event_log: str) -> List[Dict[str, Any]]:
+    """
+    从 event log 解析失败的 Task 信息
+
+    Args:
+        event_log: Event log 文本
+
+    Returns:
+        失败 Task 列表 [{task_id, stage_id, attempt, reason, executor}]
+    """
+    failed_tasks = []
+
+    if not event_log:
+        return []
+
+    for line in event_log.splitlines():
+        if not line.strip() or not line.startswith('{'):
+            continue
+
+        try:
+            event = json.loads(line)
+            event_type = event.get("Event", "")
+
+            if event_type == "SparkListenerTaskEnd":
+                reason = event.get("Task End Reason", {})
+                if reason.get("Failure"):
+                    task_info = {
+                        "task_id": event.get("Task Info", {}).get("Task ID"),
+                        "stage_id": event.get("Stage ID"),
+                        "attempt": event.get("Task Info", {}).get("Attempt", 0),
+                        "reason": reason.get("Failure", {}).get("ClassName", "") or reason.get("Description", ""),
+                        "executor": event.get("Task Info", {}).get("Executor ID", ""),
+                        "host": event.get("Task Info", {}).get("Host", ""),
+                        "duration": event.get("Task Info", {}).get("Duration", 0),
+                    }
+                    failed_tasks.append(task_info)
+
+        except json.JSONDecodeError:
+            continue
+
+    return failed_tasks
+
+
 def get_comprehensive_metrics(application_id: str) -> Dict[str, Any]:
     """
     综合获取 Spark 应用资源 metrics（整合所有数据源）
@@ -369,12 +576,20 @@ def get_comprehensive_metrics(application_id: str) -> Dict[str, Any]:
         - spark_metrics: Spark History Server metrics
         - current_config: 当前 Spark 配置（映射到 DolphinScheduler UI）
         - data_metrics: 数据量 metrics（用于资源计算）
+        - stages: Stage 列表（从 Event Log 解析）
+        - jobs: Job 列表（从 Event Log 解析）
+        - executors: Executor 列表（从 Event Log 解析）
+        - failed_tasks: 失败 Task 列表（从 Event Log 解析）
     """
     result = {
         "yarn_info": {},
         "spark_metrics": {},
         "current_config": {},
         "data_metrics": {},
+        "stages": [],
+        "jobs": [],
+        "executors": [],
+        "failed_tasks": [],
     }
 
     # 1. 从 YARN 获取容器资源使用
@@ -388,7 +603,9 @@ def get_comprehensive_metrics(application_id: str) -> Dict[str, Any]:
 
     # 2. 从 Spark History 获取 metrics
     spark_metrics = fetch_spark_history_metrics(application_id)
-    if spark_metrics and not spark_metrics.get("error"):
+    api_available = spark_metrics and not spark_metrics.get("error")
+
+    if api_available:
         result["spark_metrics"] = spark_metrics
 
         # 映射到 data_metrics（供 calculate_resource.py 使用）
@@ -400,7 +617,7 @@ def get_comprehensive_metrics(application_id: str) -> Dict[str, Any]:
             "input_bytes": spark_metrics.get("input_bytes_mb", 0),
         }
 
-    # 3. 从 Event Log 获取详细配置和 metrics
+    # 3. 从 Event Log 获取详细配置和 metrics（当 API 不可用或数据不准确时）
     event_log = fetch_spark_event_log(application_id)
     if event_log:
         # 解析配置
@@ -408,12 +625,21 @@ def get_comprehensive_metrics(application_id: str) -> Dict[str, Any]:
         if config:
             result["current_config"] = config
 
-        # 如果 Spark History API 没返回 metrics，从 event log 解析
-        if not result["data_metrics"].get("memory_spilled"):
-            log_metrics = parse_event_log_for_metrics(event_log)
-            result["data_metrics"]["memory_spilled"] = log_metrics["memory_spilled_bytes"] // (1024 * 1024)
-            result["data_metrics"]["shuffle_read"] = log_metrics["shuffle_read_bytes"] // (1024 * 1024)
-            result["data_metrics"]["shuffle_write"] = log_metrics["shuffle_write_bytes"] // (1024 * 1024)
+        # 从 event log 解析 metrics（比 API 更准确）
+        log_metrics = parse_event_log_for_metrics(event_log)
+
+        # 优先使用 Event Log 数据（因为 API 可能返回 0 或 404）
+        result["data_metrics"]["shuffle_write"] = log_metrics["shuffle_write_bytes"] // (1024 * 1024)
+        result["data_metrics"]["shuffle_read"] = log_metrics["shuffle_read_bytes"] // (1024 * 1024)
+        result["data_metrics"]["input_bytes"] = log_metrics["input_bytes"] // (1024 * 1024)
+        result["data_metrics"]["memory_spilled"] = log_metrics["memory_spilled_bytes"] // (1024 * 1024)
+
+        # 当 History API 不可用时，从 Event Log 解析 Stage/Job/Executor/FailedTask
+        if not api_available:
+            result["stages"] = parse_event_log_for_stages(event_log)
+            result["jobs"] = parse_event_log_for_jobs(event_log)
+            result["executors"] = parse_event_log_for_executors(event_log)
+            result["failed_tasks"] = parse_event_log_for_failed_tasks(event_log)
 
     return result
 
@@ -1332,6 +1558,10 @@ __all__ = [
     "fetch_spark_event_log",
     "parse_event_log_for_config",
     "parse_event_log_for_metrics",
+    "parse_event_log_for_stages",
+    "parse_event_log_for_jobs",
+    "parse_event_log_for_executors",
+    "parse_event_log_for_failed_tasks",
     "get_comprehensive_metrics",
     # 新增深度分析函数
     "fetch_stage_tasks",

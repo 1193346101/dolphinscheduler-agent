@@ -640,6 +640,7 @@ def fetch_real_spark_metrics(application_id: str) -> Dict[str, Any]:
     按需获取 Spark 应用真实资源 metrics（只在资源类问题时调用）
 
     整合 YARN ResourceManager 和 Spark History Server 数据。
+    当 History API 返回 404 时，从 Event Log 解析 Stage/Job/Executor 信息。
 
     Args:
         application_id: Spark 应用 ID
@@ -650,12 +651,20 @@ def fetch_real_spark_metrics(application_id: str) -> Dict[str, Any]:
         - spark_metrics: Spark History Server metrics
         - current_config: 当前 Spark 配置（映射到 DolphinScheduler UI）
         - data_metrics: 数据量 metrics（用于资源计算）
+        - stages: Stage 列表（从 Event Log 解析，API 不可用时）
+        - jobs: Job 列表（从 Event Log 解析，API 不可用时）
+        - executors: Executor 列表（从 Event Log 解析，API 不可用时）
+        - failed_tasks: 失败 Task 列表（从 Event Log 解析，API 不可用时）
     """
     result = {
         "yarn_info": {},
         "spark_metrics": {},
         "current_config": {},
         "data_metrics": {},
+        "stages": [],
+        "jobs": [],
+        "executors": [],
+        "failed_tasks": [],
     }
 
     if not application_id:
@@ -687,6 +696,19 @@ def fetch_real_spark_metrics(application_id: str) -> Dict[str, Any]:
 
             if comprehensive.get("data_metrics"):
                 result["data_metrics"] = comprehensive["data_metrics"]
+
+            # 新增：Event Log 解析的 Stage/Job/Executor/FailedTask（当 API 不可用时）
+            if comprehensive.get("stages"):
+                result["stages"] = comprehensive["stages"]
+
+            if comprehensive.get("jobs"):
+                result["jobs"] = comprehensive["jobs"]
+
+            if comprehensive.get("executors"):
+                result["executors"] = comprehensive["executors"]
+
+            if comprehensive.get("failed_tasks"):
+                result["failed_tasks"] = comprehensive["failed_tasks"]
 
     except Exception as e:
         print(f"[fetch_real_spark_metrics] Failed: {e}", file=__import__('sys').stderr)
