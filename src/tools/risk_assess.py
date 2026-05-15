@@ -5,6 +5,7 @@ RiskAssessTool - 风险评估工具
 """
 
 from typing import Dict, List
+from ..config import settings
 
 
 class RiskAssessTool:
@@ -16,6 +17,8 @@ class RiskAssessTool:
     - MEDIUM: 多配置变更、多次重试、下游 <5
     - HIGH: 结构性变更、下游 >5、调度修改
     - CRITICAL: 删除操作、跨项目影响
+
+    支持审批流程测试模式: REQUIRE_APPROVAL_FOR_ALL=true 时所有建议都需要审批
     """
 
     def assess(self, suggested_actions: List[Dict], downstream_count: int) -> Dict:
@@ -43,10 +46,16 @@ class RiskAssessTool:
             if self._risk_level_value(action_risk) > self._risk_level_value(max_risk):
                 max_risk = action_risk
 
+        # 审批流程测试模式: 所有建议都需要审批
+        approval_required = max_risk in ["HIGH", "CRITICAL"]
+        if settings.REQUIRE_APPROVAL_FOR_ALL:
+            approval_required = True
+            risk_factors.append("审批测试模式: 所有建议需审批")
+
         return {
             "risk_level": max_risk,
             "risk_factors": risk_factors,
-            "approval_required": max_risk in ["HIGH", "CRITICAL"],
+            "approval_required": approval_required,
         }
 
     def _assess_action(self, action: Dict, downstream_count: int) -> str:

@@ -59,6 +59,9 @@ class Settings:
     AUTO_FIX_MAX_RISK: str = field(default_factory=lambda: os.getenv("AUTO_FIX_MAX_RISK", "MEDIUM"))
     APPROVAL_TIMEOUT_MINUTES: int = field(default_factory=lambda: int(os.getenv("APPROVAL_TIMEOUT_MINUTES", "30")))
 
+    # 审批流程测试模式 - 所有建议都需要审批
+    REQUIRE_APPROVAL_FOR_ALL: bool = field(default_factory=lambda: os.getenv("REQUIRE_APPROVAL_FOR_ALL", "false").lower() == "true")
+
     # Spark History Server（全局默认）
     SPARK_HISTORY_URL: str = field(default_factory=lambda: os.getenv("SPARK_HISTORY_URL", ""))
     SPARK_HISTORY_TIMEOUT: int = field(default_factory=lambda: int(os.getenv("SPARK_HISTORY_TIMEOUT", "30")))
